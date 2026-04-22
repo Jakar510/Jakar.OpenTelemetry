@@ -1,0 +1,46 @@
+:root {
+    --bg: #07111f;
+    --bg-2: #0b1a2c;
+    --panel-bg: rgba(11, 18, 34, 0.88);
+    --panel-border: rgba(255, 255, 255, 0.09);
+    --text: #f4f7fb;
+    --muted: #9fb2c8;
+    --accent: #ffb84d;
+    --font-display: "Segoe UI Variable Display", "Bahnschrift", "Trebuchet MS", sans-serif;
+    --font-body: "Segoe UI Variable Text", "Lucida Sans", "Trebuchet MS", sans-serif;
+}
+
+html,
+body {
+    margin: 0;
+    min-height: 100%;
+    font-family: var(--font-body);
+    color: var(--text);
+    background: radial-gradient(circle at top left, rgba(255, 184, 77, 0.12), transparent 28%),
+    radial-gradient(circle at top right, rgba(98, 214, 255, 0.10), transparent 24%),
+    linear-gradient(180deg, var(--bg), var(--bg-2));
+}
+
+body {
+    min-height: 100vh;
+}
+
+a {
+    color: inherit;
+}
+
+button,
+input,
+select {
+    font: inherit;
+}
+
+h1:focus,
+h2:focus,
+h3:focus {
+    outline: none;
+}
+
+#blazor-error-ui {
+    display: none;
+}

@@ -1,0 +1,35 @@
+@using System.Globalization
+
+@if ( Items.Count == 0 )
+{
+    <div class="bar-empty">@EmptyMessage</div>
+}
+else
+{
+    <div class="bar-chart">
+        @foreach ( NamedValueDto item in Items )
+        {
+            <div class="bar-row">
+                <div class="bar-meta">
+                    <span title="@item.Name">@item.Name</span>
+                    <strong>@item.Value.ToString( "0.##", CultureInfo.InvariantCulture )</strong>
+                </div>
+                <div class="bar-track">
+                    <div class="bar-fill" style="@( $"width: {GetWidth( item )}%; background: {BarColor};" )"></div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<NamedValueDto> Items        { get; set; } = [ ];
+    [Parameter] public string                       BarColor     { get; set; } = "#7f86ff";
+    [Parameter] public string                       EmptyMessage { get; set; } = "No data.";
+
+    private double GetWidth( NamedValueDto item )
+    {
+        double max = Math.Max( 1D, Items.Max( entry => entry.Value ) );
+        return ( item.Value / max ) * 100D;
+    }
+}

@@ -1,0 +1,43 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <DockerDefaultTargetOS>Linux</DockerDefaultTargetOS>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Grpc.AspNetCore" Version="2.76.0"/>
+        <PackageReference Include="Grpc.Tools" Version="2.80.0">
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+        </PackageReference>
+        <PackageReference Include="Microsoft.AspNetCore.OpenApi" Version="10.0.7" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client.Core" Version="10.0.7" />
+        <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.7"/>
+        <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="10.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Content Include="..\.dockerignore">
+            <Link>.dockerignore</Link>
+        </Content>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Contracts\Jakar.OpenTelemetry.Contracts.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Protobuf Include="Protos\opentelemetry\proto\common\v1\common.proto" GrpcServices="None" ProtoRoot="Protos"/>
+        <Protobuf Include="Protos\opentelemetry\proto\resource\v1\resource.proto" GrpcServices="None" ProtoRoot="Protos"/>
+        <Protobuf Include="Protos\opentelemetry\proto\logs\v1\logs.proto" GrpcServices="None" ProtoRoot="Protos"/>
+        <Protobuf Include="Protos\opentelemetry\proto\metrics\v1\metrics.proto" GrpcServices="None" ProtoRoot="Protos"/>
+        <Protobuf Include="Protos\opentelemetry\proto\trace\v1\trace.proto" GrpcServices="None" ProtoRoot="Protos"/>
+        <Protobuf Include="Protos\opentelemetry\proto\collector\logs\v1\logs_service.proto" GrpcServices="Server" ProtoRoot="Protos"/>
+        <Protobuf Include="Protos\opentelemetry\proto\collector\metrics\v1\metrics_service.proto" GrpcServices="Server" ProtoRoot="Protos"/>
+        <Protobuf Include="Protos\opentelemetry\proto\collector\trace\v1\trace_service.proto" GrpcServices="Server" ProtoRoot="Protos"/>
+    </ItemGroup>
+
+</Project>

@@ -1,0 +1,133 @@
+using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Text.Json;
+using System.Text.Json.Nodes;
+using Google.Protobuf;
+using Jakar.OpenTelemetry.Contracts;
+using Microsoft.EntityFrameworkCore.ChangeTracking;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using OpenTelemetry.Proto.Common.V1;
+using OpenTelemetry.Proto.Trace.V1;
+
+namespace Jakar.OpenTelemetry.Api.Services;
+
+public static class TelemetryJson
+{
+    public static readonly  ReadOnlyDictionary<string, string?> Empty       = new(new Dictionary<string, string?>());
+    private static readonly JsonSerializerOptions               JsonOptions = new(JsonSerializerDefaults.Web);
+
+
+    public static readonly ValueConverter<ReadOnlyDictionary<string, string?>, string> Converter = new(static value => JsonSerializer.Serialize( value, JsonOptions ),
+                                                                                                       static value => new ReadOnlyDictionary<string, string?>( JsonSerializer.Deserialize<Dictionary<string, string?>>( value, JsonOptions ) ??
+                                                                                                                                                                new Dictionary<string, string?>() ));
+
+    public static readonly ValueComparer<ReadOnlyDictionary<string, string?>> Comparer = new(( ReadOnlyDictionary<string, string?>? left, ReadOnlyDictionary<string, string?>? right ) => CompareDictionaries( left, right ),
+                                                                                             value => HashDictionary( value ),
+                                                                                             value => CloneDictionary( value ));
+
+
+    private static ReadOnlyDictionary<string, string?> CloneDictionary( ReadOnlyDictionary<string, string?>? value ) =>
+        new(value?.ToDictionary( static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal ) ?? new Dictionary<string, string?>());
+    private static int HashDictionary( ReadOnlyDictionary<string, string?>? value )
+    {
+        if ( value is null ) { return 0; }
+
+        HashCode hash = new();
+        foreach ( KeyValuePair<string, string?> pair in value.OrderBy( static x => x.Key, StringComparer.Ordinal ) )
+        {
+            hash.Add( pair.Key,   StringComparer.Ordinal );
+            hash.Add( pair.Value, StringComparer.Ordinal );
+        }
+
+        return hash.ToHashCode();
+    }
+    private static bool CompareDictionaries( ReadOnlyDictionary<string, string?>? left, ReadOnlyDictionary<string, string?>? right )
+    {
+        if ( ReferenceEquals( left, right ) ) { return true; }
+
+        if ( left is null ||
+             right is null ) { return false; }
+
+        if ( left.Count != right.Count ) { return false; }
+
+        foreach ( KeyValuePair<string, string?> pair in left )
+        {
+            if ( !right.TryGetValue( pair.Key, out string? value ) ) { return false; }
+
+            if ( !string.Equals( pair.Value, value, StringComparison.Ordinal ) ) { return false; }
+        }
+
+        return true;
+    }
+
+
+    public static ReadOnlyDictionary<string, string?> ToDictionary( IEnumerable<KeyValue> attributes )
+    {
+        Dictionary<string, string?> values = new(StringComparer.OrdinalIgnoreCase);
+        foreach ( KeyValue attribute in attributes ) { values[attribute.Key] = ToText( attribute.Value ); }
+
+        return new ReadOnlyDictionary<string, string?>( values );
+    }
+
+    public static string SerializeAttributes( IEnumerable<KeyValue> attributes ) => JsonSerializer.Serialize( ToDictionary( attributes ), JsonOptions );
+
+    public static string SerializeObject( object? value ) => JsonSerializer.Serialize( value, JsonOptions );
+
+    public static ReadOnlyDictionary<string, string?> DeserializeAttributes( string? json )
+    {
+        if ( string.IsNullOrWhiteSpace( json ) ) { return Empty; }
+
+        return JsonSerializer.Deserialize<ReadOnlyDictionary<string, string?>>( json, JsonOptions ) ?? Empty;
+    }
+
+    public static string? TryGetServiceName( ReadOnlyDictionary<string, string?> resourceAttributes )
+    {
+        return resourceAttributes.TryGetValue( "service.name", out string? serviceName )
+                   ? serviceName
+                   : null;
+    }
+
+    public static DateTimeOffset? FromUnixNano( ulong value )
+    {
+        if ( value == 0 ) { return null; }
+
+        long ticks = checked ( (long)( value / 100UL ) );
+        return DateTimeOffset.UnixEpoch.AddTicks( ticks );
+    }
+
+    public static string? ToHex( ByteString bytes ) => bytes.IsEmpty
+                                                           ? null
+                                                           : Convert.ToHexString( bytes.ToByteArray() ).ToLowerInvariant();
+    public static string? ToText( AnyValue? value ) => ToNode( value )?.ToJsonString( JsonOptions );
+
+    public static JsonNode? ToNode( AnyValue? value )
+    {
+        if ( value is null ) { return null; }
+
+        return value.ValueCase switch
+                   {
+                       AnyValue.ValueOneofCase.StringValue => JsonValue.Create( value.StringValue ),
+                       AnyValue.ValueOneofCase.BoolValue   => JsonValue.Create( value.BoolValue ),
+                       AnyValue.ValueOneofCase.IntValue    => JsonValue.Create( value.IntValue ),
+                       AnyValue.ValueOneofCase.DoubleValue => JsonValue.Create( value.DoubleValue ),
+                       AnyValue.ValueOneofCase.BytesValue  => JsonValue.Create( Convert.ToBase64String( value.BytesValue.ToByteArray() ) ),
+                       AnyValue.ValueOneofCase.ArrayValue  => new JsonArray( value.ArrayValue.Values.Select( ToNode ).ToArray() ),
+                       AnyValue.ValueOneofCase.KvlistValue => new JsonObject( value.KvlistValue.Values.ToDictionary( kv => kv.Key, kv => ToNode( kv.Value ), StringComparer.OrdinalIgnoreCase ) ),
+                       _                                   => null
+                   };
+    }
+
+    public static SpanEvent[] SerializeSpanEvents( IEnumerable<Span.Types.Event> events )
+    {
+        SpanEvent[] payload = events.Select( static evt => new SpanEvent( FromUnixNano( evt.TimeUnixNano ), evt.Name, ToDictionary( evt.Attributes ) ) ).ToArray();
+        return payload;
+    }
+
+    public static SpanLink[] SerializeSpanLinks( IEnumerable<Span.Types.Link> links )
+    {
+        SpanLink[] payload = links.Select( static link => new SpanLink( ToHex( link.TraceId ), ToHex( link.SpanId ), link.TraceState, ToDictionary( link.Attributes ) ) ).ToArray();
+        return payload;
+    }
+
+    public static string? FormatNumber( double? value ) => value?.ToString( "0.###", CultureInfo.InvariantCulture );
+}
