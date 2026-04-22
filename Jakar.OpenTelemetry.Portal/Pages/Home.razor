@@ -1,0 +1,401 @@
+﻿@page "/"
+
+<PageTitle>Telemetry Portal</PageTitle>
+
+<div class="dashboard">
+    <section class="hero-panel">
+        <div>
+            <p class="eyebrow">Live Stream</p>
+            <h2>Telemetry command surface</h2>
+            <p class="hero-copy">The portal keeps a SignalR session open to the API, refreshes on OTLP ingest, and
+                pivots across logs, spans, traces, and metrics without leaving the page.</p>
+        </div>
+
+        <div class="status-stack">
+            <div class="status-pill @ConnectionStateClass">@ConnectionStateLabel</div>
+            <div class="status-detail">API: @ApiBaseUrl</div>
+            <div class="status-detail">@LastEventLabel</div>
+        </div>
+    </section>
+
+    @if ( !string.IsNullOrWhiteSpace( ErrorMessage ) )
+    {
+        <section class="error-banner">@ErrorMessage</section>
+    }
+
+    <section class="stat-grid">
+        <article class="stat-card">
+            <span>Total Logs</span>
+            <strong>@FormatCount( Snapshot?.Overview.TotalLogs ?? 0 )</strong>
+            <small>@FormatCount( VisibleLogs.Count ) loaded</small>
+        </article>
+
+        <article class="stat-card">
+            <span>Total Spans</span>
+            <strong>@FormatCount( Snapshot?.Overview.TotalSpans ?? 0 )</strong>
+            <small>@FormatCount( VisibleSpans.Count ) loaded</small>
+        </article>
+
+        <article class="stat-card">
+            <span>Total Metrics</span>
+            <strong>@FormatCount( Snapshot?.Overview.TotalMetrics ?? 0 )</strong>
+            <small>@FormatCount( VisibleMetrics.Count ) loaded</small>
+        </article>
+
+        <article class="stat-card">
+            <span>Snapshot Age</span>
+            <strong>@SnapshotAgeLabel</strong>
+            <small>@GeneratedAtLabel</small>
+        </article>
+    </section>
+
+    <section class="chart-grid">
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Timeline</p>
+                    <h3>Logs</h3>
+                </div>
+                <span>10 minute buckets</span>
+            </div>
+            <LineChart
+                Points="@( Snapshot?.Overview.LogTimeline ?? [ ] )" Stroke="#ffb84d"
+                Fill="rgba(255, 184, 77, 0.12)" EmptyMessage="No log samples yet."/>
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Timeline</p>
+                    <h3>Spans</h3>
+                </div>
+                <span>10 minute buckets</span>
+            </div>
+            <LineChart
+                Points="@( Snapshot?.Overview.SpanTimeline ?? [ ] )" Stroke="#62d6ff"
+                Fill="rgba(98, 214, 255, 0.12)" EmptyMessage="No spans yet."/>
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Timeline</p>
+                    <h3>Metrics</h3>
+                </div>
+                <span>10 minute buckets</span>
+            </div>
+            <LineChart
+                Points="@( Snapshot?.Overview.MetricTimeline ?? [ ] )" Stroke="#6cf0a8"
+                Fill="rgba(108, 240, 168, 0.12)" EmptyMessage="No metric points yet."/>
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Breakdown</p>
+                    <h3>Severities</h3>
+                </div>
+                <span>Recent log window</span>
+            </div>
+            <BarChart
+                Items="@( Snapshot?.Overview.SeverityBreakdown ?? [ ] )" BarColor="#ff7a59"
+                EmptyMessage="Severity buckets appear when logs arrive."/>
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Breakdown</p>
+                    <h3>Services</h3>
+                </div>
+                <span>Across all signals</span>
+            </div>
+            <BarChart
+                Items="@( Snapshot?.Overview.ServiceBreakdown ?? [ ] )" BarColor="#7f86ff"
+                EmptyMessage="Service names appear from resource attributes."/>
+        </article>
+
+        <article class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Breakdown</p>
+                    <h3>Metrics</h3>
+                </div>
+                <span>Named series</span>
+            </div>
+            <BarChart
+                Items="@( Snapshot?.Overview.MetricBreakdown ?? [ ] )" BarColor="#49dcb1"
+                EmptyMessage="Metric names appear when points arrive."/>
+        </article>
+    </section>
+
+    <section class="panel-card filter-card">
+        <div class="panel-head">
+            <div>
+                <p class="eyebrow">Explorer</p>
+                <h3>Filter and sort</h3>
+            </div>
+            <button class="action-button" @onclick="RefreshAsync" disabled="@IsLoading">Refresh Snapshot</button>
+        </div>
+
+        <div class="tab-strip">
+            <button class="@GetTabClass( TelemetryTab.Logs )" @onclick='() => SetActiveTab( TelemetryTab.Logs )'>Logs
+            </button>
+            <button class="@GetTabClass( TelemetryTab.Spans )" @onclick='() => SetActiveTab( TelemetryTab.Spans )'>
+                Traces / Spans
+            </button>
+            <button class="@GetTabClass( TelemetryTab.Metrics )" @onclick='() => SetActiveTab( TelemetryTab.Metrics )'>
+                Metrics
+            </button>
+        </div>
+
+        <div class="control-grid">
+            <label>
+                Search
+                <input
+                    @bind="SearchText" @bind:event="oninput"
+                    placeholder="Search message, trace, span, metric, attributes..."/>
+            </label>
+
+            <label>
+                Service
+                <select @bind="SelectedService">
+                    <option value="all">All services</option>
+                    @foreach ( string service in ServiceOptions )
+                    {
+                        <option value="@service">@service</option>
+                    }
+                </select>
+            </label>
+
+            <label>
+                Category key
+                <select @bind="SelectedCategoryToken">
+                    @foreach ( FilterOption option in CategoryOptions )
+                    {
+                        <option value="@option.Token">@option.Label</option>
+                    }
+                </select>
+            </label>
+
+            <label>
+                Category value
+                <input @bind="CategoryValue" @bind:event="oninput" placeholder="Contains..."/>
+            </label>
+
+            <label>
+                Sort by
+                <select @bind="SelectedSortToken">
+                    @foreach ( FilterOption option in SortOptions )
+                    {
+                        <option value="@option.Token">@option.Label</option>
+                    }
+                </select>
+            </label>
+
+            <label class="toggle-label">
+                Descending
+                <input type="checkbox" @bind="SortDescending"/>
+            </label>
+
+            @if ( ActiveTab == TelemetryTab.Logs )
+            {
+                <label>
+                    Severity
+                    <select @bind="SelectedSeverity">
+                        <option value="all">All severities</option>
+                        @foreach ( string severity in SeverityOptions )
+                        {
+                            <option value="@severity">@severity</option>
+                        }
+                    </select>
+                </label>
+            }
+
+            @if ( ActiveTab == TelemetryTab.Spans )
+            {
+                <label>
+                    Span kind
+                    <select @bind="SelectedSpanKind">
+                        <option value="all">All kinds</option>
+                        @foreach ( string kind in SpanKindOptions )
+                        {
+                            <option value="@kind">@kind</option>
+                        }
+                    </select>
+                </label>
+            }
+
+            @if ( ActiveTab == TelemetryTab.Metrics )
+            {
+                <label>
+                    Metric name
+                    <select @bind="SelectedMetricName">
+                        <option value="all">All metrics</option>
+                        @foreach ( string metricName in MetricNameOptions )
+                        {
+                            <option value="@metricName">@metricName</option>
+                        }
+                    </select>
+                </label>
+            }
+        </div>
+    </section>
+
+    <section class="panel-card table-card">
+        @if ( ActiveTab == TelemetryTab.Logs )
+        {
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Logs</p>
+                    <h3>@FormatCount( VisibleLogs.Count ) records</h3>
+                </div>
+                <span>OTLP log records with resource, scope, and record attributes.</span>
+            </div>
+
+            @if ( VisibleLogs.Count == 0 ) { <p class="empty-state">No logs match the current filter set.</p> }
+            else
+            {
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>Service</th>
+                            <th>Severity</th>
+                            <th>Body</th>
+                            <th>Trace</th>
+                            <th>Scope</th>
+                            <th>Attributes</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach ( TelemetryLogRecordDto log in VisibleLogs )
+                        {
+                            <tr>
+                                <td>@FormatDate( log.TimestampUtc ?? log.ObservedTimestampUtc ?? log.ReceivedAtUtc )</td>
+                                <td>@( log.ServiceName ?? "unknown" )</td>
+                                <td>@( log.SeverityText ?? log.SeverityNumber.ToString() )</td>
+                                <td title="@CleanJson( log.Body )">@Trim( log.Body, 120 )</td>
+                                <td title="@( $"{log.TraceId} / {log.SpanId}" )">@Trim( log.TraceId, 16 )</td>
+                                <td>@Trim( $"{log.ScopeName} {log.ScopeVersion}".Trim(), 28 )</td>
+                                <td title="@FormatMap( log.Attributes )">@Trim( FormatMap( log.Attributes ), 72 )</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+
+        @if ( ActiveTab == TelemetryTab.Spans )
+        {
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Traces</p>
+                    <h3>@FormatCount( VisibleSpans.Count ) spans</h3>
+                </div>
+                <span>Span durations, kinds, status, links, and scoped attributes.</span>
+            </div>
+
+            @if ( VisibleSpans.Count == 0 ) { <p class="empty-state">No spans match the current filter set.</p> }
+            else
+            {
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Start</th>
+                            <th>Service</th>
+                            <th>Name</th>
+                            <th>Kind</th>
+                            <th>Duration</th>
+                            <th>Status</th>
+                            <th>Trace</th>
+                            <th>Attributes</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach ( TelemetrySpanRecordDto span in VisibleSpans )
+                        {
+                            <tr>
+                                <td>@FormatDate( span.StartTimeUtc ?? span.ReceivedAtUtc )</td>
+                                <td>@( span.ServiceName ?? "unknown" )</td>
+                                <td title="@span.Name">@Trim( span.Name, 48 )</td>
+                                <td>@span.Kind</td>
+                                <td>@( $"{span.DurationMilliseconds:0.###} ms" )</td>
+                                <td title="@span.StatusMessage">@Trim( span.StatusCode, 24 )</td>
+                                <td title="@( $"{span.TraceId} / {span.SpanId}" )">@Trim( span.TraceId, 16 )</td>
+                                <td title="@FormatMap( span.Attributes )">@Trim( FormatMap( span.Attributes ), 72 )</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+
+        @if ( ActiveTab == TelemetryTab.Metrics )
+        {
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">Metrics</p>
+                    <h3>@FormatCount( VisibleMetrics.Count ) points</h3>
+                </div>
+                <span>Gauge, sum, histogram, exponential histogram, and summary metric points.</span>
+            </div>
+
+            @if ( VisibleMetrics.Count == 0 ) { <p class="empty-state">No metric points match the current filter
+                set.</p> }
+            else
+            {
+                <div class="table-wrap">
+                    <table>
+                        <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Service</th>
+                            <th>Name</th>
+                            <th>Type</th>
+                            <th>Value</th>
+                            <th>Unit</th>
+                            <th>Temporality</th>
+                            <th>Attributes</th>
+                        </tr>
+                        </thead>
+                        <tbody>
+                        @foreach ( TelemetryMetricRecordDto metric in VisibleMetrics )
+                        {
+                            <tr>
+                                <td>@FormatDate( metric.TimestampUtc ?? metric.ReceivedAtUtc )</td>
+                                <td>@( metric.ServiceName ?? "unknown" )</td>
+                                <td title="@metric.Description">@Trim( metric.Name, 48 )</td>
+                                <td>@metric.MetricType</td>
+                                <td>@metric.NumericValue.ToString( "0.###" )</td>
+                                <td>@metric.Unit</td>
+                                <td>@metric.AggregationTemporality</td>
+                                <td title="@FormatMetricMap( metric )">@Trim( FormatMetricMap( metric ), 72 )</td>
+                            </tr>
+                        }
+                        </tbody>
+                    </table>
+                </div>
+            }
+        }
+    </section>
+
+    @if ( Snapshot is null &&
+          !IsLoading )
+    {
+        <section class="panel-card">
+            <div class="panel-head">
+                <div>
+                    <p class="eyebrow">No Data</p>
+                    <h3>Collector endpoints are ready</h3>
+                </div>
+            </div>
+            <p class="empty-state">Push OTLP gRPC data into <code>@ApiBaseUrl</code> and the portal will populate
+                automatically.</p>
+        </section>
+    }
+</div>

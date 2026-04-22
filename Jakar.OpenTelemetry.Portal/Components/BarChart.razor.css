@@ -1,0 +1,44 @@
+.bar-chart {
+    display: grid;
+    gap: 0.8rem;
+}
+
+.bar-row {
+    display: grid;
+    gap: 0.35rem;
+}
+
+.bar-meta {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+}
+
+.bar-meta span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bar-track {
+    width: 100%;
+    height: 0.75rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.07);
+    overflow: hidden;
+}
+
+.bar-fill {
+    height: 100%;
+    border-radius: 999px;
+}
+
+.bar-empty {
+    color: var(--muted);
+    min-height: 13rem;
+    display: grid;
+    place-items: center;
+    border-radius: 1rem;
+    background: rgba(3, 8, 18, 0.65);
+}
