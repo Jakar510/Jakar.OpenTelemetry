@@ -21,7 +21,9 @@ builder.Services.AddCors( options =>
                                                  } );
                           } );
 
-builder.Services.AddDbContext<TelemetryDbContext>(  );
+string connectionString = builder.Configuration.GetConnectionString( "Telemetry" ) ?? "Host=localhost;Port=5432;Database=jakar_opentelemetry;Username=postgres;Password=postgres";
+
+builder.Services.AddDbContext<TelemetryDbContext>( options => options.UseNpgsql( connectionString ) );
 builder.Services.AddScoped<TelemetryIngestService>();
 builder.Services.AddScoped<TelemetryQueryService>();
 builder.Services.AddScoped<TelemetryBroadcastService>();
