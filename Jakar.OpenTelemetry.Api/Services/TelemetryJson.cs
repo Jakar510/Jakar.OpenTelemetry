@@ -13,21 +13,72 @@ namespace Jakar.OpenTelemetry.Api.Services;
 
 public static class TelemetryJson
 {
-    public static readonly  ReadOnlyDictionary<string, string?> Empty       = new(new Dictionary<string, string?>());
-    private static readonly JsonSerializerOptions               JsonOptions = new(JsonSerializerDefaults.Web);
+    public static readonly  ReadOnlyDictionary<string, string?> Empty          = new(new Dictionary<string, string?>());
+    public static readonly  ReadOnlyDictionary<double, double>  EmptyQuantiles = new(new Dictionary<double, double>());
+    private static readonly JsonSerializerOptions               JsonOptions    = new(JsonSerializerDefaults.Web);
 
 
-    public static readonly ValueConverter<ReadOnlyDictionary<string, string?>, string> Converter = new(static value => JsonSerializer.Serialize( value, JsonOptions ),
-                                                                                                       static value => new ReadOnlyDictionary<string, string?>( JsonSerializer.Deserialize<Dictionary<string, string?>>( value, JsonOptions ) ??
-                                                                                                                                                                new Dictionary<string, string?>() ));
+    public static readonly ValueConverter<ReadOnlyDictionary<string, string?>, string> StringDictionaryConverter = new(static value => JsonSerializer.Serialize( value, JsonOptions ),
+                                                                                                                       static value =>
+                                                                                                                           new ReadOnlyDictionary<string, string?>( JsonSerializer.Deserialize<Dictionary<string, string?>>( value, JsonOptions ) ??
+                                                                                                                                                                    new Dictionary<string, string?>() ));
 
-    public static readonly ValueComparer<ReadOnlyDictionary<string, string?>> Comparer = new(( ReadOnlyDictionary<string, string?>? left, ReadOnlyDictionary<string, string?>? right ) => CompareDictionaries( left, right ),
-                                                                                             value => HashDictionary( value ),
-                                                                                             value => CloneDictionary( value ));
+    public static readonly ValueComparer<ReadOnlyDictionary<string, string?>> StringDictionaryComparer = new(static ( left, right ) => CompareDictionaries( left, right ),
+                                                                                                             static value => HashDictionary( value ),
+                                                                                                             static value => CloneDictionary( value ));
+
+    public static readonly ValueConverter<ReadOnlyDictionary<double, double>?, string?> DoubleDictionaryConverter = new(static value => value == null
+                                                                                                                                            ? null
+                                                                                                                                            : JsonSerializer.Serialize( value, JsonOptions ),
+                                                                                                                        static value => string.IsNullOrWhiteSpace( value )
+                                                                                                                                            ? null
+                                                                                                                                            : new ReadOnlyDictionary<double, double>( JsonSerializer.Deserialize<Dictionary<double, double>>( value,
+                                                                                                                                                                                                                                              JsonOptions ) ??
+                                                                                                                                                                                      new Dictionary<double, double>() ));
+
+    public static readonly ValueComparer<ReadOnlyDictionary<double, double>?> DoubleDictionaryComparer = new(static ( left, right ) => CompareDictionaries( left, right ),
+                                                                                                             static value => HashDictionary( value ),
+                                                                                                             static value => CloneDictionary( value ));
+
+    public static readonly ValueConverter<SpanEvent[]?, string?> SpanEventArrayConverter = CreateArrayConverter<SpanEvent>();
+    public static readonly ValueComparer<SpanEvent[]?>           SpanEventArrayComparer  = CreateArrayComparer<SpanEvent>();
+
+    public static readonly ValueConverter<SpanLink[]?, string?> SpanLinkArrayConverter = CreateArrayConverter<SpanLink>();
+    public static readonly ValueComparer<SpanLink[]?>           SpanLinkArrayComparer  = CreateArrayComparer<SpanLink>();
+
+
+    private static ValueConverter<T[]?, string?> CreateArrayConverter<T>() => new(static value => value == null
+                                                                                                      ? null
+                                                                                                      : JsonSerializer.Serialize( value, JsonOptions ),
+                                                                                  static value => string.IsNullOrWhiteSpace( value )
+                                                                                                      ? null
+                                                                                                      : JsonSerializer.Deserialize<T[]>( value, JsonOptions ));
+
+    private static ValueComparer<T[]?> CreateArrayComparer<T>() => new(static ( left, right ) => CompareArrays( left, right ), static value => HashArray( value ), static value => CloneArray( value ));
+
+    private static bool CompareArrays<T>( T[]? left, T[]? right )
+    {
+        if ( ReferenceEquals( left, right ) ) { return true; }
+
+        if ( left        == null ||
+             right       == null ||
+             left.Length != right.Length ) { return false; }
+
+        return left.SequenceEqual( right );
+    }
+
+    private static int HashArray<T>( T[]? value ) => value == null
+                                                         ? 0
+                                                         : JsonSerializer.Serialize( value, JsonOptions ).GetHashCode( StringComparison.Ordinal );
+
+    private static T[]? CloneArray<T>( T[]? value ) => value?.ToArray();
 
 
     private static ReadOnlyDictionary<string, string?> CloneDictionary( ReadOnlyDictionary<string, string?>? value ) =>
         new(value?.ToDictionary( static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal ) ?? new Dictionary<string, string?>());
+
+    private static ReadOnlyDictionary<double, double> CloneDictionary( ReadOnlyDictionary<double, double>? value ) => new(value?.ToDictionary( static pair => pair.Key, static pair => pair.Value ) ?? new Dictionary<double, double>());
+
     private static int HashDictionary( ReadOnlyDictionary<string, string?>? value )
     {
         if ( value is null ) { return 0; }
@@ -41,6 +92,21 @@ public static class TelemetryJson
 
         return hash.ToHashCode();
     }
+
+    private static int HashDictionary( ReadOnlyDictionary<double, double>? value )
+    {
+        if ( value is null ) { return 0; }
+
+        HashCode hash = new();
+        foreach ( KeyValuePair<double, double> pair in value.OrderBy( static x => x.Key ) )
+        {
+            hash.Add( pair.Key );
+            hash.Add( pair.Value );
+        }
+
+        return hash.ToHashCode();
+    }
+
     private static bool CompareDictionaries( ReadOnlyDictionary<string, string?>? left, ReadOnlyDictionary<string, string?>? right )
     {
         if ( ReferenceEquals( left, right ) ) { return true; }
@@ -55,6 +121,23 @@ public static class TelemetryJson
             if ( !right.TryGetValue( pair.Key, out string? value ) ) { return false; }
 
             if ( !string.Equals( pair.Value, value, StringComparison.Ordinal ) ) { return false; }
+        }
+
+        return true;
+    }
+
+    private static bool CompareDictionaries( ReadOnlyDictionary<double, double>? left, ReadOnlyDictionary<double, double>? right )
+    {
+        if ( ReferenceEquals( left, right ) ) { return true; }
+
+        if ( left is null  ||
+             right is null ||
+             left.Count != right.Count ) { return false; }
+
+        foreach ( KeyValuePair<double, double> pair in left )
+        {
+            if ( !right.TryGetValue( pair.Key, out double value ) ||
+                 pair.Value != value ) { return false; }
         }
 
         return true;
@@ -77,7 +160,7 @@ public static class TelemetryJson
     {
         if ( string.IsNullOrWhiteSpace( json ) ) { return Empty; }
 
-        return JsonSerializer.Deserialize<ReadOnlyDictionary<string, string?>>( json, JsonOptions ) ?? Empty;
+        return new ReadOnlyDictionary<string, string?>( JsonSerializer.Deserialize<Dictionary<string, string?>>( json, JsonOptions ) ?? new Dictionary<string, string?>() );
     }
 
     public static string? TryGetServiceName( ReadOnlyDictionary<string, string?> resourceAttributes )
