@@ -1,12 +1,20 @@
 using Jakar.OpenTelemetry.Api.Data;
 using Jakar.OpenTelemetry.Contracts;
 using Microsoft.EntityFrameworkCore;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Jakar.OpenTelemetry.Api.Services;
 
-public sealed class TelemetryQueryService( TelemetryDbContext dbContext )
+public sealed class TelemetryQueryService( TelemetryDbContext dbContext, IFusionCache cache )
 {
     public async Task<TelemetrySnapshotDto> GetSnapshotAsync( int take, CancellationToken cancellationToken )
+    {
+        string cacheKey = TelemetryCacheKeys.Snapshot( take );
+        return await cache.GetOrSetAsync( cacheKey, token => LoadSnapshotAsync( take, token ), options => options.Duration = TimeSpan.FromSeconds( 30 ), [ TelemetryCacheKeys.SNAPSHOT_TAG ], cancellationToken );
+    }
+
+    
+    private async Task<TelemetrySnapshotDto> LoadSnapshotAsync( int take, CancellationToken cancellationToken )
     {
         List<TelemetryLogEntity> logEntities = await dbContext.Logs.AsNoTracking().OrderByDescending( x => x.TimestampUtc ?? x.ObservedTimestampUtc ?? x.ReceivedAtUtc ).Take( take ).ToListAsync( cancellationToken );
 

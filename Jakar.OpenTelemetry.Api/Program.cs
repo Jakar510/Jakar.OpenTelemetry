@@ -1,8 +1,10 @@
+using System.Diagnostics;
 using Jakar.OpenTelemetry.Api.Data;
 using Jakar.OpenTelemetry.Api.Grpc;
 using Jakar.OpenTelemetry.Api.Hubs;
 using Jakar.OpenTelemetry.Api.Services;
 using Microsoft.EntityFrameworkCore;
+using ZiggyCreatures.Caching.Fusion;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder( args );
 
@@ -21,14 +23,19 @@ builder.Services.AddCors( options =>
                                                  } );
                           } );
 
-string connectionString = builder.Configuration.GetConnectionString( "Telemetry" ) ?? "Host=localhost;Port=5432;Database=jakar_opentelemetry;Username=postgres;Password=postgres";
 
-builder.Services.AddDbContext<TelemetryDbContext>( options => options.UseNpgsql( connectionString ) );
+var fusionCacheBuilder = builder.Services.AddFusionCache().WithDefaultEntryOptions( new FusionCacheEntryOptions { Duration = TimeSpan.FromMinutes( 5 ) } ).WithMemoryBackplane();
+if ( !Debugger.IsAttached ) { fusionCacheBuilder.WithStackExchangeRedisBackplane(); }
+
+
+builder.Services.AddDbContext<TelemetryDbContext>();
+
 builder.Services.AddScoped<TelemetryIngestService>();
 builder.Services.AddScoped<TelemetryQueryService>();
 builder.Services.AddScoped<TelemetryBroadcastService>();
 
-WebApplication app = builder.Build();
+
+await using WebApplication app = builder.Build();
 
 using ( IServiceScope scope = app.Services.CreateScope() )
 {
@@ -36,13 +43,12 @@ using ( IServiceScope scope = app.Services.CreateScope() )
     await db.Database.EnsureCreatedAsync();
 }
 
-if ( app.Environment.IsDevelopment() )
-{
-    app.MapOpenApi();
-}
+if ( app.Environment.IsDevelopment() ) { app.MapOpenApi(); }
 
 app.UseHttpsRedirection();
+
 app.UseCors( "portal" );
+
 
 app.MapGet( "/",
             () => Results.Ok( new
@@ -62,6 +68,7 @@ app.MapGet( "/api/telemetry/snapshot",
                 int size = Math.Clamp( take ?? 250, 25, 1000 );
                 return Results.Ok( await telemetry.GetSnapshotAsync( size, cancellationToken ) );
             } );
+
 
 app.MapHub<TelemetryHub>( "/hubs/telemetry" );
 

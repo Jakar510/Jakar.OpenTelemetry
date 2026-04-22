@@ -8,13 +8,15 @@ using OpenTelemetry.Proto.Common.V1;
 using OpenTelemetry.Proto.Logs.V1;
 using OpenTelemetry.Proto.Metrics.V1;
 using OpenTelemetry.Proto.Trace.V1;
+using ZiggyCreatures.Caching.Fusion;
 
 namespace Jakar.OpenTelemetry.Api.Services;
 
 [SuppressMessage( "ReSharper", "ForCanBeConvertedToForeach" )]
 [SuppressMessage( "ReSharper", "LoopCanBeConvertedToQuery" )]
-public sealed class TelemetryIngestService( TelemetryDbContext dbContext, TelemetryBroadcastService broadcaster )
+public sealed class TelemetryIngestService( TelemetryDbContext dbContext, TelemetryBroadcastService broadcaster, IFusionCache cache )
 {
+    public static FusionCacheEntryOptions CacheEntryOptions { get; set; } = new();
     public async Task IngestLogsAsync( ExportLogsServiceRequest request, CancellationToken cancellationToken )
     {
         DateTimeOffset           receivedAt = DateTimeOffset.UtcNow;
@@ -67,6 +69,7 @@ public sealed class TelemetryIngestService( TelemetryDbContext dbContext, Teleme
 
         dbContext.Logs.AddRange( logs );
         await dbContext.SaveChangesAsync( cancellationToken );
+        await cache.RemoveByTagAsync( TelemetryCacheKeys.SNAPSHOT_TAG, CacheEntryOptions, cancellationToken );
         await broadcaster.NotifyAsync( logs.Count, 0, 0, cancellationToken );
     }
 
@@ -126,6 +129,7 @@ public sealed class TelemetryIngestService( TelemetryDbContext dbContext, Teleme
 
         dbContext.Spans.AddRange( spans );
         await dbContext.SaveChangesAsync( cancellationToken );
+        await cache.RemoveByTagAsync( TelemetryCacheKeys.SNAPSHOT_TAG, CacheEntryOptions, cancellationToken );
         await broadcaster.NotifyAsync( 0, spans.Count, 0, cancellationToken );
     }
 
@@ -307,6 +311,7 @@ public sealed class TelemetryIngestService( TelemetryDbContext dbContext, Teleme
 
         dbContext.Metrics.AddRange( metrics );
         await dbContext.SaveChangesAsync( cancellationToken );
+        await cache.RemoveByTagAsync( TelemetryCacheKeys.SNAPSHOT_TAG, CacheEntryOptions, cancellationToken );
         await broadcaster.NotifyAsync( 0, 0, metrics.Count, cancellationToken );
     }
 
