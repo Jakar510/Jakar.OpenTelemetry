@@ -4,13 +4,21 @@ using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Jakar.OpenTelemetry.Api.Data;
 
-public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> options ) : DbContext( options )
+public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> options, IConfiguration configuration ) : DbContext( options )
 {
     public DbSet<TelemetryLogEntity>    Logs    => Set<TelemetryLogEntity>();
     public DbSet<TelemetrySpanEntity>   Spans   => Set<TelemetrySpanEntity>();
     public DbSet<TelemetryMetricEntity> Metrics => Set<TelemetryMetricEntity>();
 
+    protected override void OnConfiguring( DbContextOptionsBuilder builder )
+    {
+        builder.EnableDetailedErrors();
 
+        string connectionString = configuration.GetConnectionString( "Telemetry" ) ?? "Host=localhost;Port=5432;Database=jakar_open_telemetry;Username=postgres;Password=postgres";
+        builder.UseNpgsql( connectionString );
+
+        base.OnConfiguring( builder );
+    }
     protected override void OnModelCreating( ModelBuilder modelBuilder )
     {
         modelBuilder.Entity<TelemetryLogEntity>( entity =>
