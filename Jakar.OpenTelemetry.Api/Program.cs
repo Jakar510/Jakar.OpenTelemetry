@@ -17,6 +17,10 @@ builder.Services.AddOptions<OtlpIngestOptions>()
        .Bind( builder.Configuration.GetSection( OtlpIngestOptions.SECTION_NAME ) )
        .Validate( static options => !string.IsNullOrWhiteSpace( options.ApiKeyHeaderName ) && !string.IsNullOrWhiteSpace( options.ApiKey ), $"{OtlpIngestOptions.SECTION_NAME} must define a non-empty API key and header name." )
        .ValidateOnStart();
+builder.Services.AddOptions<DashboardIpWhitelistOptions>()
+       .Bind( builder.Configuration.GetSection( DashboardIpWhitelistOptions.SECTION_NAME ) )
+       .Validate( DashboardIpWhitelistOptions.IsValid, $"{DashboardIpWhitelistOptions.SECTION_NAME} must define at least one valid IP address." )
+       .ValidateOnStart();
 builder.Services.AddOptions<DashboardAuthOptions>()
        .Bind( builder.Configuration.GetSection( DashboardAuthOptions.SECTION_NAME ) )
        .Validate( static options => options.Users.Length > 0 && options.Users.All( static user => !string.IsNullOrWhiteSpace( user.Username ) && !string.IsNullOrWhiteSpace( user.Password ) ),
@@ -105,6 +109,7 @@ builder.Services.AddFusionCache().WithDefaultEntryOptions( new FusionCacheEntryO
 
 
 builder.Services.AddSingleton<ConfiguredDashboardUserAuthenticator>();
+builder.Services.AddSingleton<DashboardIpWhitelistEvaluator>();
 builder.Services.AddSingleton<GrpcIngestAuthorizer>();
 builder.Services.AddDbContext<TelemetryDbContext>();
 builder.Services.Configure<PortalConfiguration>( builder.Configuration.GetSection( PortalConfiguration.SECTION_NAME ) );
@@ -140,6 +145,7 @@ using ( IServiceScope scope = app.Services.CreateScope() )
 }
 
 app.UseHttpsRedirection();
+app.UseMiddleware<DashboardIpWhitelistMiddleware>();
 app.UseCors( "portal" );
 app.UseAuthentication();
 app.UseAuthorization();

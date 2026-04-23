@@ -132,6 +132,8 @@ Important sections:
   Configures the required OTLP gRPC API key header and value
 - `DashboardAuth`
   Configures login users and roles for the dashboard, JSON endpoints, SignalR, and Swagger
+- `DashboardIpWhitelist`
+  Configures which remote IP addresses may access the dashboard, login routes, Swagger, JSON endpoints, Blazor circuit, and SignalR
 - `Cors:AllowedOrigins`
   Allowed browser origins for SignalR and API access
 - `Portal:DefaultTake`
@@ -143,16 +145,19 @@ Example auth settings:
 {
   "OtlpIngest": {
     "ApiKeyHeaderName": "x-api-key",
-    "ApiKey": "dev-ingest-key"
+    "ApiKey": "CA374E78-07E0-4B8F-AE03-4F54087DB999"
   },
   "DashboardAuth": {
     "Users": [
       {
         "Username": "admin",
-        "Password": "dev-password",
+        "Password": "password",
         "Roles": [ "Admin", "Viewer" ]
       }
     ]
+  },
+  "DashboardIpWhitelist": {
+    "AllowedIPs": [ "127.0.0.1", "::1" ]
   }
 }
 ```
@@ -257,6 +262,23 @@ This includes:
 - `/swagger/v1/swagger.json`
 
 The login page is available at `/login`.
+
+### Dashboard IP Whitelist
+
+Dashboard access is also restricted by a whitelist of remote IP addresses from `DashboardIpWhitelist:AllowedIPs`.
+
+This whitelist applies to:
+
+- the dashboard UI
+- `/login`
+- `/auth/login`
+- `/auth/logout`
+- `/api`
+- `/hubs/telemetry`
+- `/swagger`
+- the Blazor server circuit endpoints
+
+OTLP gRPC ingest routes are not controlled by the dashboard IP whitelist. They continue to use the configured API key requirement.
 
 ### OTLP API Key
 
