@@ -1,6 +1,7 @@
 @using static Microsoft.AspNetCore.Components.Web.RenderMode
 @page "/"
 @rendermode InteractiveServer
+@attribute [Authorize(Policy = AppAuthPolicies.DASHBOARD_ACCESS)]
 
 <PageTitle>Telemetry Portal</PageTitle>
 

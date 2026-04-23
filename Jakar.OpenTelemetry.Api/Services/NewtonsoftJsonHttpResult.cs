@@ -1,12 +1,13 @@
+using Microsoft.AspNetCore.Http.HttpResults;
 using Newtonsoft.Json;
 
 namespace Jakar.OpenTelemetry.Api.Services;
 
 public static class NewtonsoftJsonHttpResult
 {
-    public static IResult Ok( object? payload )
+    public static ContentHttpResult Ok( object? payload )
     {
         string json = JsonConvert.SerializeObject( payload, NewtonsoftJsonDefaults.Settings );
-        return Results.Text( json, "application/json" );
+        return TypedResults.Text( json, "application/json" );
     }
 }

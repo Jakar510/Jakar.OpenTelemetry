@@ -1,6 +1,9 @@
+using System.Net;
 using Jakar.Extensions;
 using Jakar.OpenTelemetry.Contracts;
+using Jakar.OpenTelemetry.Api.Security;
 using Microsoft.AspNetCore.Components;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.SignalR.Client;
 using Microsoft.Extensions.Options;
 using Newtonsoft.Json;
@@ -34,13 +37,16 @@ public sealed class TelemetryHubClient : IHostedService, IAsyncDisposable
     public event Action<string>?                        ConnectionStateChanged;
 
 
-    public TelemetryHubClient( HttpClient httpClient, NavigationManager navigationManager, IOptions<PortalConfiguration> configuration )
+    public TelemetryHubClient( HttpClient httpClient, NavigationManager navigationManager, IOptions<PortalConfiguration> configuration, IHttpContextAccessor httpContextAccessor )
     {
         _httpClient    = httpClient;
         _configuration = configuration.Value;
         ApiBaseUrl     = ResolveBaseUri( _configuration.ApiBaseUrl, navigationManager.BaseUri ).ToString().TrimEnd( '/' );
+        Uri             baseUri  = new(ApiBaseUrl);
+        CookieContainer cookies = AuthenticatedRequestCookieFactory.Create( baseUri, httpContextAccessor.HttpContext );
 
-        _connection = new HubConnectionBuilder().WithUrl( $"{ApiBaseUrl}/hubs/telemetry" )
+        _connection = new HubConnectionBuilder().WithUrl( $"{ApiBaseUrl}/hubs/telemetry",
+                                                          options => { options.Cookies = cookies; } )
                                                 .AddNewtonsoftJsonProtocol()
                                                 .WithAutomaticReconnect( [
                                                                                  TimeSpan.Zero,
