@@ -1,0 +1,12 @@
+<article class="stat-card">
+    <span>@Label</span>
+    <strong>@Value</strong>
+    <small>@Detail</small>
+</article>
+
+
+@code {
+    [Parameter] public required string Label { get; set; }
+    [Parameter] public required string Value { get; set; }
+    [Parameter] public required string Detail { get; set; }
+}

@@ -1,4 +1,5 @@
 using System.Globalization;
+using Jakar.OpenTelemetry.Api.Components.Dashboard;
 using Jakar.OpenTelemetry.Api.Services;
 using Jakar.OpenTelemetry.Contracts;
 using Microsoft.AspNetCore.Components;
@@ -64,8 +65,8 @@ public sealed partial class Home : ComponentBase, IDisposable
 
             return
             [
-                new FilterOption( new FilterKey( FilterField.None ), "Any category" ),
-                .. keys.Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Select( static key => new FilterOption( new FilterKey( FilterField.None, key ), key ) )
+                new FilterOption( ToToken( new FilterKey( FilterField.None ) ), "Any category" ),
+                .. keys.Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Select( key => new FilterOption( ToToken( new FilterKey( FilterField.None, key ) ), key ) )
             ];
         }
     }
@@ -74,29 +75,29 @@ public sealed partial class Home : ComponentBase, IDisposable
                                                            {
                                                                TelemetryTab.Logs =>
                                                                [
-                                                                   new FilterOption( new FilterKey( FilterField.Timestamp ), "Timestamp" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Service ), "Service" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Severity ), "Severity" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Body ), "Body" ),
-                                                                   .. CategoryOptions.Where( static option => option.Key.IsCustom )
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Timestamp ) ), "Timestamp" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Service ) ), "Service" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Severity ) ), "Severity" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Body ) ), "Body" ),
+                                                                   .. CategoryOptions.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
                                                                ],
                                                                TelemetryTab.Spans =>
                                                                [
-                                                                   new FilterOption( new FilterKey( FilterField.Start ), "Start time" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Service ), "Service" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Name ), "Span name" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Kind ), "Kind" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Duration ), "Duration" ),
-                                                                   .. CategoryOptions.Where( static option => option.Key.IsCustom )
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Start ) ), "Start time" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Service ) ), "Service" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Name ) ), "Span name" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Kind ) ), "Kind" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Duration ) ), "Duration" ),
+                                                                   .. CategoryOptions.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
                                                                ],
                                                                TelemetryTab.Metrics =>
                                                                [
-                                                                   new FilterOption( new FilterKey( FilterField.Timestamp ), "Timestamp" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Service ), "Service" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Name ), "Metric name" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Value ), "Value" ),
-                                                                   new FilterOption( new FilterKey( FilterField.Type ), "Metric type" ),
-                                                                   .. CategoryOptions.Where( static option => option.Key.IsCustom )
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Timestamp ) ), "Timestamp" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Service ) ), "Service" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Name ) ), "Metric name" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Value ) ), "Value" ),
+                                                                   new FilterOption( ToToken( new FilterKey( FilterField.Type ) ), "Metric type" ),
+                                                                   .. CategoryOptions.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
                                                                ],
                                                                _ => [ ]
                                                            };
@@ -113,6 +114,12 @@ public sealed partial class Home : ComponentBase, IDisposable
     private string SnapshotAgeLabel     => Snapshot is null ? "No data" : $"{Math.Max( 0, ( DateTimeOffset.UtcNow - Snapshot.Overview.GeneratedAtUtc ).TotalSeconds ):0}s";
     private string GeneratedAtLabel     => Snapshot is null ? string.Empty : $"Generated {Snapshot.Overview.GeneratedAtUtc:yyyy-MM-dd HH:mm:ss}Z";
 
+    public void Dispose()
+    {
+        PortalClient.TelemetryUpdated       -= OnTelemetryUpdatedAsync;
+        PortalClient.ConnectionStateChanged -= OnConnectionChanged;
+    }
+
     protected override async Task OnInitializedAsync()
     {
         PortalClient.TelemetryUpdated       += OnTelemetryUpdatedAsync;
@@ -120,12 +127,6 @@ public sealed partial class Home : ComponentBase, IDisposable
 
         await PortalClient.EnsureConnectedAsync();
         await RefreshAsync();
-    }
-
-    public void Dispose()
-    {
-        PortalClient.TelemetryUpdated       -= OnTelemetryUpdatedAsync;
-        PortalClient.ConnectionStateChanged -= OnConnectionChanged;
     }
 
     private void OnConnectionChanged( string status )
@@ -157,19 +158,28 @@ public sealed partial class Home : ComponentBase, IDisposable
         }
     }
 
-    private void SetActiveTab( TelemetryTab tab )
+    private Task SetActiveTabAsync( TelemetryTab tab )
     {
         ActiveTab        = tab;
         SelectedCategory = new FilterKey( FilterField.None );
         CategoryValue    = string.Empty;
         EnsureValidSort();
+        return Task.CompletedTask;
     }
 
-    private string GetTabClass( TelemetryTab tab ) => ActiveTab == tab ? "tab active" : "tab";
+    private Task OnSearchTextChanged( string value ) { SearchText = value; return Task.CompletedTask; }
+    private Task OnSelectedServiceChanged( string value ) { SelectedService = value; return Task.CompletedTask; }
+    private Task OnSelectedCategoryTokenChanged( string value ) { SelectedCategoryToken = value; return Task.CompletedTask; }
+    private Task OnCategoryValueChanged( string value ) { CategoryValue = value; return Task.CompletedTask; }
+    private Task OnSelectedSortTokenChanged( string value ) { SelectedSortToken = value; return Task.CompletedTask; }
+    private Task OnSortDescendingChanged( bool value ) { SortDescending = value; return Task.CompletedTask; }
+    private Task OnSelectedSeverityChanged( string value ) { SelectedSeverity = value; return Task.CompletedTask; }
+    private Task OnSelectedSpanKindChanged( string value ) { SelectedSpanKind = value; return Task.CompletedTask; }
+    private Task OnSelectedMetricNameChanged( string value ) { SelectedMetricName = value; return Task.CompletedTask; }
 
     private void EnsureValidSort()
     {
-        if ( SortOptions.All( option => option.Key != SelectedSort ) )
+        if ( SortOptions.All( option => option.Token != SelectedSortToken ) )
         {
             SelectedSort = ActiveTab switch
                                {
@@ -432,13 +442,6 @@ public sealed partial class Home : ComponentBase, IDisposable
         return value.Trim().Trim( '"' ).Replace( "\\\"", "\"", StringComparison.Ordinal ).Replace( "\\n", " ", StringComparison.Ordinal );
     }
 
-    private enum TelemetryTab
-    {
-        Logs,
-        Spans,
-        Metrics
-    }
-
     private enum FilterField
     {
         None,
@@ -470,25 +473,4 @@ public sealed partial class Home : ComponentBase, IDisposable
         }
     }
 
-    private sealed record FilterOption( FilterKey Key, string Label )
-    {
-        public string Token => Key.IsCustom ? $"custom:{Key.CustomKey}" : $"enum:{Key.Field}";
-
-        public bool Equals( FilterOption? other )
-        {
-            if ( other is null ) { return false; }
-
-            if ( ReferenceEquals( this, other ) ) { return true; }
-
-            return Key.Equals( other.Key ) && string.Equals( Label, other.Label, StringComparison.InvariantCulture );
-        }
-
-        public override int GetHashCode()
-        {
-            HashCode hashCode = new();
-            hashCode.Add( Key );
-            hashCode.Add( Label, StringComparer.InvariantCulture );
-            return hashCode.ToHashCode();
-        }
-    }
 }

@@ -1,0 +1,181 @@
+<section class="panel-card filter-card">
+    <div class="panel-head">
+        <div>
+            <p class="eyebrow">Explorer</p>
+            <h3>Filter and sort</h3>
+        </div>
+        <button class="action-button"
+                @onclick="OnRefreshClicked"
+                disabled="@IsLoading">Refresh Snapshot
+        </button>
+    </div>
+
+    <div class="tab-strip">
+        <button class="@GetTabClass( TelemetryTab.Logs )"
+                @onclick='() => ActiveTabChanged.InvokeAsync( TelemetryTab.Logs )'>Logs
+        </button>
+        <button class="@GetTabClass( TelemetryTab.Spans )"
+                @onclick='() => ActiveTabChanged.InvokeAsync( TelemetryTab.Spans )'>
+            Traces / Spans
+        </button>
+        <button class="@GetTabClass( TelemetryTab.Metrics )"
+                @onclick='() => ActiveTabChanged.InvokeAsync( TelemetryTab.Metrics )'>
+            Metrics
+        </button>
+    </div>
+
+    <div class="control-grid">
+        <label>
+            Search
+            <input value="@SearchText"
+                   @oninput="OnSearchTextChanged"
+                   placeholder="Search message, trace, span, metric, attributes..." />
+        </label>
+
+        <label>
+            Service
+            <select value="@SelectedService"
+                    @onchange="OnSelectedServiceChanged">
+                <option value="all">All services</option>
+                @foreach ( string service in ServiceOptions )
+                {
+                    <option value="@service">@service</option>
+                }
+            </select>
+        </label>
+
+        <label>
+            Category key
+            <select value="@SelectedCategoryToken"
+                    @onchange="OnSelectedCategoryTokenChanged">
+                @foreach ( FilterOption option in CategoryOptions )
+                {
+                    <option value="@option.Token">@option.Label</option>
+                }
+            </select>
+        </label>
+
+        <label>
+            Category value
+            <input value="@CategoryValue"
+                   @oninput="OnCategoryValueChanged"
+                   placeholder="Contains..." />
+        </label>
+
+        <label>
+            Sort by
+            <select value="@SelectedSortToken"
+                    @onchange="OnSelectedSortTokenChanged">
+                @foreach ( FilterOption option in SortOptions )
+                {
+                    <option value="@option.Token">@option.Label</option>
+                }
+            </select>
+        </label>
+
+        <label class="toggle-label">
+            Descending
+            <input type="checkbox"
+                   checked="@SortDescending"
+                   @onchange="OnSortDescendingChanged" />
+        </label>
+
+        @if ( ActiveTab == TelemetryTab.Logs )
+        {
+            <label>
+                Severity
+                <select value="@SelectedSeverity"
+                        @onchange="OnSelectedSeverityChanged">
+                    <option value="all">All severities</option>
+                    @foreach ( string severity in SeverityOptions )
+                    {
+                        <option value="@severity">@severity</option>
+                    }
+                </select>
+            </label>
+        }
+
+        @if ( ActiveTab == TelemetryTab.Spans )
+        {
+            <label>
+                Span kind
+                <select value="@SelectedSpanKind"
+                        @onchange="OnSelectedSpanKindChanged">
+                    <option value="all">All kinds</option>
+                    @foreach ( string kind in SpanKindOptions )
+                    {
+                        <option value="@kind">@kind</option>
+                    }
+                </select>
+            </label>
+        }
+
+        @if ( ActiveTab == TelemetryTab.Metrics )
+        {
+            <label>
+                Metric name
+                <select value="@SelectedMetricName"
+                        @onchange="OnSelectedMetricNameChanged">
+                    <option value="all">All metrics</option>
+                    @foreach ( string metricName in MetricNameOptions )
+                    {
+                        <option value="@metricName">@metricName</option>
+                    }
+                </select>
+            </label>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter] public bool IsLoading { get; set; }
+    [Parameter] public TelemetryTab ActiveTab { get; set; }
+    [Parameter] public EventCallback<TelemetryTab> ActiveTabChanged { get; set; }
+    [Parameter] public EventCallback RefreshRequested { get; set; }
+
+    [Parameter] public string SearchText { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
+
+    [Parameter] public string SelectedService { get; set; } = "all";
+    [Parameter] public EventCallback<string> SelectedServiceChanged { get; set; }
+
+    [Parameter] public string SelectedCategoryToken { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SelectedCategoryTokenChanged { get; set; }
+
+    [Parameter] public string CategoryValue { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> CategoryValueChanged { get; set; }
+
+    [Parameter] public string SelectedSortToken { get; set; } = string.Empty;
+    [Parameter] public EventCallback<string> SelectedSortTokenChanged { get; set; }
+
+    [Parameter] public bool SortDescending { get; set; }
+    [Parameter] public EventCallback<bool> SortDescendingChanged { get; set; }
+
+    [Parameter] public string SelectedSeverity { get; set; } = "all";
+    [Parameter] public EventCallback<string> SelectedSeverityChanged { get; set; }
+
+    [Parameter] public string SelectedSpanKind { get; set; } = "all";
+    [Parameter] public EventCallback<string> SelectedSpanKindChanged { get; set; }
+
+    [Parameter] public string SelectedMetricName { get; set; } = "all";
+    [Parameter] public EventCallback<string> SelectedMetricNameChanged { get; set; }
+
+    [Parameter] public IReadOnlyList<string> ServiceOptions { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<FilterOption> CategoryOptions { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<FilterOption> SortOptions { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<string> SeverityOptions { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<string> SpanKindOptions { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<string> MetricNameOptions { get; set; } = [ ];
+
+    private string GetTabClass( TelemetryTab tab ) => ActiveTab == tab ? "tab active" : "tab";
+    private Task OnRefreshClicked() => RefreshRequested.InvokeAsync();
+    private Task OnSearchTextChanged( ChangeEventArgs args ) => SearchTextChanged.InvokeAsync( args.Value?.ToString() ?? string.Empty );
+    private Task OnSelectedServiceChanged( ChangeEventArgs args ) => SelectedServiceChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
+    private Task OnSelectedCategoryTokenChanged( ChangeEventArgs args ) => SelectedCategoryTokenChanged.InvokeAsync( args.Value?.ToString() ?? string.Empty );
+    private Task OnCategoryValueChanged( ChangeEventArgs args ) => CategoryValueChanged.InvokeAsync( args.Value?.ToString() ?? string.Empty );
+    private Task OnSelectedSortTokenChanged( ChangeEventArgs args ) => SelectedSortTokenChanged.InvokeAsync( args.Value?.ToString() ?? string.Empty );
+    private Task OnSortDescendingChanged( ChangeEventArgs args ) => SortDescendingChanged.InvokeAsync( args.Value as bool? ?? false );
+    private Task OnSelectedSeverityChanged( ChangeEventArgs args ) => SelectedSeverityChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
+    private Task OnSelectedSpanKindChanged( ChangeEventArgs args ) => SelectedSpanKindChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
+    private Task OnSelectedMetricNameChanged( ChangeEventArgs args ) => SelectedMetricNameChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
+}

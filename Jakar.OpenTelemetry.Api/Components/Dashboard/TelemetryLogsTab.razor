@@ -1,0 +1,48 @@
+<div class="panel-head">
+    <div>
+        <p class="eyebrow">Logs</p>
+        <h3>@TelemetryDashboardFormatter.FormatCount( Records.Count ) records</h3>
+    </div>
+    <span>OTLP log records with resource, scope, and record attributes.</span>
+</div>
+
+@if ( Records.Count == 0 )
+{
+    <p class="empty-state">No logs match the current filter set.</p>
+}
+else
+{
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>Timestamp</th>
+                <th>Service</th>
+                <th>Severity</th>
+                <th>Body</th>
+                <th>Trace</th>
+                <th>Scope</th>
+                <th>Attributes</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach ( TelemetryLogRecordDto log in Records )
+            {
+                <tr>
+                    <td>@TelemetryDashboardFormatter.FormatDate( log.TimestampUtc ?? log.ObservedTimestampUtc ?? log.ReceivedAtUtc )</td>
+                    <td>@( log.ServiceName ?? "unknown" )</td>
+                    <td>@( log.SeverityText ?? log.SeverityNumber.ToString() )</td>
+                    <td title="@TelemetryDashboardFormatter.CleanJson( log.Body )">@TelemetryDashboardFormatter.Trim( log.Body, 120 )</td>
+                    <td title="@( $"{log.TraceId} / {log.SpanId}" )">@TelemetryDashboardFormatter.Trim( log.TraceId, 16 )</td>
+                    <td>@TelemetryDashboardFormatter.Trim( $"{log.ScopeName} {log.ScopeVersion}".Trim(), 28 )</td>
+                    <td title="@TelemetryDashboardFormatter.FormatMap( log.Attributes )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.FormatMap( log.Attributes ), 72 )</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<TelemetryLogRecordDto> Records { get; set; } = [ ];
+}
