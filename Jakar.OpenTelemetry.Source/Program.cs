@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using OpenTelemetry;
 using OpenTelemetry.Exporter;
 using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
@@ -12,6 +13,8 @@ using OpenTelemetry.Trace;
 HostApplicationBuilder builder       = Host.CreateApplicationBuilder( args );
 SampleSourceOptions    sourceOptions = builder.Configuration.GetSection( SampleSourceOptions.SECTION_NAME ).Get<SampleSourceOptions>() ?? new SampleSourceOptions();
 string                 version       = typeof(Program).Assembly.GetName().Version?.ToString()                                          ?? "1.0.0";
+
+ApplyOtlpEnvironmentVariables( sourceOptions );
 
 builder.Services.AddSingleton( sourceOptions );
 
@@ -23,6 +26,7 @@ builder.Services.AddHttpClient( TelemetrySourceWorker.CLIENT_NAME,
                                 } );
 
 builder.Services.AddOpenTelemetry()
+       .UseOtlpExporter()
        .ConfigureResource( resource =>
                            {
                                resource.AddService( sourceOptions.ServiceName, serviceVersion: version, serviceInstanceId: Environment.MachineName );
@@ -36,13 +40,11 @@ builder.Services.AddOpenTelemetry()
                      {
                          tracing.AddSource( TelemetrySourceWorker.ACTIVITY_SOURCE_NAME );
                          tracing.AddHttpClientInstrumentation();
-                         tracing.AddOtlpExporter( exporter => ConfigureExporter( exporter, sourceOptions ) );
                      } )
        .WithMetrics( metrics =>
                      {
                          metrics.AddMeter( TelemetrySourceWorker.METER_NAME );
                          metrics.AddHttpClientInstrumentation();
-                         metrics.AddOtlpExporter( exporter => ConfigureExporter( exporter, sourceOptions ) );
                      } );
 
 builder.Logging.AddSimpleConsole( options =>
@@ -56,7 +58,6 @@ builder.Logging.AddOpenTelemetry( logging =>
                                       logging.IncludeFormattedMessage = true;
                                       logging.IncludeScopes           = true;
                                       logging.ParseStateValues        = true;
-                                      logging.AddOtlpExporter( exporter => ConfigureExporter( exporter, sourceOptions ) );
                                   } );
 
 builder.Services.AddHostedService<TelemetrySourceWorker>();
@@ -64,11 +65,12 @@ builder.Services.AddHostedService<TelemetrySourceWorker>();
 await builder.Build().RunAsync();
 return;
 
-static void ConfigureExporter( OtlpExporterOptions exporter, SampleSourceOptions sourceOptions )
+static void ApplyOtlpEnvironmentVariables( SampleSourceOptions sourceOptions )
 {
-    exporter.Endpoint = new Uri( sourceOptions.OtlpEndpoint );
-    exporter.Protocol = OtlpExportProtocol.Grpc;
-    exporter.Headers = string.IsNullOrWhiteSpace( sourceOptions.OtlpApiKey )
-                           ? null
-                           : $"{sourceOptions.ApiKeyHeaderName}={Uri.EscapeDataString( sourceOptions.OtlpApiKey )}";
+    ArgumentException.ThrowIfNullOrWhiteSpace( sourceOptions.OtlpApiKey );
+    ArgumentException.ThrowIfNullOrWhiteSpace( sourceOptions.ApiKeyHeaderName );
+
+    Environment.SetEnvironmentVariable( "OTEL_EXPORTER_OTLP_ENDPOINT", sourceOptions.OtlpEndpoint );
+    Environment.SetEnvironmentVariable( "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc" );
+    Environment.SetEnvironmentVariable( "OTEL_EXPORTER_OTLP_HEADERS",  $"{sourceOptions.ApiKeyHeaderName}={Uri.EscapeDataString( sourceOptions.OtlpApiKey )}" );
 }

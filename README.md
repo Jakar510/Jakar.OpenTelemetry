@@ -248,6 +248,14 @@ Swagger JSON is available at:
 
 Swagger is protected by the same cookie authentication and authorization policy as the dashboard and snapshot endpoints.
 
+The Swagger document also includes the OTLP gRPC ingest routes as explicit OpenAPI entries:
+
+- `/OpenTelemetry.Proto.Collector.Logs.V1.LogsService/Export`
+- `/OpenTelemetry.Proto.Collector.Trace.V1.TraceService/Export`
+- `/OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService/Export`
+
+Those entries are documentation-only. Swagger UI will show them, but it cannot execute native gRPC `application/grpc` requests directly.
+
 ### Authentication
 
 Non-OTLP access is protected with cookie authentication.
