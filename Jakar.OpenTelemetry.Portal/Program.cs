@@ -4,7 +4,7 @@ using Microsoft.AspNetCore.Components.Web;
 using Microsoft.AspNetCore.Components.WebAssembly.Hosting;
 using Microsoft.Extensions.Options;
 
-var builder = WebAssemblyHostBuilder.CreateDefault( args );
+WebAssemblyHostBuilder builder = WebAssemblyHostBuilder.CreateDefault( args );
 builder.RootComponents.Add<App>( "#app" );
 builder.RootComponents.Add<HeadOutlet>( "head::after" );
 
@@ -14,6 +14,8 @@ builder.Services.AddScoped( sp =>
                                 PortalConfiguration config = sp.GetRequiredService<IOptions<PortalConfiguration>>().Value;
                                 return new HttpClient { BaseAddress = new Uri( $"{config.ApiBaseUrl.TrimEnd( '/' )}/" ) };
                             } );
+
 builder.Services.AddScoped<TelemetryHubClient>();
 
-await builder.Build().RunAsync();
+await using WebAssemblyHost app = builder.Build();
+await app.RunAsync();
