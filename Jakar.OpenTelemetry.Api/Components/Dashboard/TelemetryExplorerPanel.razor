@@ -4,21 +4,27 @@
             <p class="eyebrow">Explorer</p>
             <h3>Filter and sort</h3>
         </div>
-        <button class="action-button"
+        <button type="button"
+                class="action-button"
                 @onclick="OnRefreshClicked"
                 disabled="@IsLoading">Refresh Snapshot
         </button>
     </div>
 
     <div class="tab-strip">
-        <button class="@GetTabClass( TelemetryTab.Logs )"
+        <button type="button"
+                class="@GetTabClass( TelemetryTab.Logs )"
                 @onclick='() => ActiveTabChanged.InvokeAsync( TelemetryTab.Logs )'>Logs
         </button>
-        <button class="@GetTabClass( TelemetryTab.Spans )"
+        
+        <button type="button"
+                class="@GetTabClass( TelemetryTab.Spans )"
                 @onclick='() => ActiveTabChanged.InvokeAsync( TelemetryTab.Spans )'>
             Traces / Spans
         </button>
-        <button class="@GetTabClass( TelemetryTab.Metrics )"
+        
+        <button type="button"
+                class="@GetTabClass( TelemetryTab.Metrics )"
                 @onclick='() => ActiveTabChanged.InvokeAsync( TelemetryTab.Metrics )'>
             Metrics
         </button>
@@ -73,11 +79,13 @@
             </select>
         </label>
 
-        <label class="toggle-label">
-            Descending
-            <input type="checkbox"
-                   checked="@SortDescending"
-                   @onchange="OnSortDescendingChanged" />
+        <label>
+            Sort direction
+            <select value="@SortDirectionToken"
+                    @onchange="OnSortDirectionChanged">
+                <option value="desc">Descending</option>
+                <option value="asc">Ascending</option>
+            </select>
         </label>
 
         @if ( ActiveTab == TelemetryTab.Logs )
@@ -94,7 +102,7 @@
                 </select>
             </label>
         }
-
+        
         @if ( ActiveTab == TelemetryTab.Spans )
         {
             <label>
@@ -109,7 +117,7 @@
                 </select>
             </label>
         }
-
+        
         @if ( ActiveTab == TelemetryTab.Metrics )
         {
             <label>
@@ -128,54 +136,59 @@
 </section>
 
 @code {
-    [Parameter] public bool IsLoading { get; set; }
-    [Parameter] public TelemetryTab ActiveTab { get; set; }
+    [Parameter] public bool                        IsLoading        { get; set; }
+    [Parameter] public TelemetryTab                ActiveTab        { get; set; }
     [Parameter] public EventCallback<TelemetryTab> ActiveTabChanged { get; set; }
-    [Parameter] public EventCallback RefreshRequested { get; set; }
+    [Parameter] public EventCallback               RefreshRequested { get; set; }
 
-    [Parameter] public string SearchText { get; set; } = string.Empty;
+    [Parameter] public string                SearchText        { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> SearchTextChanged { get; set; }
 
-    [Parameter] public string SelectedService { get; set; } = "all";
+    [Parameter] public string                SelectedService        { get; set; } = "all";
     [Parameter] public EventCallback<string> SelectedServiceChanged { get; set; }
 
-    [Parameter] public string SelectedCategoryToken { get; set; } = string.Empty;
+    [Parameter] public string                SelectedCategoryToken        { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> SelectedCategoryTokenChanged { get; set; }
 
-    [Parameter] public string CategoryValue { get; set; } = string.Empty;
+    [Parameter] public string                CategoryValue        { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> CategoryValueChanged { get; set; }
 
-    [Parameter] public string SelectedSortToken { get; set; } = string.Empty;
+    [Parameter] public string                SelectedSortToken        { get; set; } = string.Empty;
     [Parameter] public EventCallback<string> SelectedSortTokenChanged { get; set; }
 
-    [Parameter] public bool SortDescending { get; set; }
+    [Parameter] public bool                SortDescending        { get; set; }
     [Parameter] public EventCallback<bool> SortDescendingChanged { get; set; }
 
-    [Parameter] public string SelectedSeverity { get; set; } = "all";
+    [Parameter] public string                SelectedSeverity        { get; set; } = "all";
     [Parameter] public EventCallback<string> SelectedSeverityChanged { get; set; }
 
-    [Parameter] public string SelectedSpanKind { get; set; } = "all";
+    [Parameter] public string                SelectedSpanKind        { get; set; } = "all";
     [Parameter] public EventCallback<string> SelectedSpanKindChanged { get; set; }
 
-    [Parameter] public string SelectedMetricName { get; set; } = "all";
+    [Parameter] public string                SelectedMetricName        { get; set; } = "all";
     [Parameter] public EventCallback<string> SelectedMetricNameChanged { get; set; }
 
-    [Parameter] public IReadOnlyList<string> ServiceOptions { get; set; } = [ ];
-    [Parameter] public IReadOnlyList<FilterOption> CategoryOptions { get; set; } = [ ];
-    [Parameter] public IReadOnlyList<FilterOption> SortOptions { get; set; } = [ ];
-    [Parameter] public IReadOnlyList<string> SeverityOptions { get; set; } = [ ];
-    [Parameter] public IReadOnlyList<string> SpanKindOptions { get; set; } = [ ];
-    [Parameter] public IReadOnlyList<string> MetricNameOptions { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<string>       ServiceOptions    { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<FilterOption> CategoryOptions   { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<FilterOption> SortOptions       { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<string>       SeverityOptions   { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<string>       SpanKindOptions   { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<string>       MetricNameOptions { get; set; } = [ ];
 
-    private string GetTabClass( TelemetryTab tab ) => ActiveTab == tab ? "tab active" : "tab";
-    private Task OnRefreshClicked() => RefreshRequested.InvokeAsync();
-    private Task OnSearchTextChanged( ChangeEventArgs args ) => SearchTextChanged.InvokeAsync( args.Value?.ToString() ?? string.Empty );
-    private Task OnSelectedServiceChanged( ChangeEventArgs args ) => SelectedServiceChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
+    private string GetTabClass( TelemetryTab tab ) => ActiveTab == tab
+                                                          ? "tab active"
+                                                          : "tab";
+    private string SortDirectionToken => SortDescending
+                                             ? "desc"
+                                             : "asc";
+    private Task OnRefreshClicked()                                     => RefreshRequested.InvokeAsync();
+    private Task OnSearchTextChanged( ChangeEventArgs            args ) => SearchTextChanged.InvokeAsync( args.Value?.ToString()            ?? string.Empty );
+    private Task OnSelectedServiceChanged( ChangeEventArgs       args ) => SelectedServiceChanged.InvokeAsync( args.Value?.ToString()       ?? "all" );
     private Task OnSelectedCategoryTokenChanged( ChangeEventArgs args ) => SelectedCategoryTokenChanged.InvokeAsync( args.Value?.ToString() ?? string.Empty );
-    private Task OnCategoryValueChanged( ChangeEventArgs args ) => CategoryValueChanged.InvokeAsync( args.Value?.ToString() ?? string.Empty );
-    private Task OnSelectedSortTokenChanged( ChangeEventArgs args ) => SelectedSortTokenChanged.InvokeAsync( args.Value?.ToString() ?? string.Empty );
-    private Task OnSortDescendingChanged( ChangeEventArgs args ) => SortDescendingChanged.InvokeAsync( args.Value as bool? ?? false );
-    private Task OnSelectedSeverityChanged( ChangeEventArgs args ) => SelectedSeverityChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
-    private Task OnSelectedSpanKindChanged( ChangeEventArgs args ) => SelectedSpanKindChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
-    private Task OnSelectedMetricNameChanged( ChangeEventArgs args ) => SelectedMetricNameChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
+    private Task OnCategoryValueChanged( ChangeEventArgs         args ) => CategoryValueChanged.InvokeAsync( args.Value?.ToString()         ?? string.Empty );
+    private Task OnSelectedSortTokenChanged( ChangeEventArgs     args ) => SelectedSortTokenChanged.InvokeAsync( args.Value?.ToString()     ?? string.Empty );
+    private Task OnSortDirectionChanged( ChangeEventArgs         args ) => SortDescendingChanged.InvokeAsync( !string.Equals( args.Value?.ToString(), "asc", StringComparison.OrdinalIgnoreCase ) );
+    private Task OnSelectedSeverityChanged( ChangeEventArgs      args ) => SelectedSeverityChanged.InvokeAsync( args.Value?.ToString()   ?? "all" );
+    private Task OnSelectedSpanKindChanged( ChangeEventArgs      args ) => SelectedSpanKindChanged.InvokeAsync( args.Value?.ToString()   ?? "all" );
+    private Task OnSelectedMetricNameChanged( ChangeEventArgs    args ) => SelectedMetricNameChanged.InvokeAsync( args.Value?.ToString() ?? "all" );
 }

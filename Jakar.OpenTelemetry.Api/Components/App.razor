@@ -1,3 +1,5 @@
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -8,11 +10,11 @@
     <ResourcePreloader />
     <link rel="stylesheet" href="@Assets["app.css"]" />
     <link rel="stylesheet" href="@Assets["Jakar.OpenTelemetry.Api.styles.css"]" />
-    <HeadOutlet />
+    <HeadOutlet @rendermode="InteractiveServer" />
 </head>
 
 <body>
-    <Routes />
+    <Routes @rendermode="InteractiveServer" />
     <script src="@Assets["_framework/blazor.web.js"]"></script>
 </body>
 
