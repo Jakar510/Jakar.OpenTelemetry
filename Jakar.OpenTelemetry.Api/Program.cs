@@ -1,17 +1,20 @@
-using System.Diagnostics;
-using Jakar.Extensions;
+using Jakar.OpenTelemetry.Api.Components;
 using Jakar.OpenTelemetry.Api.Data;
 using Jakar.OpenTelemetry.Api.Grpc;
 using Jakar.OpenTelemetry.Api.Hubs;
 using Jakar.OpenTelemetry.Api.Services;
-using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Components;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Serialization;
 using ZiggyCreatures.Caching.Fusion;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder( args );
 
 builder.Services.AddOpenApi();
 builder.Services.AddGrpc();
-builder.Services.AddSignalR();
+builder.Services.AddSignalR()
+       .AddNewtonsoftJsonProtocol( static options => { options.PayloadSerializerSettings = new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver(), NullValueHandling = NullValueHandling.Ignore }; } );
+builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 builder.Services.AddCors( options =>
                           {
@@ -19,21 +22,28 @@ builder.Services.AddCors( options =>
                                                  policy =>
                                                  {
                                                      string[] origins = builder.Configuration.GetSection( "Cors:AllowedOrigins" ).Get<string[]>() ?? [ "https://localhost:7090", "http://localhost:5042" ];
-
                                                      policy.WithOrigins( origins ).AllowAnyHeader().AllowAnyMethod().AllowCredentials();
                                                  } );
                           } );
 
 
-IFusionCacheBuilder fusionCacheBuilder = builder.Services.AddFusionCache().WithDefaultEntryOptions( new FusionCacheEntryOptions { Duration = TimeSpan.FromMinutes( 5 ) } ).WithMemoryBackplane();
-// if ( !Debugger.IsAttached ) { fusionCacheBuilder.WithStackExchangeRedisBackplane(); }
+builder.Services.AddFusionCache().WithDefaultEntryOptions( new FusionCacheEntryOptions { Duration = TimeSpan.FromMinutes( 5 ) } ).WithMemoryBackplane();
 
 
 builder.Services.AddDbContext<TelemetryDbContext>();
+builder.Services.Configure<PortalConfiguration>( builder.Configuration.GetSection( PortalConfiguration.SECTION_NAME ) );
+builder.Services.AddScoped( sp =>
+                            {
+                                NavigationManager   navigationManager = sp.GetRequiredService<NavigationManager>();
+                                PortalConfiguration configuration     = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PortalConfiguration>>().Value;
+                                Uri                 baseUri           = TelemetryHubClient.ResolveBaseUri( configuration.ApiBaseUrl, navigationManager.BaseUri );
+                                return new HttpClient { BaseAddress = baseUri };
+                            } );
 
 builder.Services.AddScoped<TelemetryIngestService>();
 builder.Services.AddScoped<TelemetryQueryService>();
 builder.Services.AddScoped<TelemetryBroadcastService>();
+builder.Services.AddScoped<TelemetryHubClient>();
 
 
 await using WebApplication app = builder.Build();
@@ -47,36 +57,37 @@ using ( IServiceScope scope = app.Services.CreateScope() )
 if ( app.Environment.IsDevelopment() ) { app.MapOpenApi(); }
 
 app.UseHttpsRedirection();
-
 app.UseCors( "portal" );
+app.UseAntiforgery();
 
-
-app.MapGet( "/",
-            () => Results.Ok( new
-                                  {
-                                      name = "Jakar.OpenTelemetry.Api",
-                                      ingest = new
-                                                   {
-                                                       grpc = "/OpenTelemetry.Proto.Collector.Trace.V1.TraceService/Export, /OpenTelemetry.Proto.Collector.Logs.V1.LogsService/Export, /OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService/Export",
-                                                       signalR = "/hubs/telemetry",
-                                                       snapshot = "/api/telemetry/snapshot"
-                                                   }
-                                  } ) );
+app.MapGet( "/api",
+            () => TypedResults.Json( new
+                                         {
+                                             name = "Jakar.OpenTelemetry.Api",
+                                             ingest = new
+                                                          {
+                                                              grpc =
+                                                                  "/OpenTelemetry.Proto.Collector.Trace.V1.TraceService/Export, /OpenTelemetry.Proto.Collector.Logs.V1.LogsService/Export, /OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService/Export",
+                                                              signalR  = "/hubs/telemetry",
+                                                              snapshot = "/api/telemetry/snapshot"
+                                                          }
+                                         } ) );
 
 app.MapGet( "/api/telemetry/snapshot",
             async ( int? take, TelemetryQueryService telemetry, CancellationToken cancellationToken ) =>
             {
                 int size = Math.Clamp( take ?? 250, 25, 1000 );
-                return Results.Ok( await telemetry.GetSnapshotAsync( size, cancellationToken ) );
-            } );
-
+                return TypedResults.Json( await telemetry.GetSnapshotAsync( size, cancellationToken ) );
+            } )
+   .RequireAuthorization();
+// .RequireRateLimiting();
 
 app.MapHub<TelemetryHub>( "/hubs/telemetry" );
 
 app.MapGrpcService<OtlpLogsService>();
 app.MapGrpcService<OtlpTraceService>();
 app.MapGrpcService<OtlpMetricsService>();
-
-app.Urls.Add( "https://localhost:7152", "http://localhost:7090", "http://localhost:5042" );
+app.MapStaticAssets();
+app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 await app.RunAsync();

@@ -1,0 +1,51 @@
+@using System.Globalization
+
+@if ( Points.Count == 0 )
+{
+    <div class="chart-empty">@EmptyMessage</div>
+}
+else
+{
+    <div class="line-chart">
+        <svg viewBox="0 0 100 40" preserveAspectRatio="none" aria-hidden="true">
+            <defs>
+                <linearGradient id="@GradientId" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stop-color="@Stroke"/>
+                    <stop offset="100%" stop-color="transparent"/>
+                </linearGradient>
+            </defs>
+            <polyline class="chart-fill" points="@FillPoints" fill="url(#@GradientId)"/>
+            <polyline class="chart-line" points="@PolylinePoints" stroke="@Stroke"/>
+        </svg>
+        <div class="chart-caption">
+            <span>@Points.First().BucketUtc:MM-dd HH:mm</span>
+            <span>@Points.Last().BucketUtc:MM-dd HH:mm</span>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<TelemetryTimeSeriesPointDto> Points       { get; set; } = [ ];
+    [Parameter] public string                                     Stroke       { get; set; } = "#62d6ff";
+    [Parameter] public string                                     EmptyMessage { get; set; } = "No data.";
+    private            string                                     GradientId   { get; }      = $"line-{Guid.NewGuid():N}";
+
+    private string PolylinePoints
+    {
+        get
+        {
+            double max   = Math.Max( 1D, Points.Max( point => point.Value ) );
+            int    count = Math.Max( 1, Points.Count - 1 );
+
+            return string.Join( " ",
+                                Points.Select( ( point, index ) =>
+                                               {
+                                                   double x = ( index / (double)count ) * 100D;
+                                                   double y = 36D - ( ( point.Value / max ) * 32D );
+                                                   return $"{x.ToString( "0.##", CultureInfo.InvariantCulture )},{y.ToString( "0.##", CultureInfo.InvariantCulture )}";
+                                               } ) );
+        }
+    }
+
+    private string FillPoints => $"0,38 {PolylinePoints} 100,38";
+}

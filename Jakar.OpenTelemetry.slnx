@@ -1,6 +1,5 @@
 <Solution>
     <Project Path="Jakar.OpenTelemetry.Api/Jakar.OpenTelemetry.Api.csproj"/>
     <Project Path="Jakar.OpenTelemetry.Contracts/Jakar.OpenTelemetry.Contracts.csproj"/>
-    <Project Path="Jakar.OpenTelemetry.Portal/Jakar.OpenTelemetry.Portal.csproj"/>
     <Project Path="Jakar.OpenTelemetry.Source/Jakar.OpenTelemetry.Source.csproj"/>
 </Solution>
