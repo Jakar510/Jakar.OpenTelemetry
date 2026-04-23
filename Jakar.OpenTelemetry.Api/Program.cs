@@ -1,27 +1,25 @@
-using System.Net;
 using Jakar.OpenTelemetry.Api.Security;
 using Jakar.OpenTelemetry.Api.Components;
 using Jakar.OpenTelemetry.Api.Data;
+using Jakar.OpenTelemetry.Api.Endpoints;
 using Jakar.OpenTelemetry.Api.Grpc;
 using Jakar.OpenTelemetry.Api.Hubs;
 using Jakar.OpenTelemetry.Api.Services;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components;
-using Newtonsoft.Json;
-using Newtonsoft.Json.Serialization;
+using Microsoft.OpenApi.Models;
 using ZiggyCreatures.Caching.Fusion;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder( args );
 
-builder.Services.AddHttpContextAccessor();
 builder.Services.AddOptions<OtlpIngestOptions>()
        .Bind( builder.Configuration.GetSection( OtlpIngestOptions.SECTION_NAME ) )
        .Validate( static options => !string.IsNullOrWhiteSpace( options.ApiKeyHeaderName ) && !string.IsNullOrWhiteSpace( options.ApiKey ), $"{OtlpIngestOptions.SECTION_NAME} must define a non-empty API key and header name." )
        .ValidateOnStart();
 builder.Services.AddOptions<DashboardAuthOptions>()
        .Bind( builder.Configuration.GetSection( DashboardAuthOptions.SECTION_NAME ) )
-       .Validate( static options => options.Users.Count > 0 && options.Users.All( static user => !string.IsNullOrWhiteSpace( user.Username ) && !string.IsNullOrWhiteSpace( user.Password ) ),
+       .Validate( static options => options.Users.Length > 0 && options.Users.All( static user => !string.IsNullOrWhiteSpace( user.Username ) && !string.IsNullOrWhiteSpace( user.Password ) ),
                   $"{DashboardAuthOptions.SECTION_NAME} must define at least one username/password." )
        .ValidateOnStart();
 
@@ -69,7 +67,25 @@ builder.Services.AddAuthorizationBuilder()
                    } );
 builder.Services.AddCascadingAuthenticationState();
 
-builder.Services.AddOpenApi();
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen( options =>
+                                {
+                                    options.SwaggerDoc( "v1", new OpenApiInfo { Title = "Jakar.OpenTelemetry.Api", Version = "v1", Description = "Dashboard and snapshot endpoints for Jakar.OpenTelemetry." } );
+                                    options.AddSecurityDefinition( "cookieAuth",
+                                                                   new OpenApiSecurityScheme
+                                                                       {
+                                                                           Type        = SecuritySchemeType.ApiKey,
+                                                                           In          = ParameterLocation.Cookie,
+                                                                           Name        = ".AspNetCore.Cookies",
+                                                                           Description = "Authenticate through /login in the browser before using Swagger UI."
+                                                                       } );
+                                    options.AddSecurityRequirement( new OpenApiSecurityRequirement
+                                                                        {
+                                                                            [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "cookieAuth" } }] = Array.Empty<string>()
+                                                                        } );
+                                } );
+
 builder.Services.AddGrpc();
 builder.Services.AddSignalR().AddNewtonsoftJsonProtocol( static options => { options.PayloadSerializerSettings = NewtonsoftJsonDefaults.Settings; } );
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
@@ -92,7 +108,7 @@ builder.Services.AddSingleton<ConfiguredDashboardUserAuthenticator>();
 builder.Services.AddSingleton<GrpcIngestAuthorizer>();
 builder.Services.AddDbContext<TelemetryDbContext>();
 builder.Services.Configure<PortalConfiguration>( builder.Configuration.GetSection( PortalConfiguration.SECTION_NAME ) );
-builder.Services.AddScoped( sp =>
+builder.Services.AddScoped( static sp =>
                             {
                                 NavigationManager    navigationManager = sp.GetRequiredService<NavigationManager>();
                                 PortalConfiguration  configuration     = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<PortalConfiguration>>().Value;
@@ -123,64 +139,41 @@ using ( IServiceScope scope = app.Services.CreateScope() )
     await db.Database.EnsureCreatedAsync();
 }
 
-if ( app.Environment.IsDevelopment() ) { app.MapOpenApi().RequireAuthorization( AppAuthPolicies.DASHBOARD_ACCESS ); }
-
 app.UseHttpsRedirection();
 app.UseCors( "portal" );
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapPost( "/auth/login",
-             async ( HttpContext httpContext, ConfiguredDashboardUserAuthenticator authenticator, CancellationToken cancellationToken ) =>
+app.UseWhen( static context => context.Request.Path.StartsWithSegments( "/swagger", StringComparison.OrdinalIgnoreCase ),
+             static branch =>
              {
-                 IFormCollection form      = await httpContext.Request.ReadFormAsync( cancellationToken );
-                 string          username  = form["username"].ToString();
-                 string          password  = form["password"].ToString();
-                 string          returnUrl = AppSecurityHelpers.NormalizeReturnUrl( form["returnUrl"].ToString() );
+                 branch.Use( static async ( context, next ) =>
+                             {
+                                 if ( !context.User.Identity?.IsAuthenticated ?? true )
+                                 {
+                                     await context.ChallengeAsync( AppAuthSchemes.COOKIE );
+                                     return;
+                                 }
 
-                 if ( authenticator.Authenticate( username, password ) is not { } principal )
-                 {
-                     string invalidLoginUrl = $"/login?error={Uri.EscapeDataString( "Invalid username or password." )}&returnUrl={Uri.EscapeDataString( returnUrl )}";
-                     return TypedResults.Redirect( invalidLoginUrl );
-                 }
+                                 if ( !AppRoles.DashboardRoles.Any( context.User.IsInRole ) )
+                                 {
+                                     await context.ForbidAsync( AppAuthSchemes.COOKIE );
+                                     return;
+                                 }
 
-                 await httpContext.SignInAsync( AppAuthSchemes.COOKIE, principal, new AuthenticationProperties { IsPersistent = true, AllowRefresh = true } );
-                 return TypedResults.Redirect( returnUrl );
-             } )
-   .AllowAnonymous()
-   .DisableAntiforgery();
+                                 await next();
+                             } );
+             } );
 
-app.MapPost( "/auth/logout",
-             async ( HttpContext httpContext ) =>
-             {
-                 await httpContext.SignOutAsync( AppAuthSchemes.COOKIE );
-                 return TypedResults.Redirect( "/login" );
-             } )
-   .RequireAuthorization( AppAuthPolicies.DASHBOARD_ACCESS )
-   .DisableAntiforgery();
+app.UseSwagger();
+app.UseSwaggerUI( static options =>
+                  {
+                      options.SwaggerEndpoint( "/swagger/v1/swagger.json", "Jakar.OpenTelemetry.Api v1" );
+                      options.RoutePrefix = "swagger";
+                  } );
 
-RouteGroupBuilder api = app.MapGroup( "/api" ).RequireAuthorization( AppAuthPolicies.DASHBOARD_ACCESS );
-
-api.MapGet( "/",
-            () => NewtonsoftJsonHttpResult.Ok( new
-                                                   {
-                                                       name = "Jakar.OpenTelemetry.Api",
-                                                       ingest = new
-                                                                    {
-                                                                        grpc =
-                                                                            "/OpenTelemetry.Proto.Collector.Trace.V1.TraceService/Export, /OpenTelemetry.Proto.Collector.Logs.V1.LogsService/Export, /OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService/Export",
-                                                                        signalR  = "/hubs/telemetry",
-                                                                        snapshot = "/api/telemetry/snapshot"
-                                                                    }
-                                                   } ) );
-
-api.MapGet( "/telemetry/snapshot",
-            async ( int? take, TelemetryQueryService telemetry, CancellationToken cancellationToken ) =>
-            {
-                int size = Math.Clamp( take ?? 250, 25, 1000 );
-                return NewtonsoftJsonHttpResult.Ok( await telemetry.GetSnapshotAsync( size, cancellationToken ) );
-            } );
+app.MapHttpEndpoints();
 
 app.MapHub<TelemetryHub>( "/hubs/telemetry" ).RequireAuthorization( AppAuthPolicies.DASHBOARD_ACCESS );
 

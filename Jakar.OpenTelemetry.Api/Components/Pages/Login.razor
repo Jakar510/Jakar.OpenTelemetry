@@ -1,0 +1,55 @@
+@page "/login"
+@attribute [AllowAnonymous]
+
+<PageTitle>Sign In</PageTitle>
+
+<section class="login-card">
+    <div class="panel-head">
+        <div>
+            <p class="eyebrow">Authentication</p>
+            <h3>Sign in to the dashboard</h3>
+        </div>
+        <span>Access is required for the dashboard, JSON endpoints, and SignalR.</span>
+    </div>
+
+    @if ( !string.IsNullOrWhiteSpace( Error ) )
+    {
+        <p class="login-error">@Error</p>
+    }
+
+    <form class="login-form"
+          method="post"
+          action="/auth/login">
+        <input type="hidden"
+               name="returnUrl"
+               value="@SafeReturnUrl" />
+
+        <label>
+            Username
+            <input type="text"
+                   name="username"
+                   autocomplete="username"
+                   required />
+        </label>
+
+        <label>
+            Password
+            <input type="password"
+                   name="password"
+                   autocomplete="current-password"
+                   required />
+        </label>
+
+        <button type="submit"
+                class="action-button login-button">
+            Sign in
+        </button>
+    </form>
+</section>
+
+@code {
+    [SupplyParameterFromQuery(Name = "returnUrl")] public string? ReturnUrl { get; set; }
+    [SupplyParameterFromQuery(Name = "error")]     public string? Error     { get; set; }
+
+    private string SafeReturnUrl => AppSecurityHelpers.NormalizeReturnUrl( ReturnUrl );
+}

@@ -1,0 +1,32 @@
+.login-card {
+    width: min(100%, 34rem);
+    margin: 8vh auto 0;
+    padding: 1.4rem;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 1.35rem;
+    box-shadow: 0 1.2rem 2.8rem rgba(7, 13, 30, 0.18);
+}
+
+.login-form {
+    display: grid;
+    gap: 1rem;
+}
+
+.login-form label {
+    display: grid;
+    gap: 0.45rem;
+    color: var(--muted);
+}
+
+.login-error {
+    margin: 0 0 1rem;
+    padding: 0.85rem 1rem;
+    border-radius: 0.95rem;
+    color: #ffccc2;
+    background: linear-gradient(135deg, rgba(164, 39, 47, 0.95), rgba(106, 22, 31, 0.92));
+}
+
+.login-button {
+    justify-self: start;
+}
