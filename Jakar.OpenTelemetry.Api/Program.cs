@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Jakar.Extensions;
 using Jakar.OpenTelemetry.Api.Data;
 using Jakar.OpenTelemetry.Api.Grpc;
 using Jakar.OpenTelemetry.Api.Hubs;
@@ -24,8 +25,8 @@ builder.Services.AddCors( options =>
                           } );
 
 
-var fusionCacheBuilder = builder.Services.AddFusionCache().WithDefaultEntryOptions( new FusionCacheEntryOptions { Duration = TimeSpan.FromMinutes( 5 ) } ).WithMemoryBackplane();
-if ( !Debugger.IsAttached ) { fusionCacheBuilder.WithStackExchangeRedisBackplane(); }
+IFusionCacheBuilder fusionCacheBuilder = builder.Services.AddFusionCache().WithDefaultEntryOptions( new FusionCacheEntryOptions { Duration = TimeSpan.FromMinutes( 5 ) } ).WithMemoryBackplane();
+// if ( !Debugger.IsAttached ) { fusionCacheBuilder.WithStackExchangeRedisBackplane(); }
 
 
 builder.Services.AddDbContext<TelemetryDbContext>();
@@ -75,5 +76,7 @@ app.MapHub<TelemetryHub>( "/hubs/telemetry" );
 app.MapGrpcService<OtlpLogsService>();
 app.MapGrpcService<OtlpTraceService>();
 app.MapGrpcService<OtlpMetricsService>();
+
+app.Urls.Add( "https://localhost:7152", "http://localhost:7090", "http://localhost:5042" );
 
 await app.RunAsync();

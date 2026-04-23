@@ -1,3 +1,4 @@
+using Jakar.Extensions;
 using Jakar.OpenTelemetry.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
@@ -14,7 +15,7 @@ public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> opt
     {
         builder.EnableDetailedErrors();
 
-        string connectionString = configuration.GetConnectionString( "Telemetry" ) ?? "Host=localhost;Port=5432;Database=jakar_open_telemetry;Username=postgres;Password=postgres";
+        string connectionString = Validate.ThrowIfNull(configuration.GetConnectionString( "Telemetry" ));
         builder.UseNpgsql( connectionString );
 
         base.OnConfiguring( builder );
@@ -76,14 +77,14 @@ public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> opt
         property.Metadata.SetValueComparer( TelemetryJson.DoubleDictionaryComparer );
     }
 
-    private static void ConfigureSpanEventArray( PropertyBuilder<Jakar.OpenTelemetry.Contracts.SpanEvent[]?> property )
+    private static void ConfigureSpanEventArray( PropertyBuilder<Contracts.SpanEvent[]?> property )
     {
         property.HasColumnType( "jsonb" );
         property.HasConversion( TelemetryJson.SpanEventArrayConverter );
         property.Metadata.SetValueComparer( TelemetryJson.SpanEventArrayComparer );
     }
 
-    private static void ConfigureSpanLinkArray( PropertyBuilder<Jakar.OpenTelemetry.Contracts.SpanLink[]?> property )
+    private static void ConfigureSpanLinkArray( PropertyBuilder<Contracts.SpanLink[]?> property )
     {
         property.HasColumnType( "jsonb" );
         property.HasConversion( TelemetryJson.SpanLinkArrayConverter );
