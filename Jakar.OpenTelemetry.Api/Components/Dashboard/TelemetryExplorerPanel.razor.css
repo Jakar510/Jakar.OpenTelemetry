@@ -37,11 +37,6 @@
     min-width: 0;
 }
 
-.toggle-label {
-    align-items: center;
-    grid-template-columns: 1fr auto;
-}
-
 input,
 select {
     width: 100%;

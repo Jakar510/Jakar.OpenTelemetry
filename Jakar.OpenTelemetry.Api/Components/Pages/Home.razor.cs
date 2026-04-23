@@ -164,18 +164,20 @@ public sealed partial class Home : ComponentBase, IDisposable
         SelectedCategory = new FilterKey( FilterField.None );
         CategoryValue    = string.Empty;
         EnsureValidSort();
-        return Task.CompletedTask;
+        return InvokeAsync( StateHasChanged );
     }
 
-    private Task OnSearchTextChanged( string value ) { SearchText = value; return Task.CompletedTask; }
-    private Task OnSelectedServiceChanged( string value ) { SelectedService = value; return Task.CompletedTask; }
-    private Task OnSelectedCategoryTokenChanged( string value ) { SelectedCategoryToken = value; return Task.CompletedTask; }
-    private Task OnCategoryValueChanged( string value ) { CategoryValue = value; return Task.CompletedTask; }
-    private Task OnSelectedSortTokenChanged( string value ) { SelectedSortToken = value; return Task.CompletedTask; }
-    private Task OnSortDescendingChanged( bool value ) { SortDescending = value; return Task.CompletedTask; }
-    private Task OnSelectedSeverityChanged( string value ) { SelectedSeverity = value; return Task.CompletedTask; }
-    private Task OnSelectedSpanKindChanged( string value ) { SelectedSpanKind = value; return Task.CompletedTask; }
-    private Task OnSelectedMetricNameChanged( string value ) { SelectedMetricName = value; return Task.CompletedTask; }
+    private Task OnSearchTextChanged( string value ) { SearchText = value; return NotifyStateChangedAsync(); }
+    private Task OnSelectedServiceChanged( string value ) { SelectedService = value; return NotifyStateChangedAsync(); }
+    private Task OnSelectedCategoryTokenChanged( string value ) { SelectedCategoryToken = value; return NotifyStateChangedAsync(); }
+    private Task OnCategoryValueChanged( string value ) { CategoryValue = value; return NotifyStateChangedAsync(); }
+    private Task OnSelectedSortTokenChanged( string value ) { SelectedSortToken = value; return NotifyStateChangedAsync(); }
+    private Task OnSortDescendingChanged( bool value ) { SortDescending = value; return NotifyStateChangedAsync(); }
+    private Task OnSelectedSeverityChanged( string value ) { SelectedSeverity = value; return NotifyStateChangedAsync(); }
+    private Task OnSelectedSpanKindChanged( string value ) { SelectedSpanKind = value; return NotifyStateChangedAsync(); }
+    private Task OnSelectedMetricNameChanged( string value ) { SelectedMetricName = value; return NotifyStateChangedAsync(); }
+
+    private Task NotifyStateChangedAsync() => InvokeAsync( StateHasChanged );
 
     private void EnsureValidSort()
     {

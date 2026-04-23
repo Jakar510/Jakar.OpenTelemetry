@@ -1,4 +1,6 @@
+@using static Microsoft.AspNetCore.Components.Web.RenderMode
 @page "/"
+@rendermode InteractiveServer
 
 <PageTitle>Telemetry Portal</PageTitle>
 
@@ -111,19 +113,19 @@
                             MetricNameOptions="@MetricNameOptions" />
 
     <section class="panel-card table-card">
-        @switch ( ActiveTab )
+        @if ( ActiveTab == TelemetryTab.Logs )
         {
-            case TelemetryTab.Logs:
-                <TelemetryLogsTab Records="@VisibleLogs" />
-                break;
-
-            case TelemetryTab.Spans:
-                <TelemetrySpansTab Records="@VisibleSpans" />
-                break;
-
-            case TelemetryTab.Metrics:
-                <TelemetryMetricsTab Records="" />
-                break;
+            <TelemetryLogsTab Records="VisibleLogs" />
+        }
+        
+        @if ( ActiveTab == TelemetryTab.Spans )
+        {
+            <TelemetrySpansTab Records="VisibleSpans" />
+        }
+        
+        @if ( ActiveTab == TelemetryTab.Metrics )
+        {
+            <TelemetryMetricsTab Records="VisibleMetrics" />
         }
     </section>
 
