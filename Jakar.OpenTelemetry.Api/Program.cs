@@ -5,6 +5,7 @@ using Jakar.OpenTelemetry.Api.Endpoints;
 using Jakar.OpenTelemetry.Api.Grpc;
 using Jakar.OpenTelemetry.Api.Hubs;
 using Jakar.OpenTelemetry.Api.Services;
+using Jakar.OpenTelemetry.Api.Swagger;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components;
@@ -76,6 +77,14 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen( options =>
                                 {
                                     options.SwaggerDoc( "v1", new OpenApiInfo { Title = "Jakar.OpenTelemetry.Api", Version = "v1", Description = "Dashboard and snapshot endpoints for Jakar.OpenTelemetry." } );
+                                    options.AddSecurityDefinition( "otlpApiKey",
+                                                                   new OpenApiSecurityScheme
+                                                                   {
+                                                                       Type        = SecuritySchemeType.ApiKey,
+                                                                       In          = ParameterLocation.Header,
+                                                                       Name        = "x-api-key",
+                                                                       Description = "API key header required by the OTLP gRPC ingest endpoints."
+                                                                   } );
                                     options.AddSecurityDefinition( "cookieAuth",
                                                                    new OpenApiSecurityScheme
                                                                        {
@@ -88,6 +97,7 @@ builder.Services.AddSwaggerGen( options =>
                                                                         {
                                                                             [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "cookieAuth" } }] = Array.Empty<string>()
                                                                         } );
+                                    options.DocumentFilter<OtlpGrpcDocumentFilter>();
                                 } );
 
 builder.Services.AddGrpc();
