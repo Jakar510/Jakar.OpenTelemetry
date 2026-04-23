@@ -1,11 +1,12 @@
 using System.Collections.ObjectModel;
 using System.Globalization;
-using System.Text.Json;
-using System.Text.Json.Nodes;
 using Google.Protobuf;
 using Jakar.OpenTelemetry.Contracts;
 using Microsoft.EntityFrameworkCore.ChangeTracking;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
+using Newtonsoft.Json.Serialization;
 using OpenTelemetry.Proto.Common.V1;
 using OpenTelemetry.Proto.Trace.V1;
 
@@ -15,12 +16,12 @@ public static class TelemetryJson
 {
     public static readonly  ReadOnlyDictionary<string, string?> Empty          = new(new Dictionary<string, string?>());
     public static readonly  ReadOnlyDictionary<double, double>  EmptyQuantiles = new(new Dictionary<double, double>());
-    private static readonly JsonSerializerOptions               JsonOptions    = new(JsonSerializerDefaults.Web);
+    private static readonly JsonSerializerSettings              JsonSettings   = new() { ContractResolver = new CamelCasePropertyNamesContractResolver(), NullValueHandling = NullValueHandling.Ignore };
 
 
-    public static readonly ValueConverter<ReadOnlyDictionary<string, string?>, string> StringDictionaryConverter = new(static value => JsonSerializer.Serialize( value, JsonOptions ),
+    public static readonly ValueConverter<ReadOnlyDictionary<string, string?>, string> StringDictionaryConverter = new(static value => JsonConvert.SerializeObject( value, JsonSettings ),
                                                                                                                        static value =>
-                                                                                                                           new ReadOnlyDictionary<string, string?>( JsonSerializer.Deserialize<Dictionary<string, string?>>( value, JsonOptions ) ??
+                                                                                                                           new ReadOnlyDictionary<string, string?>( JsonConvert.DeserializeObject<Dictionary<string, string?>>( value, JsonSettings ) ??
                                                                                                                                                                     new Dictionary<string, string?>() ));
 
     public static readonly ValueComparer<ReadOnlyDictionary<string, string?>> StringDictionaryComparer = new(static ( left, right ) => CompareDictionaries( left, right ),
@@ -29,11 +30,11 @@ public static class TelemetryJson
 
     public static readonly ValueConverter<ReadOnlyDictionary<double, double>?, string?> DoubleDictionaryConverter = new(static value => value == null
                                                                                                                                             ? null
-                                                                                                                                            : JsonSerializer.Serialize( value, JsonOptions ),
+                                                                                                                                            : JsonConvert.SerializeObject( value, JsonSettings ),
                                                                                                                         static value => string.IsNullOrWhiteSpace( value )
                                                                                                                                             ? null
-                                                                                                                                            : new ReadOnlyDictionary<double, double>( JsonSerializer.Deserialize<Dictionary<double, double>>( value,
-                                                                                                                                                                                                                                              JsonOptions ) ??
+                                                                                                                                            : new ReadOnlyDictionary<double, double>( JsonConvert.DeserializeObject<Dictionary<double, double>>( value,
+                                                                                                                                                                                                                                                 JsonSettings ) ??
                                                                                                                                                                                       new Dictionary<double, double>() ));
 
     public static readonly ValueComparer<ReadOnlyDictionary<double, double>?> DoubleDictionaryComparer = new(static ( left, right ) => CompareDictionaries( left, right ),
@@ -49,10 +50,10 @@ public static class TelemetryJson
 
     private static ValueConverter<T[]?, string?> CreateArrayConverter<T>() => new(static value => value == null
                                                                                                       ? null
-                                                                                                      : JsonSerializer.Serialize( value, JsonOptions ),
+                                                                                                      : JsonConvert.SerializeObject( value, JsonSettings ),
                                                                                   static value => string.IsNullOrWhiteSpace( value )
                                                                                                       ? null
-                                                                                                      : JsonSerializer.Deserialize<T[]>( value, JsonOptions ));
+                                                                                                      : JsonConvert.DeserializeObject<T[]>( value, JsonSettings ));
 
     private static ValueComparer<T[]?> CreateArrayComparer<T>() => new(static ( left, right ) => CompareArrays( left, right ), static value => HashArray( value ), static value => CloneArray( value ));
 
@@ -69,7 +70,7 @@ public static class TelemetryJson
 
     private static int HashArray<T>( T[]? value ) => value == null
                                                          ? 0
-                                                         : JsonSerializer.Serialize( value, JsonOptions ).GetHashCode( StringComparison.Ordinal );
+                                                         : JsonConvert.SerializeObject( value, JsonSettings ).GetHashCode( StringComparison.Ordinal );
 
     private static T[]? CloneArray<T>( T[]? value ) => value?.ToArray();
 
@@ -152,15 +153,15 @@ public static class TelemetryJson
         return new ReadOnlyDictionary<string, string?>( values );
     }
 
-    public static string SerializeAttributes( IEnumerable<KeyValue> attributes ) => JsonSerializer.Serialize( ToDictionary( attributes ), JsonOptions );
+    public static string SerializeAttributes( IEnumerable<KeyValue> attributes ) => JsonConvert.SerializeObject( ToDictionary( attributes ), JsonSettings );
 
-    public static string SerializeObject( object? value ) => JsonSerializer.Serialize( value, JsonOptions );
+    public static string SerializeObject( object? value ) => JsonConvert.SerializeObject( value, JsonSettings );
 
     public static ReadOnlyDictionary<string, string?> DeserializeAttributes( string? json )
     {
         if ( string.IsNullOrWhiteSpace( json ) ) { return Empty; }
 
-        return new ReadOnlyDictionary<string, string?>( JsonSerializer.Deserialize<Dictionary<string, string?>>( json, JsonOptions ) ?? new Dictionary<string, string?>() );
+        return new ReadOnlyDictionary<string, string?>( JsonConvert.DeserializeObject<Dictionary<string, string?>>( json, JsonSettings ) ?? new Dictionary<string, string?>() );
     }
 
     public static string? TryGetServiceName( ReadOnlyDictionary<string, string?> resourceAttributes )
@@ -181,21 +182,21 @@ public static class TelemetryJson
     public static string? ToHex( ByteString bytes ) => bytes.IsEmpty
                                                            ? null
                                                            : Convert.ToHexString( bytes.ToByteArray() ).ToLowerInvariant();
-    public static string? ToText( AnyValue? value ) => ToNode( value )?.ToJsonString( JsonOptions );
+    public static string? ToText( AnyValue? value ) => ToNode( value )?.ToString( Formatting.None );
 
-    public static JsonNode? ToNode( AnyValue? value )
+    public static JToken? ToNode( AnyValue? value )
     {
         if ( value is null ) { return null; }
 
         return value.ValueCase switch
                    {
-                       AnyValue.ValueOneofCase.StringValue => JsonValue.Create( value.StringValue ),
-                       AnyValue.ValueOneofCase.BoolValue   => JsonValue.Create( value.BoolValue ),
-                       AnyValue.ValueOneofCase.IntValue    => JsonValue.Create( value.IntValue ),
-                       AnyValue.ValueOneofCase.DoubleValue => JsonValue.Create( value.DoubleValue ),
-                       AnyValue.ValueOneofCase.BytesValue  => JsonValue.Create( Convert.ToBase64String( value.BytesValue.ToByteArray() ) ),
-                       AnyValue.ValueOneofCase.ArrayValue  => new JsonArray( value.ArrayValue.Values.Select( ToNode ).ToArray() ),
-                       AnyValue.ValueOneofCase.KvlistValue => new JsonObject( value.KvlistValue.Values.ToDictionary( kv => kv.Key, kv => ToNode( kv.Value ), StringComparer.OrdinalIgnoreCase ) ),
+                       AnyValue.ValueOneofCase.StringValue => new JValue( value.StringValue ),
+                       AnyValue.ValueOneofCase.BoolValue   => new JValue( value.BoolValue ),
+                       AnyValue.ValueOneofCase.IntValue    => new JValue( value.IntValue ),
+                       AnyValue.ValueOneofCase.DoubleValue => new JValue( value.DoubleValue ),
+                       AnyValue.ValueOneofCase.BytesValue  => new JValue( Convert.ToBase64String( value.BytesValue.ToByteArray() ) ),
+                       AnyValue.ValueOneofCase.ArrayValue  => new JArray( value.ArrayValue.Values.Select( ToNode ) ),
+                       AnyValue.ValueOneofCase.KvlistValue => new JObject( value.KvlistValue.Values.Select( kv => new JProperty( kv.Key, ToNode( kv.Value ) ) ) ),
                        _                                   => null
                    };
     }
