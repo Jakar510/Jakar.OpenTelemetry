@@ -124,10 +124,34 @@ Important sections:
   Controls `app.Urls`
 - `ConnectionStrings:Telemetry`
   PostgreSQL connection used by `TelemetryDbContext`
+- `OtlpIngest`
+  Configures the required OTLP gRPC API key header and value
+- `DashboardAuth`
+  Configures login users and roles for the dashboard, JSON endpoints, SignalR, and OpenAPI
 - `Cors:AllowedOrigins`
   Allowed browser origins for SignalR and API access
 - `Portal:DefaultTake`
   Default record count used by snapshot queries
+
+Example auth settings:
+
+```json
+{
+  "OtlpIngest": {
+    "ApiKeyHeaderName": "x-api-key",
+    "ApiKey": "dev-ingest-key"
+  },
+  "DashboardAuth": {
+    "Users": [
+      {
+        "Username": "admin",
+        "Password": "dev-password",
+        "Roles": [ "Admin", "Viewer" ]
+      }
+    ]
+  }
+}
+```
 
 ### Sample Source
 
@@ -142,6 +166,8 @@ Default values:
   "SampleSource": {
     "ServiceName": "Jakar.OpenTelemetry.Source",
     "OtlpEndpoint": "https://localhost:7152",
+    "OtlpApiKey": "dev-ingest-key",
+    "ApiKeyHeaderName": "x-api-key",
     "TargetUrl": "https://www.google.com",
     "IntervalSeconds": 10,
     "RequestTimeoutSeconds": 15
@@ -199,6 +225,29 @@ Current JSON endpoints:
 
 These responses are serialized through Newtonsoft.Json rather than the default `System.Text.Json` minimal API serializer.
 
+### Authentication
+
+Non-OTLP access is protected with cookie authentication.
+
+This includes:
+
+- the dashboard at `/`
+- `GET /api`
+- `GET /api/telemetry/snapshot`
+- `/hubs/telemetry`
+- OpenAPI in development
+
+The login page is available at `/login`.
+
+### OTLP API Key
+
+The OTLP gRPC ingest services require a configured API key header.
+
+By default the sample source sends:
+
+- header: `x-api-key`
+- value: `dev-ingest-key`
+
 ### SignalR
 
 The dashboard keeps an open SignalR connection to:
@@ -227,4 +276,3 @@ Typical verification flow:
 3. Run the sample source
 4. Open the dashboard
 5. Confirm logs, spans, and metrics populate and live updates continue to arrive
-

@@ -3,10 +3,28 @@
 <div class="shell">
     <header class="shell-header">
         <div>
-            <p class="eyebrow">Jakar OpenTelemetry</p>
-            <h1>Portal</h1>
+            <div>
+                <p class="eyebrow">Jakar OpenTelemetry</p>
+                <h1>Portal</h1>
+            </div>
+            <p class="shell-copy">Live telemetry for OTLP logs, traces, spans, and metrics.</p>
         </div>
-        <p class="shell-copy">Live telemetry for OTLP logs, traces, spans, and metrics.</p>
+
+        <AuthorizeView>
+            <Authorized>
+                <div class="shell-actions">
+                    <span class="shell-user">@context.User.Identity?.Name</span>
+
+                    <form method="post"
+                          action="/auth/logout">
+                        <button type="submit"
+                                class="action-button">
+                            Sign out
+                        </button>
+                    </form>
+                </div>
+            </Authorized>
+        </AuthorizeView>
     </header>
 
     <main class="shell-body">

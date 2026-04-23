@@ -12,7 +12,7 @@ using OpenTelemetry.Trace;
 HostApplicationBuilder builder = Host.CreateApplicationBuilder( args );
 
 SampleSourceOptions sourceOptions = builder.Configuration.GetSection( SampleSourceOptions.SECTION_NAME ).Get<SampleSourceOptions>() ?? new SampleSourceOptions();
-string              version       = typeof(Program).Assembly.GetName().Version?.ToString() ?? "1.0.0";
+string              version       = typeof(Program).Assembly.GetName().Version?.ToString()                                          ?? "1.0.0";
 
 builder.Services.AddSingleton( sourceOptions );
 
@@ -69,4 +69,7 @@ static void ConfigureExporter( OtlpExporterOptions exporter, SampleSourceOptions
 {
     exporter.Endpoint = new Uri( sourceOptions.OtlpEndpoint );
     exporter.Protocol = OtlpExportProtocol.Grpc;
+    exporter.Headers  = string.IsNullOrWhiteSpace( sourceOptions.OtlpApiKey )
+                            ? null
+                            : $"{sourceOptions.ApiKeyHeaderName}={Uri.EscapeDataString( sourceOptions.OtlpApiKey )}";
 }
