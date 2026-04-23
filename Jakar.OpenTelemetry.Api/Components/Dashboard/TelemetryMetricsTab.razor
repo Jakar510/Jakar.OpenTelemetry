@@ -1,0 +1,50 @@
+<div class="panel-head">
+    <div>
+        <p class="eyebrow">Metrics</p>
+        <h3>@TelemetryDashboardFormatter.FormatCount( Records.Count ) points</h3>
+    </div>
+    <span>Gauge, sum, histogram, exponential histogram, and summary metric points.</span>
+</div>
+
+@if ( Records.Count == 0 )
+{
+    <p class="empty-state">No metric points match the current filter set.</p>
+}
+else
+{
+    <div class="table-wrap">
+        <table>
+            <thead>
+            <tr>
+                <th>Time</th>
+                <th>Service</th>
+                <th>Name</th>
+                <th>Type</th>
+                <th>Value</th>
+                <th>Unit</th>
+                <th>Temporality</th>
+                <th>Attributes</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach ( TelemetryMetricRecordDto metric in Records )
+            {
+                <tr>
+                    <td>@TelemetryDashboardFormatter.FormatDate( metric.TimestampUtc ?? metric.ReceivedAtUtc )</td>
+                    <td>@( metric.ServiceName ?? "unknown" )</td>
+                    <td title="@metric.Description">@TelemetryDashboardFormatter.Trim( metric.Name, 48 )</td>
+                    <td>@metric.MetricType</td>
+                    <td>@metric.NumericValue.ToString( "0.###" )</td>
+                    <td>@metric.Unit</td>
+                    <td>@metric.AggregationTemporality</td>
+                    <td title="@TelemetryDashboardFormatter.FormatMetricMap( metric )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.FormatMetricMap( metric ), 72 )</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    [Parameter] public IReadOnlyList<TelemetryMetricRecordDto> Records { get; set; } = [ ];
+}

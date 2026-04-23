@@ -13,7 +13,7 @@ WebApplicationBuilder builder = WebApplication.CreateBuilder( args );
 builder.Services.AddOpenApi();
 builder.Services.AddGrpc();
 builder.Services.AddSignalR()
-       .AddNewtonsoftJsonProtocol( static options => { options.PayloadSerializerSettings = new JsonSerializerSettings { ContractResolver = new CamelCasePropertyNamesContractResolver(), NullValueHandling = NullValueHandling.Ignore }; } );
+       .AddNewtonsoftJsonProtocol( static options => { options.PayloadSerializerSettings = NewtonsoftJsonDefaults.Settings; } );
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 builder.Services.AddCors( options =>
@@ -48,6 +48,13 @@ builder.Services.AddScoped<TelemetryHubClient>();
 
 await using WebApplication app = builder.Build();
 
+string[] configuredUrls = builder.Configuration.GetSection( "Urls" ).Get<string[]>() ?? [ ];
+if ( configuredUrls.Length > 0 )
+{
+    app.Urls.Clear();
+    foreach ( string configuredUrl in configuredUrls.Where( static value => !string.IsNullOrWhiteSpace( value ) ) ) { app.Urls.Add( configuredUrl ); }
+}
+
 using ( IServiceScope scope = app.Services.CreateScope() )
 {
     TelemetryDbContext db = scope.ServiceProvider.GetRequiredService<TelemetryDbContext>();
@@ -61,25 +68,24 @@ app.UseCors( "portal" );
 app.UseAntiforgery();
 
 app.MapGet( "/api",
-            () => TypedResults.Json( new
-                                         {
-                                             name = "Jakar.OpenTelemetry.Api",
-                                             ingest = new
-                                                          {
-                                                              grpc =
-                                                                  "/OpenTelemetry.Proto.Collector.Trace.V1.TraceService/Export, /OpenTelemetry.Proto.Collector.Logs.V1.LogsService/Export, /OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService/Export",
-                                                              signalR  = "/hubs/telemetry",
-                                                              snapshot = "/api/telemetry/snapshot"
-                                                          }
-                                         } ) );
+            () => NewtonsoftJsonHttpResult.Ok( new
+                                               {
+                                                   name = "Jakar.OpenTelemetry.Api",
+                                                   ingest = new
+                                                            {
+                                                                grpc =
+                                                                    "/OpenTelemetry.Proto.Collector.Trace.V1.TraceService/Export, /OpenTelemetry.Proto.Collector.Logs.V1.LogsService/Export, /OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService/Export",
+                                                                signalR  = "/hubs/telemetry",
+                                                                snapshot = "/api/telemetry/snapshot"
+                                                            }
+                                               } ) );
 
 app.MapGet( "/api/telemetry/snapshot",
             async ( int? take, TelemetryQueryService telemetry, CancellationToken cancellationToken ) =>
             {
                 int size = Math.Clamp( take ?? 250, 25, 1000 );
-                return TypedResults.Json( await telemetry.GetSnapshotAsync( size, cancellationToken ) );
-            } )
-   .RequireAuthorization();
+                return NewtonsoftJsonHttpResult.Ok( await telemetry.GetSnapshotAsync( size, cancellationToken ) );
+            } );
 // .RequireRateLimiting();
 
 app.MapHub<TelemetryHub>( "/hubs/telemetry" );

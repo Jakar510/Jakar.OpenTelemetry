@@ -1,0 +1,24 @@
+<section class="panel-card @Class">
+    <div class="panel-head">
+        <div>
+            <p class="eyebrow">@Eyebrow</p>
+            <h3>@Title</h3>
+        </div>
+
+        @if ( !string.IsNullOrWhiteSpace( Meta ) )
+        {
+            <span>@Meta</span>
+        }
+    </div>
+
+    @ChildContent
+</section>
+
+
+@code {
+    [Parameter] public required string Eyebrow { get; set; }
+    [Parameter] public required string Title { get; set; }
+    [Parameter] public string? Meta { get; set; }
+    [Parameter] public string Class { get; set; } = string.Empty;
+    [Parameter] public required RenderFragment ChildContent { get; set; }
+}
