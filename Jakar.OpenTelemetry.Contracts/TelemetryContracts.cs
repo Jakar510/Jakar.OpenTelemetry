@@ -2,6 +2,10 @@ using System.Collections.ObjectModel;
 
 namespace Jakar.OpenTelemetry.Contracts;
 
+public sealed record ApiIngestEndpointsDto( string Grpc, string SignalR, string Snapshot );
+
+public sealed record ApiMetadataDto( string Name, ApiIngestEndpointsDto Ingest );
+
 public readonly record struct SpanEvent( DateTimeOffset? TimeUtc, string Name, ReadOnlyDictionary<string, string?> Attributes );
 
 public readonly record struct SpanLink( string? TraceId, string? SpanId, string TraceState, ReadOnlyDictionary<string, string?> Attributes );

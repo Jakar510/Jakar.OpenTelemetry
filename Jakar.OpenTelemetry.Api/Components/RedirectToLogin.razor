@@ -1,0 +1,17 @@
+@inject NavigationManager NavigationManager
+
+<p class="empty-state">
+    Authentication is required.
+    <a href="@LoginUrl">Continue to sign in</a>
+</p>
+
+@code {
+    private string LoginUrl => $"/login?returnUrl={Uri.EscapeDataString( AppSecurityHelpers.NormalizeReturnUrl( "/" + NavigationManager.ToBaseRelativePath( NavigationManager.Uri ) ) )}";
+
+    protected override void OnAfterRender( bool firstRender )
+    {
+        if ( !firstRender ) { return; }
+
+        NavigationManager.NavigateTo( LoginUrl, forceLoad: true );
+    }
+}

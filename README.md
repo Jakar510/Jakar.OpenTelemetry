@@ -26,6 +26,7 @@ It currently includes:
 - Newtonsoft.Json-based serialization for HTTP, SignalR, and internal JSON handling
 - SignalR live updates to the dashboard
 - Server-side rendered Blazor dashboard at `/`
+- Swagger UI and OpenAPI JSON for the minimal API surface
 - Filterable and sortable telemetry explorer
 - Timeline and breakdown charts for recent data
 - FusionCache-backed snapshot caching in the query layer
@@ -34,9 +35,9 @@ It currently includes:
 
 ```text
 Jakar.OpenTelemetry.slnx
-├── Jakar.OpenTelemetry.Api
-├── Jakar.OpenTelemetry.Contracts
-└── Jakar.OpenTelemetry.Source
+|- Jakar.OpenTelemetry.Api
+|- Jakar.OpenTelemetry.Contracts
+\- Jakar.OpenTelemetry.Source
 ```
 
 ## Runtime Overview
@@ -57,12 +58,15 @@ The API host is responsible for:
   - `/api`
 - Dashboard:
   - `/`
+- Swagger UI:
+  - `/swagger`
 
 The API uses:
 
 - `Npgsql.EntityFrameworkCore.PostgreSQL`
 - `Grpc.AspNetCore`
 - `Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson`
+- `Swashbuckle.AspNetCore`
 - `ZiggyCreatures.FusionCache`
 
 ### Dashboard
@@ -127,7 +131,7 @@ Important sections:
 - `OtlpIngest`
   Configures the required OTLP gRPC API key header and value
 - `DashboardAuth`
-  Configures login users and roles for the dashboard, JSON endpoints, SignalR, and OpenAPI
+  Configures login users and roles for the dashboard, JSON endpoints, SignalR, and Swagger
 - `Cors:AllowedOrigins`
   Allowed browser origins for SignalR and API access
 - `Portal:DefaultTake`
@@ -225,6 +229,20 @@ Current JSON endpoints:
 
 These responses are serialized through Newtonsoft.Json rather than the default `System.Text.Json` minimal API serializer.
 
+Where possible, the minimal endpoints use `TypedResults`. The JSON endpoints still use a typed custom result so they can keep Newtonsoft.Json serialization instead of `TypedResults.Json`.
+
+### Swagger
+
+Swagger UI is available at:
+
+- `/swagger`
+
+Swagger JSON is available at:
+
+- `/swagger/v1/swagger.json`
+
+Swagger is protected by the same cookie authentication and authorization policy as the dashboard and snapshot endpoints.
+
 ### Authentication
 
 Non-OTLP access is protected with cookie authentication.
@@ -235,7 +253,8 @@ This includes:
 - `GET /api`
 - `GET /api/telemetry/snapshot`
 - `/hubs/telemetry`
-- OpenAPI in development
+- `/swagger`
+- `/swagger/v1/swagger.json`
 
 The login page is available at `/login`.
 
