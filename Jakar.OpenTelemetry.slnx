@@ -21,6 +21,9 @@
         <Project Path="Tests/Jakar.OpenTelemetry.Api.Tests/Jakar.OpenTelemetry.Api.Tests.csproj" />
         <Project Path="Tests/Jakar.OpenTelemetry.Api.IntegrationTests/Jakar.OpenTelemetry.Api.IntegrationTests.csproj" />
         <Project Path="Tests/Jakar.OpenTelemetry.Samples.AutomationTests/Jakar.OpenTelemetry.Samples.AutomationTests.csproj" />
+        <Project Path="Tests/Jakar.OpenTelemetry.Samples.Maui.AppiumTests/Jakar.OpenTelemetry.Samples.Maui.AppiumTests.csproj" />
+        <File Path="Tests/README.md" />
+        <File Path="Tests/run-tests.ps1" />
         <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.Tests/Jakar.OpenTelemetry.Api.Client.Tests.csproj" />
         <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.AspNet.Tests/Jakar.OpenTelemetry.Api.Client.AspNet.Tests.csproj" />
         <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests/Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests.csproj" />

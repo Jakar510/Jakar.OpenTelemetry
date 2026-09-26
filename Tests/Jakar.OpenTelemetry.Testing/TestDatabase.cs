@@ -102,7 +102,7 @@ public static class TestDatabase
 				return s_serverConnectionString = new NpgsqlConnectionStringBuilder( configured ) { Database = "postgres" }.ConnectionString;
 			}
 
-			PostgreSqlContainer container = new PostgreSqlBuilder().WithImage( Environment.GetEnvironmentVariable( IMAGE_VARIABLE ) is { Length: > 0 } image ? image : DEFAULT_IMAGE ).Build();
+			PostgreSqlContainer container = new PostgreSqlBuilder( Environment.GetEnvironmentVariable( IMAGE_VARIABLE ) is { Length: > 0 } image ? image : DEFAULT_IMAGE ).Build();
 			await container.StartAsync( token );
 			s_container = container;
 			return s_serverConnectionString = new NpgsqlConnectionStringBuilder( container.GetConnectionString() ) { Database = "postgres" }.ConnectionString;

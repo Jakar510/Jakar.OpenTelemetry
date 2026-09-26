@@ -42,11 +42,12 @@ public sealed class TestApi( string connectionString ) : WebApplicationFactory<P
 
 	/// <summary>
 	///     Starts the API on real sockets: one HTTP/1.1 + HTTP/2 endpoint and one HTTP/2-only endpoint (gRPC without TLS needs prior-knowledge HTTP/2).
-	///     <paramref name="host"/> is the interface to bind; use <c>0.0.0.0</c> when devices or emulators must reach it.
+	///     <paramref name="host"/> is the interface to bind; use <c>0.0.0.0</c> when devices or emulators must reach it. <paramref name="httpPort"/> pins the
+	///     HTTP port for clients that cannot be reconfigured (the MAUI sample).
 	/// </summary>
-	public TestApi StartRealServer( string host = "127.0.0.1" )
+	public TestApi StartRealServer( string host = "127.0.0.1", int? httpPort = null )
 	{
-		int http = FreePort();
+		int http = httpPort ?? FreePort();
 		int grpc = FreePort();
 
 		// The appsettings "Urls" would bind the developer ports; the endpoints below replace them.

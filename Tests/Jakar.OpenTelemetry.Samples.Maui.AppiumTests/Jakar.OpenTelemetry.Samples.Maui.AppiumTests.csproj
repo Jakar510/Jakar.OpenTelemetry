@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Description>Appium automation of the MAUI sample on Windows, Android, iOS and Mac Catalyst against a live API.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Appium.WebDriver" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Testing\Jakar.OpenTelemetry.Testing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Jakar.OpenTelemetry.Testing" />
+    </ItemGroup>
+
+</Project>
