@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Samples run as real processes and browsers drive them; fixtures own ports and databases, so run them one at a time. -->
+        <Description>End-to-end automation of every sample and of the dashboard against a live API.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Playwright.NUnit" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Testing\Jakar.OpenTelemetry.Testing.csproj" />
+        <!-- Built before the tests run; launched as separate processes. -->
+        <ProjectReference Include="..\..\Samples\Jakar.OpenTelemetry.Samples.Console\Jakar.OpenTelemetry.Samples.Console.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Samples\Jakar.OpenTelemetry.Source\Jakar.OpenTelemetry.Source.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\Samples\Jakar.OpenTelemetry.Samples.Blazor.Server\Jakar.OpenTelemetry.Samples.Blazor.Server.csproj" ReferenceOutputAssembly="false" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Jakar.OpenTelemetry.Testing" />
+        <Using Include="Microsoft.Playwright" />
+    </ItemGroup>
+
+</Project>

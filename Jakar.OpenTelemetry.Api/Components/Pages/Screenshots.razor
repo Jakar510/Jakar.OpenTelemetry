@@ -165,6 +165,9 @@
     private readonly CancellationTokenSource           _disposed = new();
     private          IDisposable?                      _subscription;
     private          int                               _refreshing;
+    private          int                               _refreshPending;
+    private          (string? Service, bool All, int Take, Guid? Log) _query;
+    private          (string? Service, bool All, int Take, Guid? Log) CurrentQuery => ( Service, AllLevels, Take, SelectedLog );
     private          IReadOnlyList<TelemetryScreenshotLogDto>? Records      { get; set; }
     private          bool                              IsLoading    { get; set; }
     private          string?                           ErrorMessage { get; set; }
@@ -178,13 +181,17 @@
     protected override async Task OnInitializedAsync()
     {
         _subscription = LiveFeed.Subscribe( OnTelemetryUpdatedAsync );
+        _query        = CurrentQuery;
         await RefreshAsync();
     }
 
-    // Query-string changes (filters) re-run the query; navigating with the same values does not.
+    // Query-string changes (filters) re-run the query; the first parameters (already loaded above) and navigating with the same values do not.
     protected override async Task OnParametersSetAsync()
     {
-        if ( Records is not null ) { await RefreshAsync(); }
+        if ( CurrentQuery == _query ) { return; }
+
+        _query = CurrentQuery;
+        await RefreshAsync();
     }
 
     public void Dispose()
@@ -198,29 +205,43 @@
                                                                                      ? RefreshAsync()
                                                                                      : Task.CompletedTask;
 
+    // A refresh requested while one runs (a live update, or a filter change) must not be dropped, or the page keeps showing the old query's results:
+    // it is coalesced into one follow-up refresh that reads the current filters.
     private async Task RefreshAsync()
     {
-        if ( Interlocked.Exchange( ref _refreshing, 1 ) == 1 ) { return; }
+        if ( Interlocked.Exchange( ref _refreshing, 1 ) == 1 )
+        {
+            Interlocked.Exchange( ref _refreshPending, 1 );
+            return;
+        }
 
         try
         {
-            IsLoading    = true;
-            ErrorMessage = null;
+            do
+            {
+                Interlocked.Exchange( ref _refreshPending, 0 );
 
-            string? service = string.IsNullOrWhiteSpace( Service ) || Service == "all" ? null : Service;
-            IReadOnlyList<TelemetryScreenshotLogDto> records = await Telemetry.GetScreenshotLogsAsync( Take, ErrorsOnly, service, SelectedLog, _disposed.Token );
+                try
+                {
+                    IsLoading    = true;
+                    ErrorMessage = null;
 
-            Records = records;
-            if ( service is null && SelectedLog is null ) { ServiceOptions = records.Select( static x => x.ServiceName ).OfType<string>().Distinct( StringComparer.Ordinal ).Order( StringComparer.Ordinal ).ToArray(); }
+                    string? service = string.IsNullOrWhiteSpace( Service ) || Service == "all" ? null : Service;
+                    IReadOnlyList<TelemetryScreenshotLogDto> records = await Telemetry.GetScreenshotLogsAsync( Take, ErrorsOnly, service, SelectedLog, _disposed.Token );
+
+                    Records = records;
+                    if ( service is null && SelectedLog is null ) { ServiceOptions = records.Select( static x => x.ServiceName ).OfType<string>().Distinct( StringComparer.Ordinal ).Order( StringComparer.Ordinal ).ToArray(); }
+                }
+                catch ( OperationCanceledException ) when ( _disposed.IsCancellationRequested ) { return; }
+                catch ( Exception e ) { ErrorMessage = $"Failed to load screenshots: {e.Message.TrimEnd( '.' )}"; }
+                finally
+                {
+                    IsLoading = false;
+                    if ( !_disposed.IsCancellationRequested ) { await InvokeAsync( StateHasChanged ); }
+                }
+            } while ( Volatile.Read( ref _refreshPending ) == 1 && !_disposed.IsCancellationRequested );
         }
-        catch ( OperationCanceledException ) when ( _disposed.IsCancellationRequested ) { return; }
-        catch ( Exception e ) { ErrorMessage = $"Failed to load screenshots: {e.Message.TrimEnd( '.' )}"; }
-        finally
-        {
-            IsLoading = false;
-            Interlocked.Exchange( ref _refreshing, 0 );
-            if ( !_disposed.IsCancellationRequested ) { await InvokeAsync( StateHasChanged ); }
-        }
+        finally { Interlocked.Exchange( ref _refreshing, 0 ); }
     }
 
     private void OnServiceChangedAsync( ChangeEventArgs args ) => NavigateWith( service: args.Value?.ToString() is { } value && value != "all" ? value : null );

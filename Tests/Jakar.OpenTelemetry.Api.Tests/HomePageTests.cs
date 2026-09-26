@@ -84,7 +84,7 @@ public sealed class HomePageTests
 	{
 		_cache.Set( TelemetryCacheKeys.Snapshot( TAKE ), snapshot ?? Snapshot() );
 		IRenderedComponent<Home> page = _context.Render<Home>();
-		page.WaitForAssertion( () => Assert.That( page.FindAll( "table.selectable, .empty-state" ), Is.Not.Empty ) );
+		page.WaitForState( () => page.FindAll( "table.selectable, .empty-state" ).Count > 0 );
 		return page;
 	}
 
@@ -362,7 +362,7 @@ public sealed class HomePageTests
 		_cache.Set( TelemetryCacheKeys.Snapshot( TAKE ), newer );
 		page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0.AddMinutes( 9 ), 1, 0, 0, "Ingested 1 logs" ) ) );
 
-		page.WaitForAssertion( () => Assert.That( Rows( page ), Is.EqualTo( 1 ) ) );
+		page.WaitForState( () => Rows( page ) == 1 );
 		Assert.That( page.Find( ".status-detail" ).TextContent, Is.EqualTo( "12:09:00Z | Ingested 1 logs" ) );
 
 		ClickButton( page, "Pause live updates" );
@@ -371,11 +371,11 @@ public sealed class HomePageTests
 		_cache.Set( TelemetryCacheKeys.Snapshot( TAKE ), Snapshot() );
 		page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0.AddMinutes( 10 ), 2, 0, 0, "Ingested 2 logs" ) ) );
 
-		page.WaitForAssertion( () => Assert.That( page.Find( ".status-detail" ).TextContent, Does.Contain( "Ingested 2 logs" ) ) );
+		page.WaitForState( () => page.Find( ".status-detail" ).TextContent.Contains( "Ingested 2 logs" ) );
 		Assert.That( Rows( page ), Is.EqualTo( 1 ), "paused: no refresh" );
 
 		ClickButton( page, "Resume live updates" );
-		page.WaitForAssertion( () => Assert.That( Rows( page ), Is.EqualTo( 3 ) ) );
+		page.WaitForState( () => Rows( page ) == 3 );
 	}
 
 	[Test]
@@ -396,7 +396,8 @@ public sealed class HomePageTests
 
 		ClickButton( page, "Refresh Snapshot" );
 
-		page.WaitForAssertion( () => Assert.That( page.Find( ".error-banner" ).TextContent, Is.EqualTo( "Failed to load telemetry: database offline" ) ) );
+		page.WaitForState( () => page.FindAll( ".error-banner" ).Count == 1 );
+		Assert.That( page.Find( ".error-banner" ).TextContent, Is.EqualTo( "Failed to load telemetry: database offline" ) );
 	}
 
 	[Test]
@@ -406,7 +407,7 @@ public sealed class HomePageTests
 
 		await Task.WhenAll( Enumerable.Range( 0, 5 ).Select( i => page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, i, 0, 0, $"burst {i}" ) ) ) ) );
 
-		page.WaitForAssertion( () => Assert.That( page.FindAll( ".status-pill" ).Single().TextContent, Is.EqualTo( "Live" ) ) );
+		page.WaitForState( () => page.Find( ".status-pill" ).TextContent == "Live" );
 		Assert.That( Rows( page ), Is.EqualTo( 3 ) );
 	}
 
@@ -475,6 +476,6 @@ public sealed class HomePageTests
 
 		IRenderedComponent<Home> page = _context.Render<Home>();
 
-		page.WaitForAssertion( () => Assert.That( Rows( page ), Is.EqualTo( 3 ) ) );
+		page.WaitForState( () => Rows( page ) == 3 );
 	}
 }
