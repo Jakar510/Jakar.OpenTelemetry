@@ -30,7 +30,8 @@ public sealed class OtlpGrpcDocumentFilter( IOptions<OtlpIngestOptions> options 
 	{
 		OpenApiOperation operation = new()
 										 {
-											 OperationId = path.Split( '/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries ).Last().Replace( ".", string.Empty, StringComparison.Ordinal ) + "Grpc",
+											 // Every service method is named "Export", so the id must include the service to stay unique within the document.
+											 OperationId = path.Replace( "/", string.Empty, StringComparison.Ordinal ).Replace( ".", string.Empty, StringComparison.Ordinal ) + "Grpc",
 											 Tags        = new HashSet<OpenApiTagReference> { new(TAG_NAME, swaggerDoc) },
 											 Summary     = summary,
 											 Description = description + " Swagger documents this route, but Swagger UI cannot execute native gRPC requests.",

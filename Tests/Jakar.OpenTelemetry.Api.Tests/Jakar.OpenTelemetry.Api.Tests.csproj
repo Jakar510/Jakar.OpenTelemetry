@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="bunit" />
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Jakar.OpenTelemetry.Api\Jakar.OpenTelemetry.Api.csproj" />
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Testing\Jakar.OpenTelemetry.Testing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Bunit" />
+        <Using Include="Jakar.OpenTelemetry.Testing" />
+        <Using Include="Microsoft.Extensions.Logging" />
+        <Using Include="Microsoft.Extensions.Logging.Testing" />
+    </ItemGroup>
+
+</Project>
