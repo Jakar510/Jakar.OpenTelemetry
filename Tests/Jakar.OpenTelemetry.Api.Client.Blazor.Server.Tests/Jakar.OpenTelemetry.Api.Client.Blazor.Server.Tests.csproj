@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client.Blazor.Server\Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Testing\Jakar.OpenTelemetry.Testing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Jakar.OpenTelemetry.Testing" />
+        <Using Include="Microsoft.Extensions.Logging" />
+        <Using Include="Microsoft.Extensions.Logging.Testing" />
+    </ItemGroup>
+
+</Project>

@@ -50,6 +50,7 @@ public sealed class BrowserOtlpLogExporter : ITelemetryFlusher, IAsyncDisposable
 	private          DateTimeOffset                    _backoffUntil;
 	private          int                               _failures;
 	private          int                               _buffered;
+	private          int                               _disposed;
 
 
 	public BrowserOtlpLogExporter( BrowserTelemetryModule module, IHttpClientFactory httpClientFactory, IOptions<JakarTelemetryOptions> options )
@@ -93,6 +94,9 @@ public sealed class BrowserOtlpLogExporter : ITelemetryFlusher, IAsyncDisposable
 
 	public async ValueTask DisposeAsync()
 	{
+		// Registered both as itself and as ITelemetryFlusher, so the container disposes it twice.
+		if ( Interlocked.Exchange( ref _disposed, 1 ) == 1 ) { return; }
+
 		if ( _stopping is not null ) { await _stopping.CancelAsync(); }
 
 		_stopping?.Dispose();

@@ -1,5 +1,6 @@
 using System.Collections;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Diagnostics;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -105,7 +106,8 @@ internal sealed class TelemetryRequestScopeMiddleware( RequestDelegate next, ILo
 
 			try
 			{
-				if ( context.GetEndpoint() is RouteEndpoint { RoutePattern.RawText: { } route } ) { _route = route; }
+				// The exception handler clears the endpoint before re-executing, but keeps the original one on its feature.
+				if ( ( context.GetEndpoint() ?? context.Features.Get<IExceptionHandlerFeature>()?.Endpoint ) is RouteEndpoint { RoutePattern.RawText: { } route } ) { _route = route; }
 			}
 			catch ( ObjectDisposedException ) { _completed = true; }
 

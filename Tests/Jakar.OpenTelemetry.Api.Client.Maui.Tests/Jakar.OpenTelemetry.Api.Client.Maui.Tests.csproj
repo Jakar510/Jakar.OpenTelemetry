@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <!-- Runs the platform-neutral net10.0 build of the MAUI client; device behavior is covered by the Appium suite. -->
+        <UseMaui>true</UseMaui>
+        <SingleProject>true</SingleProject>
+        <OutputType>Library</OutputType>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Maui.Controls" />
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client.Maui\Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Testing\Jakar.OpenTelemetry.Testing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Jakar.OpenTelemetry.Testing" />
+        <Using Include="Microsoft.Extensions.Logging" />
+        <Using Include="Microsoft.Extensions.Logging.Testing" />
+    </ItemGroup>
+
+</Project>

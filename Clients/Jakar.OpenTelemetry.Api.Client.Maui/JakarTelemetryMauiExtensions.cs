@@ -1,3 +1,4 @@
+using System.Diagnostics.CodeAnalysis;
 using Jakar.OpenTelemetry.Api.Client.Crashes;
 using Jakar.OpenTelemetry.Api.Client.Images;
 using Microsoft.Extensions.DependencyInjection;
@@ -66,7 +67,7 @@ internal sealed class JakarTelemetryMauiInitializer : IMauiInitializeService
 /// <summary> Flush and park the session when the app goes to the background (the OS may kill it silently), resume on return. </summary>
 internal static class MauiLifecycle
 {
-	private static JakarTelemetryRuntime? Runtime => IPlatformApplication.Current?.Services.GetService<JakarTelemetryRuntime>();
+	internal static JakarTelemetryRuntime? Runtime => IPlatformApplication.Current?.Services.GetService<JakarTelemetryRuntime>();
 
 	public static void Configure( ILifecycleBuilder events )
 	{
@@ -118,6 +119,7 @@ internal static class MauiDeviceResource
 
 internal sealed class MauiScreenshotProvider : IScreenshotProvider
 {
+	[ExcludeFromCodeCoverage( Justification = "Captures on the UI thread of a real device; exercised by the MAUI sample Appium tests" )]
 	public async ValueTask<CapturedImage?> CaptureAsync( CancellationToken token = default )
 	{
 		if ( !Screenshot.Default.IsCaptureSupported ) { return null; }
