@@ -18,8 +18,8 @@ else
             <polyline class="chart-line" points="@PolylinePoints" stroke="@Stroke"/>
         </svg>
         <div class="chart-caption">
-            <span>@Points.First().BucketUtc:MM-dd HH:mm</span>
-            <span>@Points.Last().BucketUtc:MM-dd HH:mm</span>
+            <span>@FormatBucket( Points[0].BucketUtc )</span>
+            <span>@( Points.Count > 1 ? FormatBucket( Points[^1].BucketUtc ) : $"{Points[0].Value:0} in window" )</span>
         </div>
     </div>
 }
@@ -30,11 +30,21 @@ else
     [Parameter] public string                                     EmptyMessage { get; set; } = "No data.";
     private            string                                     GradientId   { get; }      = $"line-{Guid.NewGuid():N}";
 
+    private static string FormatBucket( DateTimeOffset value ) => value.ToUniversalTime().ToString( "MM-dd HH:mm", CultureInfo.InvariantCulture ) + "Z";
+
     private string PolylinePoints
     {
         get
         {
-            double max   = Math.Max( 1D, Points.Max( point => point.Value ) );
+            double max = Math.Max( 1D, Points.Max( point => point.Value ) );
+
+            // A single bucket is drawn as a flat line; a one-point polyline would be invisible.
+            if ( Points.Count == 1 )
+            {
+                string y1 = ( 36D - ( Points[0].Value / max ) * 32D ).ToString( "0.##", CultureInfo.InvariantCulture );
+                return $"0,{y1} 100,{y1}";
+            }
+
             int    count = Math.Max( 1, Points.Count - 1 );
 
             return string.Join( " ",

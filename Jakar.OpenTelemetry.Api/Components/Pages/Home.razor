@@ -1,20 +1,18 @@
-@using static Microsoft.AspNetCore.Components.Web.RenderMode
 @page "/"
-@rendermode InteractiveServer
 @attribute [Authorize(Policy = AppAuthPolicies.DASHBOARD_ACCESS)]
 
 <PageTitle>Telemetry Portal</PageTitle>
 
 <div class="dashboard">
-    <TelemetryHeroPanel
-        ConnectionStateClass="@ConnectionStateClass"
-        ConnectionStateLabel="@ConnectionStateLabel"
-        ApiBaseUrl="@ApiBaseUrl"
-        LastEventLabel="@LastEventLabel" />
+    <TelemetryHeroPanel StateClass="@ConnectionStateClass"
+                        StateLabel="@ConnectionStateLabel"
+                        LastEventLabel="@LastEventLabel"
+                        LiveUpdates="@LiveUpdates"
+                        LiveUpdatesToggled="ToggleLiveUpdatesAsync" />
 
     @if ( !string.IsNullOrWhiteSpace( ErrorMessage ) )
     {
-        <section class="error-banner">@ErrorMessage</section>
+        <section class="error-banner" role="alert">@ErrorMessage</section>
     }
 
     <section class="stat-grid">
@@ -116,27 +114,35 @@
     <section class="panel-card table-card">
         @if ( ActiveTab == TelemetryTab.Logs )
         {
-            <TelemetryLogsTab Records="VisibleLogs" />
+            <TelemetryLogsTab Records="VisibleLogs" SelectedId="SelectedRecordId" SelectedChanged="SelectRecord" />
         }
-        
+
         @if ( ActiveTab == TelemetryTab.Spans )
         {
-            <TelemetrySpansTab Records="VisibleSpans" />
+            <TelemetrySpansTab Records="VisibleSpans" SelectedId="SelectedRecordId" SelectedChanged="SelectRecord" />
         }
-        
+
         @if ( ActiveTab == TelemetryTab.Metrics )
         {
-            <TelemetryMetricsTab Records="VisibleMetrics" />
+            <TelemetryMetricsTab Records="VisibleMetrics" SelectedId="SelectedRecordId" SelectedChanged="SelectRecord" />
         }
     </section>
 
-    @if ( Snapshot is null &&
-          !IsLoading )
+    @if ( SelectedLog is not null || SelectedSpan is not null || SelectedMetric is not null )
+    {
+        <TelemetryRecordDetails Log="SelectedLog"
+                                Span="SelectedSpan"
+                                Metric="SelectedMetric"
+                                Close="CloseDetails"
+                                ShowTrace="args => ShowTrace( args.TraceId, args.Tab )" />
+    }
+
+    @if ( !IsLoading && Snapshot is null or { Overview: { TotalLogs: 0, TotalSpans: 0, TotalMetrics: 0 } } )
     {
         <PanelCard Eyebrow="No Data"
                    Title="Collector endpoints are ready">
-            <p class="empty-state">Push OTLP gRPC data into <code>@ApiBaseUrl</code> and the portal will populate
-                                   automatically.</p>
+            <p class="empty-state">Export OTLP over gRPC or HTTP (<code>/v1/traces</code>, <code>/v1/metrics</code>, <code>/v1/logs</code>)
+                                   and the dashboard populates automatically.</p>
         </PanelCard>
     }
 </div>

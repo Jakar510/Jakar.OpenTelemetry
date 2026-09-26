@@ -1,21 +1,3 @@
-.dashboard {
-    display: grid;
-    gap: 1.15rem;
-}
-
-.error-banner {
-    background: var(--panel-bg);
-    border: 1px solid var(--panel-border);
-    border-radius: 1.35rem;
-    box-shadow: 0 1.2rem 2.8rem rgba(7, 13, 30, 0.18);
-}
-
-.error-banner {
-    padding: 0.95rem 1.1rem;
-    color: #ffccc2;
-    background: linear-gradient(135deg, rgba(164, 39, 47, 0.95), rgba(106, 22, 31, 0.92));
-}
-
 .stat-grid,
 .chart-grid {
     display: grid;
@@ -23,13 +5,19 @@
 }
 
 .stat-grid {
-    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
 }
 
 .chart-grid {
-    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
 }
 
 .table-card {
     overflow: hidden;
+}
+
+/* Grid items default to min-width:auto, so a long nowrap label (e.g. a service name) would widen the track past the viewport. */
+.stat-grid > *,
+.chart-grid > * {
+    min-width: 0;
 }

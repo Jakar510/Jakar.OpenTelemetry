@@ -1,0 +1,196 @@
+@using Jakar.OpenTelemetry.Api.Endpoints
+
+<section class="panel-card details-card" aria-label="Record details">
+    <div class="panel-head">
+        <div>
+            <p class="eyebrow">@Eyebrow</p>
+            <h3 class="wrap">@Title</h3>
+        </div>
+        <div class="actions">
+            @if ( !string.IsNullOrWhiteSpace( TraceId ) )
+            {
+                @if ( Log is null )
+                {
+                    <button type="button" class="action-button" @onclick="() => ShowTrace.InvokeAsync( ( TraceId, TelemetryTab.Logs ) )">Related logs</button>
+                }
+
+                <button type="button" class="action-button" @onclick="() => ShowTrace.InvokeAsync( ( TraceId, TelemetryTab.Spans ) )">Whole trace</button>
+            }
+            <button type="button" class="action-button" @onclick="Close" aria-label="Close details">Close</button>
+        </div>
+    </div>
+
+    @if ( Log is { } log )
+    {
+        IReadOnlyList<ImageTag> images = TelemetryDashboardFormatter.GetImageTags( log );
+
+        <dl class="field-grid">
+            <dt>Timestamp</dt><dd>@TelemetryDashboardFormatter.FormatDatePrecise( log.TimestampUtc )</dd>
+            <dt>Observed</dt><dd>@TelemetryDashboardFormatter.FormatDatePrecise( log.ObservedTimestampUtc )</dd>
+            <dt>Received</dt><dd>@TelemetryDashboardFormatter.FormatDatePrecise( log.ReceivedAtUtc )</dd>
+            <dt>Service</dt><dd>@( log.ServiceName ?? "unknown" )</dd>
+            <dt>Severity</dt><dd><span class="badge @TelemetryDashboardFormatter.SeverityClass( log.SeverityNumber )">@log.SeverityText (@log.SeverityNumber)</span></dd>
+            <dt>Event name</dt><dd>@( log.EventName ?? "-" )</dd>
+            <dt>Category</dt><dd>@( log.CategoryName ?? "-" )</dd>
+            <dt>Scope</dt><dd>@( $"{log.ScopeName} {log.ScopeVersion}".Trim() )</dd>
+            <dt>Trace / span</dt><dd><code class="wrap">@( log.TraceId ?? "-" ) / @( log.SpanId ?? "-" )</code></dd>
+            <dt>Flags</dt><dd>@TelemetryDashboardFormatter.FormatSpanFlags( log.Flags )</dd>
+            <dt>Dropped attributes</dt><dd>@log.DroppedAttributesCount</dd>
+            <dt>Schema URLs</dt><dd class="wrap">@( log.ResourceSchemaUrl ?? "-" ) | @( log.ScopeSchemaUrl ?? "-" )</dd>
+        </dl>
+
+        <h4>Body</h4>
+        <pre class="code-block">@( TelemetryDashboardFormatter.PrettyJson( TelemetryDashboardFormatter.CleanJson( log.Body ) ) )</pre>
+
+        @if ( images.Count > 0 )
+        {
+            <h4>Screenshots</h4>
+            <div class="image-links">
+                @foreach ( ImageTag image in images )
+                {
+                    <a href="@ImageEndpointMappings.DashboardImageUrl( image.ID )" target="_blank" rel="noopener">@image.FileName</a>
+                }
+                <a class="action-button" href="@( $"/screenshots?log={log.ID:D}" )">Open in screenshots</a>
+            </div>
+        }
+
+        <AttributeTable Title="Attributes" Values="log.Attributes" Open="true" />
+        <AttributeTable Title="Resource" Values="log.ResourceAttributes" />
+        <AttributeTable Title="Scope" Values="log.ScopeAttributes" />
+    }
+    else if ( Span is { } span )
+    {
+        <dl class="field-grid">
+            <dt>Start</dt><dd>@TelemetryDashboardFormatter.FormatDatePrecise( span.StartTimeUtc )</dd>
+            <dt>End</dt><dd>@TelemetryDashboardFormatter.FormatDatePrecise( span.EndTimeUtc )</dd>
+            <dt>Duration</dt><dd>@TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )</dd>
+            <dt>Service</dt><dd>@( span.ServiceName ?? "unknown" )</dd>
+            <dt>Kind</dt><dd>@span.Kind</dd>
+            <dt>Status</dt><dd><span class="badge @TelemetryDashboardFormatter.StatusClass( span.StatusCode )">@( span.StatusCode ?? "Unset" )</span> @span.StatusMessage</dd>
+            <dt>Trace</dt><dd><code class="wrap">@span.TraceId</code></dd>
+            <dt>Span / parent</dt><dd><code class="wrap">@span.SpanId / @( span.ParentSpanId ?? "root" )</code></dd>
+            <dt>Trace state</dt><dd class="wrap">@( string.IsNullOrEmpty( span.TraceState ) ? "-" : span.TraceState )</dd>
+            <dt>Flags</dt><dd>@TelemetryDashboardFormatter.FormatSpanFlags( span.Flags )</dd>
+            <dt>Scope</dt><dd>@( $"{span.ScopeName} {span.ScopeVersion}".Trim() )</dd>
+            <dt>Dropped</dt><dd>@span.DroppedAttributesCount attributes, @span.DroppedEventsCount events, @span.DroppedLinksCount links</dd>
+            <dt>Schema URLs</dt><dd class="wrap">@( span.ResourceSchemaUrl ?? "-" ) | @( span.ScopeSchemaUrl ?? "-" )</dd>
+        </dl>
+
+        <AttributeTable Title="Attributes" Values="span.Attributes" Open="true" />
+
+        @if ( span.EventsJson is { Length: > 0 } events )
+        {
+            <details class="attribute-group" open>
+                <summary>Events <span class="muted">(@events.Length)</span></summary>
+                <ol class="event-list">
+                    @foreach ( SpanEvent evt in events )
+                    {
+                        <li>
+                            <strong>@evt.Name</strong> <span class="muted">@TelemetryDashboardFormatter.FormatDatePrecise( evt.TimeUtc )</span>
+                            @if ( evt.DroppedAttributesCount > 0 )
+                            {
+                                <span class="muted">(@evt.DroppedAttributesCount dropped attributes)</span>
+                            }
+                            <AttributeTable Title="Event attributes" Values="evt.Attributes" Open="true" />
+                        </li>
+                    }
+                </ol>
+            </details>
+        }
+
+        @if ( span.LinksJson is { Length: > 0 } links )
+        {
+            <details class="attribute-group" open>
+                <summary>Links <span class="muted">(@links.Length)</span></summary>
+                <ol class="event-list">
+                    @foreach ( SpanLink link in links )
+                    {
+                        <li>
+                            <code class="wrap">@link.TraceId / @link.SpanId</code>
+                            <span class="muted">flags @TelemetryDashboardFormatter.FormatSpanFlags( link.Flags )</span>
+                            @if ( !string.IsNullOrWhiteSpace( link.TraceId ) )
+                            {
+                                <button type="button" class="action-button small" @onclick="() => ShowTrace.InvokeAsync( ( link.TraceId!, TelemetryTab.Spans ) )">Open linked trace</button>
+                            }
+                            <AttributeTable Title="Link attributes" Values="link.Attributes" Open="true" />
+                        </li>
+                    }
+                </ol>
+            </details>
+        }
+
+        <AttributeTable Title="Resource" Values="span.ResourceAttributes" />
+        <AttributeTable Title="Scope" Values="span.ScopeAttributes" />
+    }
+    else if ( Metric is { } metric )
+    {
+        <dl class="field-grid">
+            <dt>Time</dt><dd>@TelemetryDashboardFormatter.FormatDatePrecise( metric.TimestampUtc )</dd>
+            <dt>Start time</dt><dd>@TelemetryDashboardFormatter.FormatDatePrecise( metric.StartTimeUtc )</dd>
+            <dt>Service</dt><dd>@( metric.ServiceName ?? "unknown" )</dd>
+            <dt>Description</dt><dd>@( metric.Description ?? "-" )</dd>
+            <dt>Type</dt><dd>@metric.MetricType</dd>
+            <dt>Temporality</dt><dd>@( metric.AggregationTemporality ?? "-" )</dd>
+            <dt>Monotonic</dt><dd>@( metric.IsMonotonic?.ToString() ?? "-" )</dd>
+            <dt>Value</dt><dd>@TelemetryDashboardFormatter.FormatMetricValue( metric ) @metric.Unit</dd>
+            <dt>Sum / count</dt><dd>@( metric.Sum?.ToString( "0.######" ) ?? "-" ) / @( metric.Count?.ToString( "N0" ) ?? "-" )</dd>
+            <dt>Min / max</dt><dd>@( metric.Min?.ToString( "0.######" ) ?? "-" ) / @( metric.Max?.ToString( "0.######" ) ?? "-" )</dd>
+            <dt>Flags</dt><dd>@( ( metric.Flags & 1 ) != 0 ? "no recorded value" : metric.Flags.ToString() )</dd>
+            <dt>Scope</dt><dd>@( $"{metric.ScopeName} {metric.ScopeVersion}".Trim() )</dd>
+            <dt>Schema URLs</dt><dd class="wrap">@( metric.ResourceSchemaUrl ?? "-" ) | @( metric.ScopeSchemaUrl ?? "-" )</dd>
+        </dl>
+
+        <AttributeTable Title="Attributes" Values="metric.Attributes" Open="true" />
+
+        @if ( metric.QuantilesJson is { Count: > 0 } quantiles )
+        {
+            <details class="attribute-group" open>
+                <summary>Quantiles <span class="muted">(@quantiles.Count)</span></summary>
+                <table class="kv">
+                    <tbody>
+                    @foreach ( KeyValuePair<double, double> pair in quantiles.OrderBy( static x => x.Key ) )
+                    {
+                        <tr><th scope="row">p@( ( pair.Key * 100 ).ToString( "0.##" ) )</th><td>@pair.Value.ToString( "0.######" )</td></tr>
+                    }
+                    </tbody>
+                </table>
+            </details>
+        }
+
+        @if ( !string.IsNullOrWhiteSpace( metric.DistributionJson ) )
+        {
+            <details class="attribute-group" open>
+                <summary>Distribution</summary>
+                <pre class="code-block">@TelemetryDashboardFormatter.PrettyJson( metric.DistributionJson )</pre>
+            </details>
+        }
+
+        @if ( !string.IsNullOrWhiteSpace( metric.ExemplarsJson ) )
+        {
+            <details class="attribute-group" open>
+                <summary>Exemplars</summary>
+                <pre class="code-block">@TelemetryDashboardFormatter.PrettyJson( metric.ExemplarsJson )</pre>
+            </details>
+        }
+
+        <AttributeTable Title="Metadata" Values="metric.MetadataAttributes" />
+        <AttributeTable Title="Resource" Values="metric.ResourceAttributes" />
+        <AttributeTable Title="Scope" Values="metric.ScopeAttributes" />
+    }
+</section>
+
+@code {
+    [Parameter] public TelemetryLogRecordDto?                         Log       { get; set; }
+    [Parameter] public TelemetrySpanRecordDto?                        Span      { get; set; }
+    [Parameter] public TelemetryMetricRecordDto?                      Metric    { get; set; }
+    [Parameter] public EventCallback                                  Close     { get; set; }
+    [Parameter] public EventCallback<(string TraceId, TelemetryTab Tab)> ShowTrace { get; set; }
+
+    private string? TraceId => Log?.TraceId ?? Span?.TraceId;
+
+    private string Eyebrow => Log is not null ? "Log record" : Span is not null ? "Span" : "Metric point";
+
+    private string Title => Log is not null    ? TelemetryDashboardFormatter.Trim( Log.Body, 140 )
+                            : Span is not null ? Span.Name ?? "span"
+                                               : Metric?.Name ?? "metric";
+}

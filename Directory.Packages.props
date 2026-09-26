@@ -11,10 +11,12 @@
     </ItemGroup>
 
     <ItemGroup Label="ASP.NET Core / Microsoft.Extensions">
-        <PackageVersion Include="Microsoft.AspNetCore.Http.Connections.Client" Version="10.0.12" />
-        <PackageVersion Include="Microsoft.AspNetCore.SignalR.Client" Version="10.0.12" />
         <PackageVersion Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" Version="10.0.12" />
+        <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.12" />
+        <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
         <PackageVersion Include="Microsoft.Extensions.Hosting" Version="10.0.12" />
+        <PackageVersion Include="Microsoft.Extensions.Hosting.Abstractions" Version="10.0.12" />
+        <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
         <PackageVersion Include="Microsoft.Extensions.Http" Version="10.0.12" />
         <PackageVersion Include="Microsoft.Extensions.Logging.Console" Version="10.0.12" />
     </ItemGroup>
@@ -37,7 +39,13 @@
     <ItemGroup Label="OpenTelemetry">
         <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.19.1" />
         <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.19.1" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.19.0" />
         <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.19.0" />
+        <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.19.0" />
+    </ItemGroup>
+
+    <ItemGroup Label="MAUI">
+        <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.20" />
     </ItemGroup>
 
     <ItemGroup Label="Utilities">

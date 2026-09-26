@@ -1,0 +1,269 @@
+@page "/screenshots"
+@attribute [Authorize(Policy = AppAuthPolicies.DASHBOARD_ACCESS)]
+@using Jakar.OpenTelemetry.Api.Endpoints
+@implements IDisposable
+@inject TelemetryQueryService Telemetry
+@inject TelemetryLiveFeed LiveFeed
+@inject NavigationManager Navigation
+
+<PageTitle>Error Screenshots</PageTitle>
+
+<div class="dashboard">
+    <section class="panel-card filter-card">
+        <div class="panel-head">
+            <div>
+                <p class="eyebrow">Screenshots</p>
+                <h3>@( ErrorsOnly ? "Error logs with screenshots" : "Logs with screenshots" )</h3>
+            </div>
+            <span>Logs reference images through the <code>log.tags</code> attribute (<code>image:file-name:id</code>). Images appear once the client uploads them.</span>
+        </div>
+
+        <div class="control-grid">
+            <label>
+                Service
+                <select value="@( Service ?? "all" )" @onchange="OnServiceChangedAsync">
+                    <option value="all">All services</option>
+                    @foreach ( string service in ServiceOptions )
+                    {
+                        <option value="@service">@service</option>
+                    }
+                </select>
+            </label>
+
+            <label>
+                Severity
+                <select value="@( ErrorsOnly ? "errors" : "all" )" @onchange="OnSeverityChangedAsync">
+                    <option value="errors">Errors and fatal only</option>
+                    <option value="all">All severities</option>
+                </select>
+            </label>
+
+            <label>
+                Show
+                <select value="@Take" @onchange="OnTakeChangedAsync">
+                    <option value="25">25 logs</option>
+                    <option value="50">50 logs</option>
+                    <option value="100">100 logs</option>
+                    <option value="250">250 logs</option>
+                </select>
+            </label>
+
+            <div class="control-actions">
+                <button type="button" class="action-button" @onclick="RefreshAsync" disabled="@IsLoading">Refresh</button>
+            </div>
+        </div>
+    </section>
+
+    @if ( SelectedLog is { } focused )
+    {
+        <section class="panel-card notice">
+            Showing a single log (<code>@focused</code>).
+            <a class="action-button small" href="@Navigation.GetUriWithQueryParameter( "log", (Guid?)null )">Show all screenshots</a>
+        </section>
+    }
+
+    @if ( !string.IsNullOrWhiteSpace( ErrorMessage ) )
+    {
+        <section class="error-banner" role="alert">@ErrorMessage</section>
+    }
+
+    @if ( Records is null )
+    {
+        <p class="empty-state">Loading screenshots...</p>
+    }
+    else if ( Records.Count == 0 )
+    {
+        <PanelCard Eyebrow="No Screenshots" Title="Nothing to show yet">
+            <p class="empty-state">No @( ErrorsOnly ? "error " : string.Empty )logs reference images. Clients add <code>log.tags</code> = <code>image:file-name:id</code>
+                                   to a log and upload the image to <code>PUT /v1/images/{id}</code>.</p>
+        </PanelCard>
+    }
+    else
+    {
+        @foreach ( TelemetryScreenshotLogDto record in Records )
+        {
+            <article @key="record.LogID"
+                     id="@( $"log-{record.LogID:D}" )"
+                     class="panel-card screenshot-card @( record.LogID == SelectedLog ? "selected" : string.Empty )">
+                <div class="panel-head">
+                    <div>
+                        <p class="eyebrow">
+                            <span class="badge @TelemetryDashboardFormatter.SeverityClass( record.SeverityNumber )">@( record.SeverityText ?? record.SeverityNumber.ToString() )</span>
+                            @( record.ServiceName ?? "unknown" ) | @TelemetryDashboardFormatter.FormatDate( record.TimestampUtc )
+                        </p>
+                        <h3 class="wrap">@TelemetryDashboardFormatter.Trim( record.ExceptionMessage ?? record.Body, 220 )</h3>
+                    </div>
+                    <span>@record.Images.Count( static x => x.IsUploaded ) / @record.Images.Count uploaded</span>
+                </div>
+
+                <div class="screenshot-grid">
+                    @foreach ( TelemetryImageDto image in record.Images )
+                    {
+                        @if ( image.IsUploaded )
+                        {
+                            <button type="button"
+                                    class="screenshot-tile"
+                                    title="@image.FileName"
+                                    @onclick="() => OpenPreview( image )">
+                                <img src="@ImageEndpointMappings.DashboardImageUrl( image.ID )"
+                                     alt="@image.FileName"
+                                     loading="lazy"
+                                     decoding="async" />
+                                <span class="caption">@image.FileName <span class="muted">@FormatSize( image.Length )</span></span>
+                            </button>
+                        }
+                        else
+                        {
+                            <div class="screenshot-tile pending" title="@image.ID">
+                                <span class="placeholder">Pending upload</span>
+                                <span class="caption">@image.FileName</span>
+                            </div>
+                        }
+                    }
+                </div>
+
+                <details class="attribute-group">
+                    <summary>Details</summary>
+                    <dl class="field-grid">
+                        <dt>Exception</dt><dd>@( record.ExceptionType ?? "-" )</dd>
+                        <dt>Trace / span</dt><dd><code class="wrap">@( record.TraceId ?? "-" ) / @( record.SpanId ?? "-" )</code></dd>
+                        <dt>Log id</dt><dd><code>@record.LogID</code></dd>
+                    </dl>
+                    <h4>Body</h4>
+                    <pre class="code-block">@TelemetryDashboardFormatter.CleanJson( record.Body )</pre>
+                    @if ( !string.IsNullOrWhiteSpace( record.ExceptionStackTrace ) )
+                    {
+                        <h4>Stack trace</h4>
+                        <pre class="code-block">@record.ExceptionStackTrace</pre>
+                    }
+                </details>
+            </article>
+        }
+    }
+</div>
+
+@if ( Preview is { } preview )
+{
+    <div class="lightbox" role="dialog" aria-modal="true" aria-label="@preview.FileName" @ref="_lightbox" @onclick="() => Preview = null" @onkeydown="OnLightboxKeyDown" tabindex="-1">
+        <figure @onclick:stopPropagation="true">
+            <img src="@ImageEndpointMappings.DashboardImageUrl( preview.ID )" alt="@preview.FileName" />
+            <figcaption>
+                @preview.FileName <span class="muted">@preview.ContentType, @FormatSize( preview.Length ), received @( preview.ReceivedAtUtc is { } at ? TelemetryDashboardFormatter.FormatDate( at ) : "-" )</span>
+                <a class="action-button small" href="@ImageEndpointMappings.DashboardImageUrl( preview.ID )" target="_blank" rel="noopener">Open original</a>
+                <button type="button" class="action-button small" @onclick="() => Preview = null">Close</button>
+            </figcaption>
+        </figure>
+    </div>
+}
+
+@code {
+    [SupplyParameterFromQuery(Name = "log")]     public Guid?   SelectedLog { get; set; }
+    [SupplyParameterFromQuery(Name = "service")] public string? Service     { get; set; }
+    [SupplyParameterFromQuery(Name = "all")]     public bool    AllLevels   { get; set; }
+    [SupplyParameterFromQuery(Name = "take")]    public int?    TakeQuery   { get; set; }
+
+    private readonly CancellationTokenSource           _disposed = new();
+    private          IDisposable?                      _subscription;
+    private          int                               _refreshing;
+    private          IReadOnlyList<TelemetryScreenshotLogDto>? Records      { get; set; }
+    private          bool                              IsLoading    { get; set; }
+    private          string?                           ErrorMessage { get; set; }
+    private          TelemetryImageDto?                Preview      { get; set; }
+    private          bool                              ErrorsOnly   => !AllLevels;
+    private          int                               Take         => Math.Clamp( TakeQuery ?? 50, 1, 250 );
+    private          IReadOnlyList<string>             ServiceOptions { get; set; } = [ ];
+    private          ElementReference                  _lightbox;
+    private          bool                              _focusLightbox;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _subscription = LiveFeed.Subscribe( OnTelemetryUpdatedAsync );
+        await RefreshAsync();
+    }
+
+    // Query-string changes (filters) re-run the query; navigating with the same values does not.
+    protected override async Task OnParametersSetAsync()
+    {
+        if ( Records is not null ) { await RefreshAsync(); }
+    }
+
+    public void Dispose()
+    {
+        _subscription?.Dispose();
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
+
+    private Task OnTelemetryUpdatedAsync( TelemetryRealtimeEventDto update ) => update.NewImages > 0 || update.NewLogs > 0
+                                                                                     ? RefreshAsync()
+                                                                                     : Task.CompletedTask;
+
+    private async Task RefreshAsync()
+    {
+        if ( Interlocked.Exchange( ref _refreshing, 1 ) == 1 ) { return; }
+
+        try
+        {
+            IsLoading    = true;
+            ErrorMessage = null;
+
+            string? service = string.IsNullOrWhiteSpace( Service ) || Service == "all" ? null : Service;
+            IReadOnlyList<TelemetryScreenshotLogDto> records = await Telemetry.GetScreenshotLogsAsync( Take, ErrorsOnly, service, SelectedLog, _disposed.Token );
+
+            Records = records;
+            if ( service is null && SelectedLog is null ) { ServiceOptions = records.Select( static x => x.ServiceName ).OfType<string>().Distinct( StringComparer.Ordinal ).Order( StringComparer.Ordinal ).ToArray(); }
+        }
+        catch ( OperationCanceledException ) when ( _disposed.IsCancellationRequested ) { return; }
+        catch ( Exception e ) { ErrorMessage = $"Failed to load screenshots: {e.Message.TrimEnd( '.' )}"; }
+        finally
+        {
+            IsLoading = false;
+            Interlocked.Exchange( ref _refreshing, 0 );
+            if ( !_disposed.IsCancellationRequested ) { await InvokeAsync( StateHasChanged ); }
+        }
+    }
+
+    private void OnServiceChangedAsync( ChangeEventArgs args ) => NavigateWith( service: args.Value?.ToString() is { } value && value != "all" ? value : null );
+
+    private void OnSeverityChangedAsync( ChangeEventArgs args ) => NavigateWith( all: args.Value?.ToString() == "all" );
+
+    private void OnTakeChangedAsync( ChangeEventArgs args ) => NavigateWith( take: int.TryParse( args.Value?.ToString(), out int take ) ? take : null );
+
+    /// <summary> Filters live in the query string so a filtered view (or a specific log) can be bookmarked and shared. </summary>
+    private void NavigateWith( string? service = null, bool? all = null, int? take = null ) =>
+        Navigation.NavigateTo( Navigation.GetUriWithQueryParameters( new Dictionary<string, object?>
+                                                                     {
+                                                                         ["service"] = service ?? ( all is null && take is null ? null : Service ),
+                                                                         ["all"]     = ( all ?? AllLevels ) ? true : null,
+                                                                         ["take"]    = take ?? TakeQuery,
+                                                                         ["log"]     = null
+                                                                     } ) );
+
+    private void OpenPreview( TelemetryImageDto image )
+    {
+        Preview        = image;
+        _focusLightbox = true;
+    }
+
+    // The dialog must own focus, otherwise Escape (handled on the dialog) never reaches it.
+    protected override async Task OnAfterRenderAsync( bool firstRender )
+    {
+        if ( !_focusLightbox || Preview is null ) { return; }
+
+        _focusLightbox = false;
+        await _lightbox.FocusAsync();
+    }
+
+    private void OnLightboxKeyDown( KeyboardEventArgs args )
+    {
+        if ( args.Key == "Escape" ) { Preview = null; }
+    }
+
+    private static string FormatSize( long? bytes ) => bytes switch
+                                                       {
+                                                           null             => string.Empty,
+                                                           >= 1024 * 1024   => $"{bytes / 1024d / 1024d:0.#} MB",
+                                                           >= 1024          => $"{bytes / 1024d:0.#} KB",
+                                                           _                => $"{bytes} B"
+                                                       };
+}
