@@ -11,7 +11,7 @@ using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Microsoft.OpenApi.Models;
+using Microsoft.OpenApi;
 using Npgsql;
 using ZiggyCreatures.Caching.Fusion;
 
@@ -84,7 +84,7 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen( options =>
                                 {
                                     options.SwaggerDoc( "v1", new OpenApiInfo { Title = "Jakar.OpenTelemetry.Api", Version = "v1", Description = "Dashboard and snapshot endpoints for Jakar.OpenTelemetry." } );
-                                    options.AddSecurityDefinition( "otlpApiKey",
+                                    options.AddSecurityDefinition( OtlpGrpcDocumentFilter.OTLP_API_KEY_SCHEME,
                                                                    new OpenApiSecurityScheme
                                                                    {
                                                                        Type        = SecuritySchemeType.ApiKey,
@@ -100,10 +100,7 @@ builder.Services.AddSwaggerGen( options =>
                                                                            Name        = ".AspNetCore.Cookies",
                                                                            Description = "Authenticate through /login in the browser before using Swagger UI."
                                                                        } );
-                                    options.AddSecurityRequirement( new OpenApiSecurityRequirement
-                                                                        {
-                                                                            [new OpenApiSecurityScheme { Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "cookieAuth" } }] = Array.Empty<string>()
-                                                                        } );
+                                    options.AddSecurityRequirement( static document => new OpenApiSecurityRequirement { [new OpenApiSecuritySchemeReference( "cookieAuth", document )] = [ ] } );
                                     options.DocumentFilter<OtlpGrpcDocumentFilter>();
                                 } );
 

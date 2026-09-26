@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="Microsoft.AspNetCore.Http.Connections.Client" Version="10.0.7" />
+      <PackageReference Include="Microsoft.AspNetCore.Http.Connections.Client" />
     </ItemGroup>
 
 </Project>
