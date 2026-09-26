@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Code coverage for the libraries and the API host.
+    Excluded by design: the samples, Razor markup (*.razor), generated protobuf/gRPC code, and source-generated code.
+-->
+<RunSettings>
+    <DataCollectionRunSettings>
+        <DataCollectors>
+            <DataCollector friendlyName="XPlat code coverage">
+                <Configuration>
+                    <Format>cobertura</Format>
+                    <Include>[Jakar.OpenTelemetry.Contracts]*,[Jakar.OpenTelemetry.Api]*,[Jakar.OpenTelemetry.Api.Client]*,[Jakar.OpenTelemetry.Api.Client.*]*</Include>
+                    <Exclude>[*]OpenTelemetry.Proto.*,[*]Google.Rpc.*,[*]Microsoft.CodeAnalysis.*,[*]System.Runtime.CompilerServices.*,[*]System.Text.RegularExpressions.Generated.*</Exclude>
+                    <ExcludeByFile>**/*.razor,**/obj/**/*.cs,**/*.g.cs</ExcludeByFile>
+                    <ExcludeByAttribute>GeneratedCodeAttribute,ExcludeFromCodeCoverageAttribute</ExcludeByAttribute>
+                    <SkipAutoProps>true</SkipAutoProps>
+                    <DeterministicReport>false</DeterministicReport>
+                </Configuration>
+            </DataCollector>
+        </DataCollectors>
+    </DataCollectionRunSettings>
+    <NUnit>
+        <DefaultTimeout>120000</DefaultTimeout>
+    </NUnit>
+</RunSettings>

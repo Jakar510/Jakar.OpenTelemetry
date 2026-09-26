@@ -24,10 +24,11 @@ public readonly partial record struct ImageTag( Guid   ID,
 		tag = default;
 		if ( string.IsNullOrWhiteSpace( value ) ) { return false; }
 
-		Match match = TagPattern().Match( value );
+		string token = value.Trim();
+		Match  match = TagPattern().Match( token );
 		if ( !match.Success    ||
 			 match.Index  != 0 ||
-			 match.Length != value.Trim().Length ) { return false; }
+			 match.Length != token.Length ) { return false; }
 
 		if ( !Guid.TryParse( match.Groups["id"].ValueSpan, out Guid id ) ) { return false; }
 
@@ -71,7 +72,8 @@ public readonly partial record struct ImageTag( Guid   ID,
 		{
 			if ( length == buffer.Length ) { break; }
 
-			buffer[length++] = char.IsControl( c ) || c is '"' or ',' or ';' or '[' or ']'
+			// Every character the tag pattern treats as a delimiter must go, or the tag would never parse back (e.g. "bob's.png").
+			buffer[length++] = char.IsControl( c ) || c is '"' or '\'' or ',' or ';' or '[' or ']'
 								   ? '_'
 								   : c;
 		}

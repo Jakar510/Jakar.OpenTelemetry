@@ -16,4 +16,9 @@
         <ProjectReference Include="..\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.csproj" />
     </ItemGroup>
 
+    <ItemGroup Label="Tests">
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests" />
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+    </ItemGroup>
+
 </Project>

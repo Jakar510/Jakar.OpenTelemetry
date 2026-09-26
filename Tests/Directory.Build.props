@@ -1,0 +1,37 @@
+<Project>
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsPackable>false</IsPackable>
+        <!-- Test method names describe behavior (Method_State_Expectation); async tests do not need an Async suffix. -->
+        <NoWarn>$(NoWarn);CA1707;CS1591</NoWarn>
+    </PropertyGroup>
+
+    <!-- Every project under Tests/ except the shared fixtures library is a test project. -->
+    <PropertyGroup Condition="'$(IsTestProject)' == ''">
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
+
+    <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+        <PackageReference Include="Microsoft.NET.Test.Sdk" />
+        <PackageReference Include="NUnit" />
+        <PackageReference Include="NUnit3TestAdapter" />
+        <PackageReference Include="NUnit.Analyzers">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="coverlet.collector">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="Moq" />
+    </ItemGroup>
+
+    <ItemGroup Condition="'$(IsTestProject)' == 'true'">
+        <Using Include="NUnit.Framework" />
+        <Using Include="Moq" />
+    </ItemGroup>
+
+</Project>

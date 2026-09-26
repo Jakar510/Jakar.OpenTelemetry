@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+        <PackageReference Include="Microsoft.Extensions.Hosting" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client\Jakar.OpenTelemetry.Api.Client.csproj" />
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Testing\Jakar.OpenTelemetry.Testing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Jakar.OpenTelemetry.Testing" />
+        <Using Include="Microsoft.Extensions.Logging" />
+        <Using Include="Microsoft.Extensions.Logging.Testing" />
+    </ItemGroup>
+
+</Project>

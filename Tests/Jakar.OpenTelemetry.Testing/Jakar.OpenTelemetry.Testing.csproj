@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <IsTestProject>false</IsTestProject>
+        <Description>Shared fixtures for the Jakar.OpenTelemetry test projects: temp directories, fake HTTP, OTLP payload builders and a capturing OTLP receiver.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+        <PackageReference Include="Microsoft.Extensions.TimeProvider.Testing" />
+        <PackageReference Include="NUnit" />
+        <PackageReference Include="Moq" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Jakar.OpenTelemetry.Api\Jakar.OpenTelemetry.Api.csproj" />
+        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client\Jakar.OpenTelemetry.Api.Client.csproj" />
+    </ItemGroup>
+
+</Project>

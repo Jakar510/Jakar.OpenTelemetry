@@ -185,8 +185,9 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 					return UploadOutcome.Uploaded;
 
 				case HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable:
-					TimeSpan       delay = RetryAfter( response ) ?? _options.Images.InitialRetryDelay;
-					DateTimeOffset until = _time.GetUtcNow() + delay;
+					DateTimeOffset now   = _time.GetUtcNow();
+					TimeSpan       delay = RetryAfter( response, now ) ?? _options.Images.InitialRetryDelay;
+					DateTimeOffset until = now + delay;
 					_serverBusyUntil = until;
 					await _queue.RescheduleAsync( image, until, $"server busy ({(int)response.StatusCode})", token );
 					_logger.LogInformation( "Image server at capacity, pausing uploads for {Delay}", delay );
@@ -220,26 +221,23 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 		_logger.LogDebug( "Image {ImageId} upload failed ({Error}), retrying in {Delay:0}s", image.ID, error, seconds );
 	}
 
-	private static TimeSpan? RetryAfter( HttpResponseMessage response )
+	private static TimeSpan? RetryAfter( HttpResponseMessage response, DateTimeOffset now )
 	{
 		RetryConditionHeaderValue? retryAfter = response.Headers.RetryAfter;
 		if ( retryAfter?.Delta is { } delta ) { return delta; }
 
-		return retryAfter?.Date is { } date && date > DateTimeOffset.UtcNow
-				   ? date - DateTimeOffset.UtcNow
+		return retryAfter?.Date is { } date && date > now
+				   ? date - now
 				   : null;
 	}
 
+	/// <summary> <see cref="HttpClient"/> has already buffered the body, so this cannot fail on I/O. </summary>
 	private static async Task<string> ReadReasonAsync( HttpResponseMessage response, CancellationToken token )
 	{
-		try
-		{
-			string body = await response.Content.ReadAsStringAsync( token );
-			return body.Length > 512
-					   ? body[..512]
-					   : body;
-		}
-		catch ( Exception ) { return response.ReasonPhrase ?? string.Empty; }
+		string body = await response.Content.ReadAsStringAsync( token );
+		return body.Length > 512
+				   ? body[..512]
+				   : body;
 	}
 
 

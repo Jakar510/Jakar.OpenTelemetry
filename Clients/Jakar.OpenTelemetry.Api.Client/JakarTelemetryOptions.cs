@@ -86,6 +86,10 @@ public sealed class JakarTelemetryOptions
 		if ( ImageEndpoint is { IsAbsoluteUri: false } ) { errors.Add( $"{nameof(ImageEndpoint)} must be an absolute URI" ); }
 
 		if ( string.IsNullOrWhiteSpace( ApiKeyHeaderName ) ) { errors.Add( $"{nameof(ApiKeyHeaderName)} is required" ); }
+		else if ( ApiKeyHeaderName.AsSpan().IndexOfAny( ",=" ) >= 0 ) { errors.Add( $"{nameof(ApiKeyHeaderName)} must not contain ',' or '='" ); }
+
+		// The OTLP exporters URL-decode their header list before splitting it on ',', so a comma cannot be escaped and would fail every exporter at startup.
+		if ( ApiKey?.Contains( ',' ) is true ) { errors.Add( $"{nameof(ApiKey)} must not contain ','" ); }
 
 		if ( string.IsNullOrWhiteSpace( ServiceName ) ) { errors.Add( $"{nameof(ServiceName)} is required" ); }
 

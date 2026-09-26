@@ -24,4 +24,13 @@
         <ProjectReference Include="..\..\Jakar.OpenTelemetry.Contracts\Jakar.OpenTelemetry.Contracts.csproj" />
     </ItemGroup>
 
+    <ItemGroup Label="Tests">
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Api.Client.Tests" />
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.Tests" />
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Api.Client.Maui.Tests" />
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Api.IntegrationTests" />
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Testing" />
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+    </ItemGroup>
+
 </Project>

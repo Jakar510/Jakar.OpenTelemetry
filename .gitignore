@@ -5,3 +5,7 @@ riderModule.iml
 /_ReSharper.Caches/
 # Rider per-user settings
 *.DotSettings.user
+
+# Test run output and coverage
+[Tt]est[Rr]esults/
+coverage/

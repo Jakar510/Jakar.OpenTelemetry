@@ -86,13 +86,13 @@ public sealed class JakarTelemetryRuntime( IServiceProvider                servi
 	public void OnConnectivityRestored() => uploader.Signal();
 
 
-	private void OnUnhandledException( object sender, UnhandledExceptionEventArgs args )
+	internal void OnUnhandledException( object sender, UnhandledExceptionEventArgs args )
 	{
 		Exception exception = args.ExceptionObject as Exception ?? new InvalidOperationException( args.ExceptionObject?.ToString() ?? "Unknown unhandled exception" );
 		crashes.ReportException( exception, "appdomain.unhandled_exception", args.IsTerminating );
 	}
 
-	private void OnUnobservedTaskException( object? sender, UnobservedTaskExceptionEventArgs args ) => crashes.ReportException( args.Exception, "task_scheduler.unobserved_task_exception", isTerminating: false );
+	internal void OnUnobservedTaskException( object? sender, UnobservedTaskExceptionEventArgs args ) => crashes.ReportException( args.Exception, "task_scheduler.unobserved_task_exception", isTerminating: false );
 }
 
 /// <summary> Starts and stops <see cref="JakarTelemetryRuntime"/> with a generic host. </summary>

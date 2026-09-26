@@ -48,4 +48,11 @@
         <Protobuf Include="Protos\opentelemetry\proto\collector\trace\v1\trace_service.proto" GrpcServices="Server" ProtoRoot="Protos"/>
     </ItemGroup>
 
+    <ItemGroup Label="Tests">
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Api.Tests" />
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Api.IntegrationTests" />
+        <InternalsVisibleTo Include="Jakar.OpenTelemetry.Testing" />
+        <InternalsVisibleTo Include="DynamicProxyGenAssembly2" />
+    </ItemGroup>
+
 </Project>

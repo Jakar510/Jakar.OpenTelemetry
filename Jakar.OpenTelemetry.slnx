@@ -13,6 +13,13 @@
         <Project Path="Samples/Jakar.OpenTelemetry.Samples.Maui/Jakar.OpenTelemetry.Samples.Maui.csproj" />
         <Project Path="Samples/Jakar.OpenTelemetry.Source/Jakar.OpenTelemetry.Source.csproj" />
     </Folder>
+    <Folder Name="/Tests/">
+        <File Path="Tests/Directory.Build.props" />
+        <File Path="Tests/coverage.runsettings" />
+        <Project Path="Tests/Jakar.OpenTelemetry.Testing/Jakar.OpenTelemetry.Testing.csproj" />
+        <Project Path="Tests/Jakar.OpenTelemetry.Contracts.Tests/Jakar.OpenTelemetry.Contracts.Tests.csproj" />
+        <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.Tests/Jakar.OpenTelemetry.Api.Client.Tests.csproj" />
+    </Folder>
     <Project Path="Jakar.OpenTelemetry.Api/Jakar.OpenTelemetry.Api.csproj" />
     <Project Path="Jakar.OpenTelemetry.Contracts/Jakar.OpenTelemetry.Contracts.csproj" />
 </Solution>
