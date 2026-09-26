@@ -1,0 +1,61 @@
+@page "/"
+@inject IJSRuntime JS
+@inject IJakarTelemetry Telemetry
+@inject BrowserTelemetryModule Browser
+@inject ILogger<Home> Logger
+
+<PageTitle>Jakar.OpenTelemetry WebAssembly sample</PageTitle>
+
+<h1>Jakar.OpenTelemetry WebAssembly sample</h1>
+<p>Everything below is exported to the API as OTLP/JSON logs; screenshots upload separately. Pending logs survive reloads (localStorage), pending images live in IndexedDB.</p>
+
+<section class="actions">
+    <button @onclick="LogWithScreenshotAsync">Log error with screenshot</button>
+    <button @onclick="FlushAsync">Flush now</button>
+    <button @onclick='() => JS.InvokeVoidAsync( "jakarSample.throwError" )'>JavaScript error</button>
+    <button @onclick='() => JS.InvokeVoidAsync( "jakarSample.rejectPromise" )'>Unhandled promise rejection</button>
+    <button @onclick="() => _brokenImage = true">Resource load error</button>
+    <button @onclick="() => _armed = true">Component error (error boundary)</button>
+    <button class="danger" @onclick="ThrowUnhandled">Unhandled .NET exception</button>
+</section>
+
+@if ( _brokenImage )
+{
+    <img src="missing-image.png" alt="intentionally missing" width="1" height="1" />
+}
+
+<TelemetryErrorBoundary Name="Bomb">
+    <ChildContent>
+        <Bomb Armed="_armed" />
+    </ChildContent>
+    <ErrorContent>
+        <p role="alert">The component failed; the error was logged with a screenshot. <button @onclick="Reset">Reset</button></p>
+    </ErrorContent>
+</TelemetryErrorBoundary>
+
+<p role="status">@_status</p>
+
+@code {
+    private bool    _armed;
+    private bool    _brokenImage;
+    private string? _status;
+
+    private async Task LogWithScreenshotAsync()
+    {
+        byte[]?  png    = await Browser.CaptureScreenshotAsync();
+        ImageTag[] images = png is { Length: > 0 } ? [ await Telemetry.AttachImageAsync( png, "wasm-sample.png" ) ] : [ ];
+
+        Logger.LogErrorWithImages( new InvalidOperationException( "Sample handled error in WebAssembly" ), images, "Sample error with {ScreenshotCount} screenshot(s)", images.Length );
+        _status = images.Length > 0 ? $"Logged error with {images[0]}" : "Logged error (this browser refused the screenshot)";
+    }
+
+    private async Task FlushAsync()
+    {
+        bool flushed = await Telemetry.FlushAsync();
+        _status = flushed ? "Telemetry flushed" : "Flush incomplete, telemetry stays queued in the browser";
+    }
+
+    private void ThrowUnhandled() => throw new InvalidOperationException( "Sample unhandled exception in a WebAssembly event handler" );
+
+    private void Reset() => _armed = false;
+}

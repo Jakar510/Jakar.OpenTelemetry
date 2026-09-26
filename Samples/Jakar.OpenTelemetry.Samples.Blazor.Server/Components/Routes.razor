@@ -1,0 +1,9 @@
+@* Browser errors, unhandled rejections, resource/CSP errors, web vitals and navigation are forwarded to the server by this single component. *@
+<JakarTelemetry />
+
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+</Router>

@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Description>Blazor Server (interactive server) integration for the Jakar.OpenTelemetry client: circuit exception capture, circuit metrics and Blazor framework telemetry, on top of the ASP.NET Core integration.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Api.Client.AspNet\Jakar.OpenTelemetry.Api.Client.AspNet.csproj" />
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.csproj" />
+    </ItemGroup>
+
+</Project>
