@@ -515,16 +515,6 @@ public sealed partial class Home : ComponentBase, IDisposable
 		return FormatMap( merged );
 	}
 
-	private static string Trim( string? value, int maxLength )
-	{
-		if ( string.IsNullOrWhiteSpace( value ) ) { return "-"; }
-
-		string cleaned = CleanJson( value );
-		return cleaned.Length <= maxLength
-				   ? cleaned
-				   : cleaned[..maxLength] + "...";
-	}
-
 	private static string CleanJson( string? value )
 	{
 		if ( string.IsNullOrWhiteSpace( value ) ) { return string.Empty; }
@@ -552,15 +542,5 @@ public sealed partial class Home : ComponentBase, IDisposable
 	{
 		public bool IsCustom => !string.IsNullOrWhiteSpace( CustomKey );
 		public bool IsAny    => Field is FilterField.None && string.IsNullOrWhiteSpace( CustomKey );
-
-		public bool Equals( FilterKey other ) => Field == other.Field && string.Equals( CustomKey, other.CustomKey, StringComparison.InvariantCulture );
-
-		public override int GetHashCode()
-		{
-			HashCode hashCode = new();
-			hashCode.Add( (int)Field );
-			hashCode.Add( CustomKey, StringComparer.InvariantCulture );
-			return hashCode.ToHashCode();
-		}
 	}
 }

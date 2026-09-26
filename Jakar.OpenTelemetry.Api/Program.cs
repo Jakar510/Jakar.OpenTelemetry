@@ -187,3 +187,7 @@ app.MapStaticAssets();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 
 await app.RunAsync();
+
+
+/// <summary> Entry point; public so integration tests can host the API with <c>WebApplicationFactory&lt;Program&gt;</c>. </summary>
+public partial class Program;

@@ -411,6 +411,53 @@ public sealed class HomePageTests
 	}
 
 	[Test]
+	public async Task EventDuringRefresh_IsCoalescedIntoOneFollowUpRefresh()
+	{
+		IRenderedComponent<Home> page = Render();
+		_cache.Remove( TelemetryCacheKeys.Snapshot( TAKE ) );
+
+		TaskCompletionSource release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		int                  loads   = 0;
+		_factory.Setup( static x => x.CreateDbContextAsync( It.IsAny<CancellationToken>() ) )
+				.Returns( async () =>
+						  {
+							  Interlocked.Increment( ref loads );
+							  await release.Task;
+							  throw new InvalidOperationException( "database offline" );
+						  } );
+
+		Task first = page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "first" ) ) );
+		await page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "second" ) ) );
+		await page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "third" ) ) );
+		release.SetResult();
+		await first;
+
+		Assert.That( loads, Is.EqualTo( 2 ), "the running refresh plus exactly one follow-up" );
+	}
+
+	[Test]
+	public async Task DisposeDuringRefresh_StopsQuietly()
+	{
+		IRenderedComponent<Home> page = Render();
+		_cache.Remove( TelemetryCacheKeys.Snapshot( TAKE ) );
+
+		TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		_factory.Setup( static x => x.CreateDbContextAsync( It.IsAny<CancellationToken>() ) )
+				.Returns<CancellationToken>( async token =>
+											 {
+												 started.SetResult();
+												 await Task.Delay( Timeout.Infinite, token );
+												 return null!;
+											 } );
+
+		Task refresh = page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "slow" ) ) );
+		await started.Task;
+		await _context.DisposeComponentsAsync();
+
+		Assert.DoesNotThrowAsync( () => refresh );
+	}
+
+	[Test]
 	public async Task Dispose_Unsubscribes()
 	{
 		Render();

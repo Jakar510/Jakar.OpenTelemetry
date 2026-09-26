@@ -1,0 +1,28 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Grpc.Net.Client" />
+        <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
+        <PackageReference Include="Microsoft.AspNetCore.SignalR.Client" />
+        <PackageReference Include="Microsoft.Extensions.Diagnostics.Testing" />
+        <PackageReference Include="Testcontainers.PostgreSql" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Jakar.OpenTelemetry.Api\Jakar.OpenTelemetry.Api.csproj" />
+        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client\Jakar.OpenTelemetry.Api.Client.csproj" />
+        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.csproj" />
+        <ProjectReference Include="..\Jakar.OpenTelemetry.Testing\Jakar.OpenTelemetry.Testing.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <Using Include="Jakar.OpenTelemetry.Testing" />
+        <Using Include="Microsoft.Extensions.Logging" />
+        <Using Include="Microsoft.Extensions.Logging.Testing" />
+    </ItemGroup>
+
+</Project>
