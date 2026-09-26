@@ -1,12 +1,18 @@
 <Solution>
     <Folder Name="/Clients/">
-        <Project Path="Jakar.OpenTelemetry.Api.Client.AspNet/Jakar.OpenTelemetry.Api.Client.AspNet.csproj" />
-        <Project Path="Jakar.OpenTelemetry.Api.Client.Blazor.Server/Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
-        <Project Path="Jakar.OpenTelemetry.Api.Client.Blazor/Jakar.OpenTelemetry.Api.Client.Blazor.csproj" />
-        <Project Path="Jakar.OpenTelemetry.Api.Client.Maui/Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
-        <Project Path="Jakar.OpenTelemetry.Api.Client/Jakar.OpenTelemetry.Api.Client.csproj" />
+        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.AspNet/Jakar.OpenTelemetry.Api.Client.AspNet.csproj" />
+        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.Blazor.Server/Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
+        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.csproj" />
+        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.Maui/Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
+        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client/Jakar.OpenTelemetry.Api.Client.csproj" />
+    </Folder>
+    <Folder Name="/Samples/">
+        <Project Path="Samples/Jakar.OpenTelemetry.Samples.Blazor.Server/Jakar.OpenTelemetry.Samples.Blazor.Server.csproj" />
+        <Project Path="Samples/Jakar.OpenTelemetry.Samples.Blazor/Jakar.OpenTelemetry.Samples.Blazor.csproj" />
+        <Project Path="Samples/Jakar.OpenTelemetry.Samples.Console/Jakar.OpenTelemetry.Samples.Console.csproj" />
+        <Project Path="Samples/Jakar.OpenTelemetry.Samples.Maui/Jakar.OpenTelemetry.Samples.Maui.csproj" />
+        <Project Path="Samples/Jakar.OpenTelemetry.Source/Jakar.OpenTelemetry.Source.csproj" />
     </Folder>
     <Project Path="Jakar.OpenTelemetry.Api/Jakar.OpenTelemetry.Api.csproj" />
     <Project Path="Jakar.OpenTelemetry.Contracts/Jakar.OpenTelemetry.Contracts.csproj" />
-    <Project Path="Jakar.OpenTelemetry.Source/Jakar.OpenTelemetry.Source.csproj" />
 </Solution>

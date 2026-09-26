@@ -1,0 +1,41 @@
+body {
+    margin: 0;
+    padding: 1.5rem;
+    font-family: system-ui, sans-serif;
+    line-height: 1.5;
+}
+
+.actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin: 1rem 0;
+}
+
+button {
+    padding: 0.55rem 0.9rem;
+    border-radius: 0.6rem;
+    border: 1px solid #8884;
+    background: #f4f4f8;
+    cursor: pointer;
+    font: inherit;
+}
+
+button.danger {
+    background: #b3261e;
+    color: #fff;
+}
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    inset: auto 0 0 0;
+    padding: 0.7rem 1rem;
+    background: #b3261e;
+    color: #fff;
+}
+
+#blazor-error-ui .dismiss {
+    float: right;
+    cursor: pointer;
+}

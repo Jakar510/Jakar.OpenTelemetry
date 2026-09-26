@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Description>Sample for Jakar.OpenTelemetry.Api.Client.AspNet: an ASP.NET Core app with a background worker, failing endpoints and screenshots.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client.AspNet\Jakar.OpenTelemetry.Api.Client.AspNet.csproj" />
+    </ItemGroup>
+
+</Project>

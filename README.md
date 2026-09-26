@@ -14,10 +14,10 @@ It currently includes:
   - serves an interactive Blazor dashboard and an error screenshots page
 - `Jakar.OpenTelemetry.Contracts`
   Shared DTOs and contracts used between the API, UI and clients (including the `image:{file-name}:{id}` tag format)
-- `Jakar.OpenTelemetry.Api.Client` (+ `.AspNet`, `.Blazor`, `.Blazor.Server`, `.Maui`)
+- `Clients/Jakar.OpenTelemetry.Api.Client` (+ `.AspNet`, `.Blazor.WebAssembly`, `.Blazor.Server`, `.Maui`)
   Durable client libraries: OTLP export, crash reports and screenshot uploads, optimized per platform (see [Client Libraries](#client-libraries))
-- `Jakar.OpenTelemetry.Source`
-  A sample telemetry producer that periodically issues an HTTP `GET` to Google and exports logs, traces, and metrics to the API
+- `Samples/*`
+  One runnable sample per client package (see [Samples](#samples)); `Jakar.OpenTelemetry.Source` is the ASP.NET Core one
 
 ## Features
 
@@ -42,13 +42,19 @@ It currently includes:
 ```text
 Jakar.OpenTelemetry.slnx
 |- Jakar.OpenTelemetry.Api
-|- Jakar.OpenTelemetry.Api.Client
-|- Jakar.OpenTelemetry.Api.Client.AspNet
-|- Jakar.OpenTelemetry.Api.Client.Blazor
-|- Jakar.OpenTelemetry.Api.Client.Blazor.Server
-|- Jakar.OpenTelemetry.Api.Client.Maui
 |- Jakar.OpenTelemetry.Contracts
-\- Jakar.OpenTelemetry.Source
+|- Clients/
+|  |- Jakar.OpenTelemetry.Api.Client
+|  |- Jakar.OpenTelemetry.Api.Client.AspNet
+|  |- Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly
+|  |- Jakar.OpenTelemetry.Api.Client.Blazor.Server
+|  \- Jakar.OpenTelemetry.Api.Client.Maui
+\- Samples/
+   |- Jakar.OpenTelemetry.Source                      (ASP.NET Core)
+   |- Jakar.OpenTelemetry.Samples.Console             (generic client)
+   |- Jakar.OpenTelemetry.Samples.Blazor              (Blazor WebAssembly)
+   |- Jakar.OpenTelemetry.Samples.Blazor.Server       (Blazor Server)
+   \- Jakar.OpenTelemetry.Samples.Maui                (.NET MAUI)
 
 Directory.Packages.props   (central package management)
 ```
@@ -196,7 +202,7 @@ Example auth settings:
 
 Sample source settings live in:
 
-- [appsettings.json](W:/WorkSpace/Jakar.OpenTelemetry/Jakar.OpenTelemetry.Source/appsettings.json:1)
+- [appsettings.json](W:/WorkSpace/Jakar.OpenTelemetry/Samples/Jakar.OpenTelemetry.Source/appsettings.json:1)
 
 Default values:
 
@@ -242,7 +248,7 @@ Then open:
 ### 4. Run the sample source
 
 ```powershell
-dotnet run --project W:\WorkSpace\Jakar.OpenTelemetry\Jakar.OpenTelemetry.Source
+dotnet run --project W:\WorkSpace\Jakar.OpenTelemetry\Samples\Jakar.OpenTelemetry.Source
 ```
 
 After the source starts sending traffic, the dashboard should begin showing:
@@ -370,9 +376,9 @@ Clients send OTLP to the API and upload screenshots referenced from their logs. 
 | Package | Target | Adds on top of the generic client |
 |---|---|---|
 | `Jakar.OpenTelemetry.Api.Client` | any .NET 10 host (console, worker, desktop) | - |
-| `Jakar.OpenTelemetry.Api.Client.AspNet` | ASP.NET Core | request traces/metrics, Kestrel metrics, every unhandled request exception logged with route/method/trace id |
-| `Jakar.OpenTelemetry.Api.Client.Blazor` | Blazor WebAssembly (and components shared with Server) | OTLP/JSON exporter with `localStorage` persistence, IndexedDB image queue, `<JakarTelemetry />` (JS errors, unhandled promise rejections, resource/CSP errors, web vitals, navigation), `TelemetryErrorBoundary` with screenshots |
-| `Jakar.OpenTelemetry.Api.Client.Blazor.Server` | Blazor Server (interactive server) | circuit exception capture, circuit metrics, Blazor framework traces/metrics |
+| `Jakar.OpenTelemetry.Api.Client.AspNet` | ASP.NET Core | request traces (exceptions recorded on spans) and metrics, Kestrel metrics, `http.request.method`/`http.route` on every log written during a request |
+| `Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly` | Blazor WebAssembly (and components shared with Server) | OTLP/JSON exporter with `localStorage` persistence, IndexedDB image queue, `<JakarTelemetry />` (JS errors, unhandled promise rejections, resource/CSP errors, web vitals, navigation), `TelemetryErrorBoundary` with screenshots |
+| `Jakar.OpenTelemetry.Api.Client.Blazor.Server` | Blazor Server (interactive server) | `blazor.circuit.id` on every log written during circuit activity, circuit metrics, Blazor framework traces/metrics |
 | `Jakar.OpenTelemetry.Api.Client.Maui` | .NET MAUI: Android, iOS, Mac Catalyst, Windows | native crash hooks, screenshots, connectivity-aware uploads, lifecycle flushing |
 
 (The server-side Blazor integration is its own package because it needs the ASP.NET Core shared framework, which WebAssembly apps cannot reference.)
@@ -395,8 +401,8 @@ Clients send OTLP to the API and upload screenshots referenced from their logs. 
 | Platform | Hooks |
 |---|---|
 | all .NET | `AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException` |
-| ASP.NET Core | unhandled request exceptions (middleware inserted first via `IStartupFilter`) |
-| Blazor Server | exceptions during circuit inbound activity (`CircuitHandler`), component errors (`TelemetryErrorBoundary`), browser JS errors |
+| ASP.NET Core | unhandled request exceptions: ASP.NET Core's own logs (developer exception page, `UseExceptionHandler`, Kestrel) exported with the request enrichment; exceptions recorded on the request span |
+| Blazor Server | Blazor's own `CircuitUnhandledException`/`ExceptionRenderingComponent` logs (circuit id in the message), `blazor.circuit.id` on app logs written from UI events/JS interop, component errors with screenshots (`TelemetryErrorBoundary`), browser JS errors |
 | Blazor WebAssembly | .NET unhandled exceptions, component errors, `window.onerror`, `unhandledrejection`, resource load and CSP errors |
 | Android | `AndroidEnvironment.UnhandledExceptionRaiser`, Java `Thread.DefaultUncaughtExceptionHandler` (chained) |
 | iOS / Mac Catalyst | `NSSetUncaughtExceptionHandler` (chained), `Runtime.MarshalManagedException`, `Runtime.MarshalObjectiveCException` |
@@ -479,6 +485,18 @@ await logger.LogErrorWithScreenshotAsync( telemetry, exception, "Checkout failed
 | `Images:MaxImageBytes` / `MaxQueueBytes` / `MaxQueueCount` / `MaxAge` | `10 MiB` / `100 MiB` / `500` / `7d` | queue bounds |
 | `Images:MaxConcurrentUploads` / `PollInterval` / `InitialRetryDelay` / `MaxRetryDelay` / `RequestTimeout` | `2` / `30s` / `5s` / `30m` / `60s` | |
 | `Images:RequireUnmeteredNetwork` | `false` | MAUI: upload only on Wi-Fi/Ethernet |
+
+## Samples
+
+Each sample points at the API's development endpoint and dev API key; run the API first.
+
+| Sample | Client | Run | Exercises |
+|---|---|---|---|
+| `Samples/Jakar.OpenTelemetry.Source` | `.AspNet` | `https://localhost:7301` | background worker (HTTP calls, spans, metrics, simulated errors with screenshots), `GET /boom` (unhandled request exception), `GET /screenshot`, `POST /flush` |
+| `Samples/Jakar.OpenTelemetry.Samples.Console` | generic | `dotnet run`, `dotnet run -- crash`, `dotnet run -- hang` | logs, traced operation, error with screenshot, on-demand flush; crash persisted and replayed on the next run; killed process reported as an abnormal termination |
+| `Samples/Jakar.OpenTelemetry.Samples.Blazor` | `.Blazor.WebAssembly` | `https://localhost:7090` (already in the API's CORS origins) | JS error, unhandled rejection, resource error, web vitals, error boundary screenshot, error with screenshot, flush, unhandled .NET exception |
+| `Samples/Jakar.OpenTelemetry.Samples.Blazor.Server` | `.Blazor.Server` | `https://localhost:7302` | the same browser/component actions from an interactive server app, plus crashing the circuit |
+| `Samples/Jakar.OpenTelemetry.Samples.Maui` | `.Maui` | Android emulator / iOS simulator / Mac Catalyst / Windows | error with a real screenshot, traced operation, flush, unobserved task exception, UI/background/native crashes (Java on Android, Objective-C on Apple). Exports to the API's HTTP port (`http://10.0.2.2:5287` on the Android emulator) so no dev certificate is needed |
 
 ## Development Notes
 
