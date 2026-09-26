@@ -2,21 +2,27 @@
     <div>
         <p class="eyebrow">Live Stream</p>
         <h2>Telemetry command surface</h2>
-        <p class="hero-copy">The portal keeps a SignalR session open to the API, refreshes on OTLP ingest, and
-            pivots across logs, spans, traces, and metrics without leaving the page.</p>
+        <p class="hero-copy">The dashboard refreshes as OTLP data is ingested (at most once per second) and pivots across logs, traces, metrics,
+            and screenshots without leaving the page.</p>
     </div>
 
     <div class="status-stack">
-        <div class="status-pill @ConnectionStateClass">@ConnectionStateLabel</div>
-        <div class="status-detail">API: @ApiBaseUrl</div>
+        <div class="status-pill @StateClass" role="status">@StateLabel</div>
+        <button type="button"
+                class="action-button"
+                aria-pressed="@( LiveUpdates ? "true" : "false" )"
+                @onclick="() => LiveUpdatesToggled.InvokeAsync()">
+            @( LiveUpdates ? "Pause live updates" : "Resume live updates" )
+        </button>
         <div class="status-detail">@LastEventLabel</div>
     </div>
 </section>
 
 
 @code {
-    [Parameter] public required string ConnectionStateClass { get; set; }
-    [Parameter] public required string ConnectionStateLabel { get; set; }
-    [Parameter] public required string ApiBaseUrl { get; set; }
-    [Parameter] public required string LastEventLabel { get; set; }
+    [Parameter] public required string        StateClass         { get; set; }
+    [Parameter] public required string        StateLabel         { get; set; }
+    [Parameter] public required string        LastEventLabel     { get; set; }
+    [Parameter] public          bool          LiveUpdates        { get; set; }
+    [Parameter] public          EventCallback LiveUpdatesToggled { get; set; }
 }

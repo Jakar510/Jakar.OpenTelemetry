@@ -11,14 +11,6 @@
     padding-bottom: 1.25rem;
 }
 
-.eyebrow {
-    margin: 0;
-    color: var(--accent);
-    font-size: 0.78rem;
-    letter-spacing: 0.18rem;
-    text-transform: uppercase;
-}
-
 h1 {
     margin: 0.15rem 0 0;
     font-family: var(--font-display);
@@ -34,8 +26,15 @@ h1 {
 
 .shell-actions {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
     gap: 0.8rem;
+}
+
+.shell-nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
 }
 
 .shell-user {
@@ -60,5 +59,9 @@ h1 {
     .shell-actions {
         width: 100%;
         justify-content: space-between;
+    }
+
+    .shell-nav {
+        width: 100%;
     }
 }

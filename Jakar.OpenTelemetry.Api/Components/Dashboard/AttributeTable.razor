@@ -1,0 +1,25 @@
+@if ( Values is { Count: > 0 } )
+{
+    <details class="attribute-group" open="@Open">
+        <summary>@Title <span class="muted">(@Values.Count)</span></summary>
+        <div class="kv-wrap">
+            <table class="kv">
+                <tbody>
+                @foreach ( KeyValuePair<string, string?> pair in Values.OrderBy( static x => x.Key, StringComparer.Ordinal ) )
+                {
+                    <tr @key="pair.Key">
+                        <th scope="row">@pair.Key</th>
+                        <td><code class="wrap">@( pair.Value ?? "null" )</code></td>
+                    </tr>
+                }
+                </tbody>
+            </table>
+        </div>
+    </details>
+}
+
+@code {
+    [Parameter] public required string                               Title  { get; set; }
+    [Parameter] public          IReadOnlyDictionary<string, string?>? Values { get; set; }
+    [Parameter] public          bool                                 Open   { get; set; }
+}

@@ -1,0 +1,73 @@
+@using Microsoft.AspNetCore.Components.Routing
+@using Microsoft.Extensions.Logging
+@using Microsoft.JSInterop
+@implements IAsyncDisposable
+@inject IJSRuntime JS
+@inject ILoggerFactory LoggerFactory
+@inject NavigationManager Navigation
+@inject IServiceProvider Services
+
+@* Renders nothing. Place once in the app root (App.razor / MainLayout) with an interactive render mode. *@
+
+@code {
+    private static readonly EventId NavigationEvent = new( 9106, "browser.navigation" );
+
+    /// <summary> Attach a screenshot to browser errors (at most one per minute). </summary>
+    [Parameter] public bool CaptureScreenshotOnError { get; set; } = true;
+
+    /// <summary> Report LCP, CLS, INP, FCP, TTFB and long tasks. </summary>
+    [Parameter] public bool ReportWebVitals { get; set; } = true;
+
+    /// <summary> Log client-side navigations (path only, never the query string). </summary>
+    [Parameter] public bool LogNavigation { get; set; } = true;
+
+    [Parameter] public int MaxEventsPerMinute { get; set; } = 30;
+
+    private BrowserTelemetryModule?                   _module;
+    private DotNetObjectReference<BrowserTelemetryBridge>? _bridge;
+    private ILogger?                                  _logger;
+
+    protected override void OnInitialized()
+    {
+        _logger = LoggerFactory.CreateLogger( BrowserTelemetryBridge.CATEGORY );
+        if ( LogNavigation ) { Navigation.LocationChanged += OnLocationChanged; }
+    }
+
+    protected override async Task OnAfterRenderAsync( bool firstRender )
+    {
+        if ( !firstRender ) { return; }
+
+        try
+        {
+            _module = new BrowserTelemetryModule( JS );
+            _bridge = DotNetObjectReference.Create( new BrowserTelemetryBridge( _logger!, _module, Services.GetService( typeof(IJakarTelemetry) ) as IJakarTelemetry, CaptureScreenshotOnError ) );
+
+            IJSObjectReference module = await _module.GetAsync();
+            await module.InvokeVoidAsync( "install", _bridge, new { maxEventsPerMinute = MaxEventsPerMinute, reportWebVitals = ReportWebVitals } );
+        }
+        catch ( Exception e ) when ( e is JSException or JSDisconnectedException or TaskCanceledException )
+        {
+            _logger?.LogWarning( e, "Browser telemetry could not be installed" );
+        }
+    }
+
+    private void OnLocationChanged( object? sender, LocationChangedEventArgs args )
+    {
+        string path = new Uri( args.Location ).AbsolutePath;
+        _logger?.LogInformation( NavigationEvent, "Navigated to {UrlPath}", path );
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        Navigation.LocationChanged -= OnLocationChanged;
+
+        try
+        {
+            if ( _module is not null ) { await ( await _module.GetAsync() ).InvokeVoidAsync( "uninstall" ); }
+        }
+        catch ( Exception e ) when ( e is JSException or JSDisconnectedException or TaskCanceledException ) { }
+
+        _bridge?.Dispose();
+        if ( _module is not null ) { await _module.DisposeAsync(); }
+    }
+}

@@ -3,7 +3,7 @@
         <p class="eyebrow">Traces</p>
         <h3>@TelemetryDashboardFormatter.FormatCount( Records.Count ) spans</h3>
     </div>
-    <span>Span durations, kinds, status, links, and scoped attributes.</span>
+    <span>Select a span to see its events, links, flags, and attributes.</span>
 </div>
 
 @if ( Records.Count == 0 )
@@ -13,7 +13,7 @@
 else
 {
     <div class="table-wrap">
-        <table>
+        <table class="selectable">
             <thead>
             <tr>
                 <th>Start</th>
@@ -29,13 +29,18 @@ else
             <tbody>
             @foreach ( TelemetrySpanRecordDto span in Records )
             {
-                <tr>
+                <tr @key="span.ID"
+                    class="@TelemetryDashboardFormatter.RowClass( span.ID == SelectedId )"
+                    tabindex="0"
+                    aria-selected="@( span.ID == SelectedId ? "true" : "false" )"
+                    @onclick="() => SelectedChanged.InvokeAsync( span.ID )"
+                    @onkeydown="args => OnKeyDown( args, span.ID )">
                     <td>@TelemetryDashboardFormatter.FormatDate( span.StartTimeUtc ?? span.ReceivedAtUtc )</td>
                     <td>@( span.ServiceName ?? "unknown" )</td>
                     <td title="@span.Name">@TelemetryDashboardFormatter.Trim( span.Name, 48 )</td>
                     <td>@span.Kind</td>
-                    <td>@( $"{span.DurationMilliseconds:0.###} ms" )</td>
-                    <td title="@span.StatusMessage">@TelemetryDashboardFormatter.Trim( span.StatusCode, 24 )</td>
+                    <td>@TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )</td>
+                    <td title="@span.StatusMessage"><span class="badge @TelemetryDashboardFormatter.StatusClass( span.StatusCode )">@( span.StatusCode ?? "Unset" )</span></td>
                     <td title="@( $"{span.TraceId} / {span.SpanId}" )">@TelemetryDashboardFormatter.Trim( span.TraceId, 16 )</td>
                     <td title="@TelemetryDashboardFormatter.FormatMap( span.Attributes )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.FormatMap( span.Attributes ), 72 )</td>
                 </tr>
@@ -46,5 +51,11 @@ else
 }
 
 @code {
-    [Parameter] public IReadOnlyList<TelemetrySpanRecordDto> Records { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<TelemetrySpanRecordDto> Records         { get; set; } = [ ];
+    [Parameter] public Guid?                                 SelectedId      { get; set; }
+    [Parameter] public EventCallback<Guid>                   SelectedChanged { get; set; }
+
+    private Task OnKeyDown( KeyboardEventArgs args, Guid id ) => TelemetryDashboardFormatter.IsActivationKey( args )
+                                                                    ? SelectedChanged.InvokeAsync( id )
+                                                                    : Task.CompletedTask;
 }

@@ -38,8 +38,7 @@ public sealed class OtlpHttpReceiver( TelemetryIngestService      telemetry,
 	public Task ExportLogsAsync( HttpContext context ) => HandleAsync( context, ExportLogsServiceRequest.Parser, OtlpJsonIds.Normalize, telemetry.IngestLogsAsync );
 
 
-	private async Task HandleAsync<TRequest, TResponse>( HttpContext context, MessageParser<TRequest> parser, Action<TRequest> normalizeJson, Func<TRequest, CancellationToken, Task<TResponse>> ingest )
-		where TRequest : class, IMessage<TRequest>, new() where TResponse : IMessage<TResponse>
+	private async Task HandleAsync<TRequest, TResponse>( HttpContext context, MessageParser<TRequest> parser, Action<TRequest> normalizeJson, Func<TRequest, CancellationToken, Task<TResponse>> ingest ) where TRequest : class, IMessage<TRequest>, new() where TResponse : IMessage<TResponse>
 	{
 		CancellationToken token = context.RequestAborted;
 

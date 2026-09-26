@@ -1,5 +1,12 @@
 <Solution>
-    <Project Path="Jakar.OpenTelemetry.Api/Jakar.OpenTelemetry.Api.csproj"/>
-    <Project Path="Jakar.OpenTelemetry.Contracts/Jakar.OpenTelemetry.Contracts.csproj"/>
-    <Project Path="Jakar.OpenTelemetry.Source/Jakar.OpenTelemetry.Source.csproj"/>
+    <Folder Name="/Clients/">
+        <Project Path="Jakar.OpenTelemetry.Api.Client.AspNet/Jakar.OpenTelemetry.Api.Client.AspNet.csproj" />
+        <Project Path="Jakar.OpenTelemetry.Api.Client.Blazor.Server/Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
+        <Project Path="Jakar.OpenTelemetry.Api.Client.Blazor/Jakar.OpenTelemetry.Api.Client.Blazor.csproj" />
+        <Project Path="Jakar.OpenTelemetry.Api.Client.Maui/Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
+        <Project Path="Jakar.OpenTelemetry.Api.Client/Jakar.OpenTelemetry.Api.Client.csproj" />
+    </Folder>
+    <Project Path="Jakar.OpenTelemetry.Api/Jakar.OpenTelemetry.Api.csproj" />
+    <Project Path="Jakar.OpenTelemetry.Contracts/Jakar.OpenTelemetry.Contracts.csproj" />
+    <Project Path="Jakar.OpenTelemetry.Source/Jakar.OpenTelemetry.Source.csproj" />
 </Solution>

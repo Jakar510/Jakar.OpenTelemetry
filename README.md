@@ -6,13 +6,16 @@ It currently includes:
 
 - `Jakar.OpenTelemetry.Api`
   An ASP.NET Core host that:
-  - accepts OTLP over gRPC for logs, traces/spans, and metrics
+  - accepts OTLP over gRPC and HTTP for logs, traces/spans, and metrics
+  - accepts screenshots referenced from logs (`PUT /v1/images/{id}`)
   - stores telemetry in PostgreSQL
   - exposes minimal API snapshot endpoints
   - publishes live updates over SignalR
-  - serves a server-rendered Blazor dashboard
+  - serves an interactive Blazor dashboard and an error screenshots page
 - `Jakar.OpenTelemetry.Contracts`
-  Shared DTOs and contracts used between the API and UI
+  Shared DTOs and contracts used between the API, UI and clients (including the `image:{file-name}:{id}` tag format)
+- `Jakar.OpenTelemetry.Api.Client` (+ `.AspNet`, `.Blazor`, `.Blazor.Server`, `.Maui`)
+  Durable client libraries: OTLP export, crash reports and screenshot uploads, optimized per platform (see [Client Libraries](#client-libraries))
 - `Jakar.OpenTelemetry.Source`
   A sample telemetry producer that periodically issues an HTTP `GET` to Google and exports logs, traces, and metrics to the API
 
@@ -25,8 +28,10 @@ It currently includes:
 - Full-fidelity data model: typed attributes, schema URLs, dropped counts, span/link flags, log `event_name`, exemplars, exponential histograms, summaries, exact int64 values
 - PostgreSQL-backed storage using binary `COPY` ingest, a self-upgrading schema, and optional time-based retention
 - Newtonsoft.Json-based serialization for HTTP, SignalR, and internal JSON handling
-- SignalR live updates to the dashboard
-- Server-side rendered Blazor dashboard at `/`
+- SignalR live updates for external consumers; in-process live updates for the dashboard
+- Interactive (server) Blazor dashboard at `/` with record details for every log, span and metric point (events, links, exemplars, distributions, quantiles) and trace pivots
+- Error screenshots page at `/screenshots`
+- Idempotent, back-pressured screenshot uploads (`PUT`/`HEAD /v1/images/{id}`)
 - Swagger UI and OpenAPI JSON for the minimal API surface
 - Filterable and sortable telemetry explorer
 - Timeline and breakdown charts for recent data
@@ -37,8 +42,15 @@ It currently includes:
 ```text
 Jakar.OpenTelemetry.slnx
 |- Jakar.OpenTelemetry.Api
+|- Jakar.OpenTelemetry.Api.Client
+|- Jakar.OpenTelemetry.Api.Client.AspNet
+|- Jakar.OpenTelemetry.Api.Client.Blazor
+|- Jakar.OpenTelemetry.Api.Client.Blazor.Server
+|- Jakar.OpenTelemetry.Api.Client.Maui
 |- Jakar.OpenTelemetry.Contracts
 \- Jakar.OpenTelemetry.Source
+
+Directory.Packages.props   (central package management)
 ```
 
 ## Runtime Overview
@@ -61,8 +73,12 @@ The API host is responsible for:
   - `/api/telemetry/snapshot`
 - API metadata endpoint:
   - `/api`
+- Image ingest (API key):
+  - `PUT /v1/images/{id}`, `HEAD /v1/images/{id}`
 - Dashboard:
   - `/`
+  - `/screenshots`
+  - `/telemetry/images/{id}` (serves stored images to signed-in users)
 - Swagger UI:
   - `/swagger`
 
@@ -78,14 +94,20 @@ The API uses:
 
 The dashboard is hosted inside `Jakar.OpenTelemetry.Api` and rendered with interactive server-side Blazor.
 
+Every page is interactive (`InteractiveServer` on the router) and responsive down to phone widths.
+
 It provides:
 
 - overview cards for logs, spans, and metrics
 - recent timeline charts
 - breakdown charts by service, severity, and metric name
 - explorer filters for service, category, search text, severity, span kind, and metric name
-- sortable log/span/metric tables
-- live refresh via SignalR
+- sortable log/span/metric tables; select a row (click, Enter or Space) to see every field, attribute group, span event/link, metric distribution, quantiles and exemplars
+- trace pivots: "Whole trace" / "Related logs" / "Open linked trace"
+- live refresh when data is ingested (at most once per second), with a pause toggle
+- `/screenshots`: error logs (or all severities) whose `log.tags` reference images, with upload state, thumbnails, a lightbox, filters and bookmarkable query-string state (`?service=`, `?all=true`, `?take=`, `?log={id}`)
+
+The dashboard reads directly through `TelemetryQueryService` (pooled `DbContext` factory) and receives in-process change events; it no longer calls its own HTTP API and SignalR hub with forwarded cookies.
 
 ### Sample Source
 
@@ -97,7 +119,8 @@ It:
 - emits application logs
 - creates client spans
 - records counters and latency histograms
-- exports everything to the API using OTLP gRPC (or OTLP/HTTP protobuf with `"OtlpProtocol": "http/protobuf"`)
+- exports everything to the API through `Jakar.OpenTelemetry.Api.Client` (OTLP gRPC, or OTLP/HTTP protobuf with `"OtlpProtocol": "http/protobuf"`)
+- every `ScreenshotErrorEvery` requests (default 5, `0` disables) logs a simulated error with a generated PNG screenshot, exercising the image pipeline
 
 Default target:
 
@@ -134,7 +157,7 @@ Important sections:
 - `ConnectionStrings:Telemetry`
   PostgreSQL connection used by `TelemetryDbContext`
 - `OtlpIngest`
-  Configures the required OTLP API key header and value (gRPC and HTTP), `MaxReceiveMessageSizeBytes` (default 16 MiB, applied to the decompressed body) and `RetryAfterSeconds` (throttle hint for retryable failures)
+  Configures the required OTLP API key header and value (gRPC, HTTP and image uploads), `MaxReceiveMessageSizeBytes` (default 16 MiB, applied to the decompressed body), `RetryAfterSeconds` (throttle hint for retryable failures), `MaxImageBytes` (default 10 MiB) and `MaxConcurrentImageUploads` (default 4; further uploads get `503` + `Retry-After`)
 - `TelemetryRetention`
   `RetentionDays` (0 = keep forever), `DeleteBatchSize`, `Interval`. Old rows are deleted in small batches by a background service
 - `DashboardAuth`
@@ -310,13 +333,24 @@ By default the sample source sends:
 - header: `x-api-key`
 - value: `dev-ingest-key`
 
+### Images
+
+`PUT /v1/images/{id}` stores an image referenced by a log's `log.tags` attribute (`image:{file-name}:{id}`; string or string array). The id is generated by the client.
+
+- Requires the OTLP API key header. Optional headers: `X-File-Name` (URL-encoded), `X-Content-SHA256` (base64; mismatches are rejected).
+- Accepts `image/png`, `image/jpeg`, `image/webp`, `image/gif`, `image/bmp`; the body must match the declared type's signature. SVG is rejected.
+- Idempotent: `201` created, `200` when the same image already exists, `409` when a different image already uses the id.
+- Sheds load with `503` + `Retry-After` beyond `MaxConcurrentImageUploads` instead of buffering in memory; `413` beyond `MaxImageBytes`.
+- `HEAD /v1/images/{id}` returns `200`/`404`.
+- Images are stored in the `"Images"` table (`bytea`, `STORAGE EXTERNAL`) and removed by the retention sweep with the telemetry.
+
 ### SignalR
 
 The dashboard keeps an open SignalR connection to:
 
 - `/hubs/telemetry`
 
-When ingest succeeds, the API broadcasts a telemetry update event and the dashboard refreshes its snapshot. Broadcasts and cache invalidation are coalesced to at most one per second and run outside the ingest request, so a SignalR/cache failure can never fail (and cause a duplicate retry of) an export that was already stored.
+When ingest succeeds, the API broadcasts a telemetry update event (external consumers) and raises the same event in-process for the dashboard. The hub is receive-only: clients cannot invoke methods on it, so they cannot broadcast forged events. Broadcasts and cache invalidation are coalesced to at most one per second and run outside the ingest request, so a SignalR/cache failure can never fail (and cause a duplicate retry of) an export that was already stored.
 
 ### Caching
 
@@ -328,6 +362,123 @@ When ingest succeeds, the API broadcasts a telemetry update event and the dashbo
 - Attributes are `jsonb` objects with typed values (queryable with `->`, `@>`, etc.); trace/span ids are `bytea`; ids are UUIDv7 (time ordered).
 - Indexes: `SortTimeUtc DESC` (newest-first snapshot), `(ServiceName|Name, SortTimeUtc DESC)`, `TraceId`, and BRIN on `ReceivedAtUtc` for retention.
 - Dashboard totals use `pg_class.reltuples` estimates once a table exceeds 1M rows instead of `COUNT(*)`.
+
+## Client Libraries
+
+Clients send OTLP to the API and upload screenshots referenced from their logs. Pick the package for the host:
+
+| Package | Target | Adds on top of the generic client |
+|---|---|---|
+| `Jakar.OpenTelemetry.Api.Client` | any .NET 10 host (console, worker, desktop) | - |
+| `Jakar.OpenTelemetry.Api.Client.AspNet` | ASP.NET Core | request traces/metrics, Kestrel metrics, every unhandled request exception logged with route/method/trace id |
+| `Jakar.OpenTelemetry.Api.Client.Blazor` | Blazor WebAssembly (and components shared with Server) | OTLP/JSON exporter with `localStorage` persistence, IndexedDB image queue, `<JakarTelemetry />` (JS errors, unhandled promise rejections, resource/CSP errors, web vitals, navigation), `TelemetryErrorBoundary` with screenshots |
+| `Jakar.OpenTelemetry.Api.Client.Blazor.Server` | Blazor Server (interactive server) | circuit exception capture, circuit metrics, Blazor framework traces/metrics |
+| `Jakar.OpenTelemetry.Api.Client.Maui` | .NET MAUI: Android, iOS, Mac Catalyst, Windows | native crash hooks, screenshots, connectivity-aware uploads, lifecycle flushing |
+
+(The server-side Blazor integration is its own package because it needs the ASP.NET Core shared framework, which WebAssembly apps cannot reference.)
+
+### What every client does
+
+- **Durable OTLP export** (logs, traces, metrics). Failed batches are persisted to `{StorageDirectory}/otlp` and retried, also after a restart.
+- **Screenshots referenced from logs.** `AttachImageAsync`/`CaptureScreenshotAsync` generate the image id on the client and queue the image durably; the log carries `log.tags = ["image:{file-name}:{id}"]` and is exported immediately. The uploader sends images to `PUT /v1/images/{id}` when the server can accept them:
+  - `429`/`503` pause all uploads until `Retry-After`
+  - network errors, timeouts and `5xx` retry with exponential backoff and jitter
+  - `401`/`403` keep the image and retry later (configuration problems never lose data)
+  - `400`/`409`/`413`/`415` drop the image (can never succeed)
+  - the queue is bounded by count, bytes and age, oldest first
+- **Crash reports.** A terminating crash is written synchronously to `{StorageDirectory}/crashes`, logged as `Critical` (`app.crash`) and flushed. If the process dies before the export gets out, it is replayed on the next launch (`app.crash.previous_session`).
+- **Abnormal termination.** A session marker detects a previous run that ended without a clean shutdown or crash report (native crash, OOM kill, force quit) and logs `app.abnormal_termination`.
+- **On demand.** `IJakarTelemetry.FlushAsync()` sends buffered telemetry and runs an image upload pass now.
+
+### Platform crash coverage
+
+| Platform | Hooks |
+|---|---|
+| all .NET | `AppDomain.UnhandledException`, `TaskScheduler.UnobservedTaskException` |
+| ASP.NET Core | unhandled request exceptions (middleware inserted first via `IStartupFilter`) |
+| Blazor Server | exceptions during circuit inbound activity (`CircuitHandler`), component errors (`TelemetryErrorBoundary`), browser JS errors |
+| Blazor WebAssembly | .NET unhandled exceptions, component errors, `window.onerror`, `unhandledrejection`, resource load and CSP errors |
+| Android | `AndroidEnvironment.UnhandledExceptionRaiser`, Java `Thread.DefaultUncaughtExceptionHandler` (chained) |
+| iOS / Mac Catalyst | `NSSetUncaughtExceptionHandler` (chained), `Runtime.MarshalManagedException`, `Runtime.MarshalObjectiveCException` |
+| Windows (WinUI) | `Microsoft.UI.Xaml.Application.UnhandledException` |
+
+Signal-level native crashes (SIGSEGV/SIGABRT in native code) cannot run managed code safely; they are reported on the next launch as an abnormal termination.
+
+### Usage
+
+Generic host / worker:
+
+```csharp
+builder.AddJakarOpenTelemetry( options =>
+{
+    options.Endpoint = new Uri( "https://telemetry.example.com" );
+    options.ApiKey   = "...";
+} );
+```
+
+ASP.NET Core / Blazor Server:
+
+```csharp
+builder.AddJakarOpenTelemetryAspNet();         // ASP.NET Core
+builder.AddJakarOpenTelemetryBlazorServer();   // Blazor Server (includes the ASP.NET Core integration)
+```
+
+Blazor WebAssembly:
+
+```csharp
+builder.AddJakarOpenTelemetryWebAssembly( options => options.Endpoint = new Uri( "https://telemetry.example.com" ) );
+WebAssemblyHost host = builder.Build();
+await host.StartJakarTelemetryAsync();
+await host.RunAsync();
+```
+
+The API key is visible to users in a browser app: use a dedicated ingest key, and add the app's origin to the API's `Cors:AllowedOrigins`.
+
+Blazor components (Server and WebAssembly):
+
+```razor
+<JakarTelemetry />                           @* once, e.g. in MainLayout *@
+
+<TelemetryErrorBoundary Name="Orders">
+    <OrdersPage />
+</TelemetryErrorBoundary>
+```
+
+.NET MAUI:
+
+```csharp
+builder.UseMauiApp<App>()
+       .UseJakarOpenTelemetry( options => options.Endpoint = new Uri( "https://telemetry.example.com" ) );
+```
+
+Logging with screenshots:
+
+```csharp
+ImageTag screenshot = await telemetry.AttachImageAsync( png, "checkout.png" );
+logger.LogErrorWithImages( exception, [ screenshot ], "Checkout failed for {OrderId}", orderId );
+
+await logger.LogErrorWithScreenshotAsync( telemetry, exception, "Checkout failed" ); // MAUI: captures the screen itself
+```
+
+### Client configuration (`JakarTelemetry` section)
+
+| Key | Default | Notes |
+|---|---|---|
+| `Endpoint` | required | API base address |
+| `ImageEndpoint` | `Endpoint` | base address for image uploads |
+| `Protocol` | `HttpProtobuf` | or `Grpc` |
+| `ApiKeyHeaderName` / `ApiKey` | `x-api-key` / none | |
+| `ServiceName`, `ServiceVersion`, `ServiceNamespace`, `ServiceInstanceId`, `DeploymentEnvironment`, `ResourceAttributes` | entry assembly | resource attributes |
+| `StorageDirectory` | per platform | `LocalApplicationData/Jakar.OpenTelemetry/{service}`; MAUI: `AppDataDirectory/jakar-otel` |
+| `EnableLogs` / `EnableTraces` / `EnableMetrics` | `true` | |
+| `ActivitySources` / `Meters` | none | extra sources to export |
+| `ExportInterval` / `ExportTimeout` | `5s` / `10s` | |
+| `PersistFailedExports` | `true` | disk retry for OTLP batches |
+| `CaptureUnhandledExceptions` / `CaptureUnobservedTaskExceptions` / `DetectAbnormalTermination` | `true` | |
+| `FlushTimeout` | `3s` | synchronous flush budget during a crash or shutdown |
+| `Images:MaxImageBytes` / `MaxQueueBytes` / `MaxQueueCount` / `MaxAge` | `10 MiB` / `100 MiB` / `500` / `7d` | queue bounds |
+| `Images:MaxConcurrentUploads` / `PollInterval` / `InitialRetryDelay` / `MaxRetryDelay` / `RequestTimeout` | `2` / `30s` / `5s` / `30m` / `60s` | |
+| `Images:RequireUnmeteredNetwork` | `false` | MAUI: upload only on Wi-Fi/Ethernet |
 
 ## Development Notes
 

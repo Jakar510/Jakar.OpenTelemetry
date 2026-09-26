@@ -2,5 +2,5 @@
 
 public interface ITelemetryHub
 {
-    public Task TelemetryUpdated( TelemetryRealtimeEventDto payload, CancellationToken token );
+	public Task TelemetryUpdated( TelemetryRealtimeEventDto payload, CancellationToken token );
 }

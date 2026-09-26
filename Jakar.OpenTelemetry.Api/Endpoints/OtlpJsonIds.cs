@@ -21,122 +21,122 @@ namespace Jakar.OpenTelemetry.Api.Endpoints;
 /// </summary>
 public static class OtlpJsonIds
 {
-    private const int TRACE_ID_LENGTH = 16;
-    private const int SPAN_ID_LENGTH  = 8;
+	private const int TRACE_ID_LENGTH = 16;
+	private const int SPAN_ID_LENGTH  = 8;
 
 
-    public static void Normalize( ExportTraceServiceRequest request )
-    {
-        for ( int r = 0; r < request.ResourceSpans.Count; r++ )
-        {
-            RepeatedField<ScopeSpans> scopes = request.ResourceSpans[r].ScopeSpans;
+	public static void Normalize( ExportTraceServiceRequest request )
+	{
+		for ( int r = 0; r < request.ResourceSpans.Count; r++ )
+		{
+			RepeatedField<ScopeSpans> scopes = request.ResourceSpans[r].ScopeSpans;
 
-            for ( int s = 0; s < scopes.Count; s++ )
-            {
-                RepeatedField<Span> spans = scopes[s].Spans;
+			for ( int s = 0; s < scopes.Count; s++ )
+			{
+				RepeatedField<Span> spans = scopes[s].Spans;
 
-                for ( int i = 0; i < spans.Count; i++ )
-                {
-                    Span span = spans[i];
-                    span.TraceId      = Fix( span.TraceId,      TRACE_ID_LENGTH );
-                    span.SpanId       = Fix( span.SpanId,       SPAN_ID_LENGTH );
-                    span.ParentSpanId = Fix( span.ParentSpanId, SPAN_ID_LENGTH );
+				for ( int i = 0; i < spans.Count; i++ )
+				{
+					Span span = spans[i];
+					span.TraceId      = Fix( span.TraceId,      TRACE_ID_LENGTH );
+					span.SpanId       = Fix( span.SpanId,       SPAN_ID_LENGTH );
+					span.ParentSpanId = Fix( span.ParentSpanId, SPAN_ID_LENGTH );
 
-                    for ( int l = 0; l < span.Links.Count; l++ )
-                    {
-                        Span.Types.Link link = span.Links[l];
-                        link.TraceId = Fix( link.TraceId, TRACE_ID_LENGTH );
-                        link.SpanId  = Fix( link.SpanId,  SPAN_ID_LENGTH );
-                    }
-                }
-            }
-        }
-    }
+					for ( int l = 0; l < span.Links.Count; l++ )
+					{
+						Span.Types.Link link = span.Links[l];
+						link.TraceId = Fix( link.TraceId, TRACE_ID_LENGTH );
+						link.SpanId  = Fix( link.SpanId,  SPAN_ID_LENGTH );
+					}
+				}
+			}
+		}
+	}
 
-    public static void Normalize( ExportLogsServiceRequest request )
-    {
-        for ( int r = 0; r < request.ResourceLogs.Count; r++ )
-        {
-            RepeatedField<ScopeLogs> scopes = request.ResourceLogs[r].ScopeLogs;
+	public static void Normalize( ExportLogsServiceRequest request )
+	{
+		for ( int r = 0; r < request.ResourceLogs.Count; r++ )
+		{
+			RepeatedField<ScopeLogs> scopes = request.ResourceLogs[r].ScopeLogs;
 
-            for ( int s = 0; s < scopes.Count; s++ )
-            {
-                RepeatedField<LogRecord> records = scopes[s].LogRecords;
+			for ( int s = 0; s < scopes.Count; s++ )
+			{
+				RepeatedField<LogRecord> records = scopes[s].LogRecords;
 
-                for ( int i = 0; i < records.Count; i++ )
-                {
-                    LogRecord record = records[i];
-                    record.TraceId = Fix( record.TraceId, TRACE_ID_LENGTH );
-                    record.SpanId  = Fix( record.SpanId,  SPAN_ID_LENGTH );
-                }
-            }
-        }
-    }
+				for ( int i = 0; i < records.Count; i++ )
+				{
+					LogRecord record = records[i];
+					record.TraceId = Fix( record.TraceId, TRACE_ID_LENGTH );
+					record.SpanId  = Fix( record.SpanId,  SPAN_ID_LENGTH );
+				}
+			}
+		}
+	}
 
-    public static void Normalize( ExportMetricsServiceRequest request )
-    {
-        for ( int r = 0; r < request.ResourceMetrics.Count; r++ )
-        {
-            RepeatedField<ScopeMetrics> scopes = request.ResourceMetrics[r].ScopeMetrics;
+	public static void Normalize( ExportMetricsServiceRequest request )
+	{
+		for ( int r = 0; r < request.ResourceMetrics.Count; r++ )
+		{
+			RepeatedField<ScopeMetrics> scopes = request.ResourceMetrics[r].ScopeMetrics;
 
-            for ( int s = 0; s < scopes.Count; s++ )
-            {
-                RepeatedField<Metric> metrics = scopes[s].Metrics;
+			for ( int s = 0; s < scopes.Count; s++ )
+			{
+				RepeatedField<Metric> metrics = scopes[s].Metrics;
 
-                for ( int m = 0; m < metrics.Count; m++ )
-                {
-                    Metric metric = metrics[m];
+				for ( int m = 0; m < metrics.Count; m++ )
+				{
+					Metric metric = metrics[m];
 
-                    switch ( metric.DataCase )
-                    {
-                        case Metric.DataOneofCase.Gauge:
-                            foreach ( NumberDataPoint point in metric.Gauge.DataPoints ) { Fix( point.Exemplars ); }
+					switch ( metric.DataCase )
+					{
+						case Metric.DataOneofCase.Gauge:
+							foreach ( NumberDataPoint point in metric.Gauge.DataPoints ) { Fix( point.Exemplars ); }
 
-                            break;
+							break;
 
-                        case Metric.DataOneofCase.Sum:
-                            foreach ( NumberDataPoint point in metric.Sum.DataPoints ) { Fix( point.Exemplars ); }
+						case Metric.DataOneofCase.Sum:
+							foreach ( NumberDataPoint point in metric.Sum.DataPoints ) { Fix( point.Exemplars ); }
 
-                            break;
+							break;
 
-                        case Metric.DataOneofCase.Histogram:
-                            foreach ( HistogramDataPoint point in metric.Histogram.DataPoints ) { Fix( point.Exemplars ); }
+						case Metric.DataOneofCase.Histogram:
+							foreach ( HistogramDataPoint point in metric.Histogram.DataPoints ) { Fix( point.Exemplars ); }
 
-                            break;
+							break;
 
-                        case Metric.DataOneofCase.ExponentialHistogram:
-                            foreach ( ExponentialHistogramDataPoint point in metric.ExponentialHistogram.DataPoints ) { Fix( point.Exemplars ); }
+						case Metric.DataOneofCase.ExponentialHistogram:
+							foreach ( ExponentialHistogramDataPoint point in metric.ExponentialHistogram.DataPoints ) { Fix( point.Exemplars ); }
 
-                            break;
-                    }
-                }
-            }
-        }
-    }
+							break;
+					}
+				}
+			}
+		}
+	}
 
-    private static void Fix( RepeatedField<Exemplar> exemplars )
-    {
-        for ( int i = 0; i < exemplars.Count; i++ )
-        {
-            Exemplar exemplar = exemplars[i];
-            exemplar.TraceId = Fix( exemplar.TraceId, TRACE_ID_LENGTH );
-            exemplar.SpanId  = Fix( exemplar.SpanId,  SPAN_ID_LENGTH );
-        }
-    }
+	private static void Fix( RepeatedField<Exemplar> exemplars )
+	{
+		for ( int i = 0; i < exemplars.Count; i++ )
+		{
+			Exemplar exemplar = exemplars[i];
+			exemplar.TraceId = Fix( exemplar.TraceId, TRACE_ID_LENGTH );
+			exemplar.SpanId  = Fix( exemplar.SpanId,  SPAN_ID_LENGTH );
+		}
+	}
 
-    private static ByteString Fix( ByteString value, int expectedLength )
-    {
-        // 2 * expectedLength hex chars decoded as base64 => 1.5 * expectedLength bytes.
-        if ( value.Length != expectedLength * 3 / 2 ) { return value; }
+	private static ByteString Fix( ByteString value, int expectedLength )
+	{
+		// 2 * expectedLength hex chars decoded as base64 => 1.5 * expectedLength bytes.
+		if ( value.Length != expectedLength * 3 / 2 ) { return value; }
 
-        Span<char> hex   = stackalloc char[expectedLength * 2];
-        Span<byte> bytes = stackalloc byte[expectedLength];
+		Span<char> hex   = stackalloc char[expectedLength * 2];
+		Span<byte> bytes = stackalloc byte[expectedLength];
 
-        if ( !Convert.TryToBase64Chars( value.Span, hex, out int chars ) ||
-             chars != hex.Length ||
-             Convert.FromHexString( hex, bytes, out _, out int written ) != OperationStatus.Done ||
-             written != expectedLength ) { throw new FormatException( "traceId/spanId not hex encoded" ); }
+		if ( !Convert.TryToBase64Chars( value.Span, hex, out int chars )                         ||
+			 chars                                                       != hex.Length           ||
+			 Convert.FromHexString( hex, bytes, out _, out int written ) != OperationStatus.Done ||
+			 written                                                     != expectedLength ) { throw new FormatException( "traceId/spanId not hex encoded" ); }
 
-        return ByteString.CopyFrom( bytes );
-    }
+		return ByteString.CopyFrom( bytes );
+	}
 }

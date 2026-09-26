@@ -3,7 +3,7 @@
         <p class="eyebrow">Metrics</p>
         <h3>@TelemetryDashboardFormatter.FormatCount( Records.Count ) points</h3>
     </div>
-    <span>Gauge, sum, histogram, exponential histogram, and summary metric points.</span>
+    <span>Select a point to see buckets, quantiles, exemplars, and metadata.</span>
 </div>
 
 @if ( Records.Count == 0 )
@@ -13,7 +13,7 @@
 else
 {
     <div class="table-wrap">
-        <table>
+        <table class="selectable">
             <thead>
             <tr>
                 <th>Time</th>
@@ -29,12 +29,17 @@ else
             <tbody>
             @foreach ( TelemetryMetricRecordDto metric in Records )
             {
-                <tr>
+                <tr @key="metric.ID"
+                    class="@TelemetryDashboardFormatter.RowClass( metric.ID == SelectedId )"
+                    tabindex="0"
+                    aria-selected="@( metric.ID == SelectedId ? "true" : "false" )"
+                    @onclick="() => SelectedChanged.InvokeAsync( metric.ID )"
+                    @onkeydown="args => OnKeyDown( args, metric.ID )">
                     <td>@TelemetryDashboardFormatter.FormatDate( metric.TimestampUtc ?? metric.ReceivedAtUtc )</td>
                     <td>@( metric.ServiceName ?? "unknown" )</td>
                     <td title="@metric.Description">@TelemetryDashboardFormatter.Trim( metric.Name, 48 )</td>
                     <td>@metric.MetricType</td>
-                    <td>@metric.NumericValue.ToString( "0.###" )</td>
+                    <td>@TelemetryDashboardFormatter.FormatMetricValue( metric )</td>
                     <td>@metric.Unit</td>
                     <td>@metric.AggregationTemporality</td>
                     <td title="@TelemetryDashboardFormatter.FormatMetricMap( metric )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.FormatMetricMap( metric ), 72 )</td>
@@ -46,5 +51,11 @@ else
 }
 
 @code {
-    [Parameter] public IReadOnlyList<TelemetryMetricRecordDto> Records { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<TelemetryMetricRecordDto> Records         { get; set; } = [ ];
+    [Parameter] public Guid?                                   SelectedId      { get; set; }
+    [Parameter] public EventCallback<Guid>                     SelectedChanged { get; set; }
+
+    private Task OnKeyDown( KeyboardEventArgs args, Guid id ) => TelemetryDashboardFormatter.IsActivationKey( args )
+                                                                    ? SelectedChanged.InvokeAsync( id )
+                                                                    : Task.CompletedTask;
 }

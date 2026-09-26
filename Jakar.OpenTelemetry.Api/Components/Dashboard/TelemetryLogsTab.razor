@@ -3,7 +3,7 @@
         <p class="eyebrow">Logs</p>
         <h3>@TelemetryDashboardFormatter.FormatCount( Records.Count ) records</h3>
     </div>
-    <span>OTLP log records with resource, scope, and record attributes.</span>
+    <span>Select a record to see every field, attribute, and attached screenshot.</span>
 </div>
 
 @if ( Records.Count == 0 )
@@ -13,7 +13,7 @@
 else
 {
     <div class="table-wrap">
-        <table>
+        <table class="selectable">
             <thead>
             <tr>
                 <th>Timestamp</th>
@@ -28,11 +28,24 @@ else
             <tbody>
             @foreach ( TelemetryLogRecordDto log in Records )
             {
-                <tr>
+                int images = TelemetryDashboardFormatter.GetImageTags( log ).Count;
+
+                <tr @key="log.ID"
+                    class="@TelemetryDashboardFormatter.RowClass( log.ID == SelectedId )"
+                    tabindex="0"
+                    aria-selected="@( log.ID == SelectedId ? "true" : "false" )"
+                    @onclick="() => SelectedChanged.InvokeAsync( log.ID )"
+                    @onkeydown="args => OnKeyDown( args, log.ID )">
                     <td>@TelemetryDashboardFormatter.FormatDate( log.TimestampUtc ?? log.ObservedTimestampUtc ?? log.ReceivedAtUtc )</td>
                     <td>@( log.ServiceName ?? "unknown" )</td>
-                    <td>@( log.SeverityText ?? log.SeverityNumber.ToString() )</td>
-                    <td title="@TelemetryDashboardFormatter.CleanJson( log.Body )">@TelemetryDashboardFormatter.Trim( log.Body, 120 )</td>
+                    <td><span class="badge @TelemetryDashboardFormatter.SeverityClass( log.SeverityNumber )">@( log.SeverityText ?? log.SeverityNumber.ToString() )</span></td>
+                    <td title="@TelemetryDashboardFormatter.CleanJson( log.Body )">
+                        @if ( images > 0 )
+                        {
+                            <span class="badge image-badge" title="@( $"{images} screenshot(s) attached" )">&#128247; @images</span>
+                        }
+                        @TelemetryDashboardFormatter.Trim( log.Body, 120 )
+                    </td>
                     <td title="@( $"{log.TraceId} / {log.SpanId}" )">@TelemetryDashboardFormatter.Trim( log.TraceId, 16 )</td>
                     <td>@TelemetryDashboardFormatter.Trim( $"{log.ScopeName} {log.ScopeVersion}".Trim(), 28 )</td>
                     <td title="@TelemetryDashboardFormatter.FormatMap( log.Attributes )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.FormatMap( log.Attributes ), 72 )</td>
@@ -44,5 +57,11 @@ else
 }
 
 @code {
-    [Parameter] public IReadOnlyList<TelemetryLogRecordDto> Records { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<TelemetryLogRecordDto> Records         { get; set; } = [ ];
+    [Parameter] public Guid?                                SelectedId      { get; set; }
+    [Parameter] public EventCallback<Guid>                  SelectedChanged { get; set; }
+
+    private Task OnKeyDown( KeyboardEventArgs args, Guid id ) => TelemetryDashboardFormatter.IsActivationKey( args )
+                                                                    ? SelectedChanged.InvokeAsync( id )
+                                                                    : Task.CompletedTask;
 }

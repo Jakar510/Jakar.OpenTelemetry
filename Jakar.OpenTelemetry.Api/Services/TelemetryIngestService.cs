@@ -151,13 +151,7 @@ public sealed class TelemetryIngestService( NpgsqlDataSource        dataSource,
 		( long accepted, long rejected ) = CountSpans( request );
 		ExportTraceServiceResponse response = rejected == 0
 												  ? new ExportTraceServiceResponse()
-												  : new ExportTraceServiceResponse
-														{
-															PartialSuccess = new ExportTracePartialSuccess
-																				 {
-																					 RejectedSpans = rejected, ErrorMessage = $"{rejected} span(s) rejected: trace_id must be {TRACE_ID_LENGTH} bytes and span_id must be {SPAN_ID_LENGTH} bytes."
-																				 }
-														};
+												  : new ExportTraceServiceResponse { PartialSuccess = new ExportTracePartialSuccess { RejectedSpans = rejected, ErrorMessage = $"{rejected} span(s) rejected: trace_id must be {TRACE_ID_LENGTH} bytes and span_id must be {SPAN_ID_LENGTH} bytes." } };
 
 		if ( accepted == 0 ) { return response; }
 
@@ -722,32 +716,32 @@ public sealed class TelemetryIngestService( NpgsqlDataSource        dataSource,
 	#region COPY helpers
 
 	private static Task WriteTextAsync( NpgsqlBinaryImporter importer, string? value, CancellationToken token ) => value is null
-																																   ? importer.WriteNullAsync( token )
-																																   : importer.WriteAsync( value, NpgsqlDbType.Text, token );
+																													   ? importer.WriteNullAsync( token )
+																													   : importer.WriteAsync( value, NpgsqlDbType.Text, token );
 
 	private static Task WriteJsonAsync( NpgsqlBinaryImporter importer, string? value, CancellationToken token ) => value is null
-																																   ? importer.WriteNullAsync( token )
-																																   : importer.WriteAsync( value, NpgsqlDbType.Jsonb, token );
+																													   ? importer.WriteNullAsync( token )
+																													   : importer.WriteAsync( value, NpgsqlDbType.Jsonb, token );
 
 	private static Task WriteIdAsync( NpgsqlBinaryImporter importer, ByteString value, int expectedLength, CancellationToken token ) => value.Length == expectedLength
-																																						? importer.WriteAsync( value.Memory, NpgsqlDbType.Bytea, token )
-																																						: importer.WriteNullAsync( token );
+																																			? importer.WriteAsync( value.Memory, NpgsqlDbType.Bytea, token )
+																																			: importer.WriteNullAsync( token );
 
 	private static Task WriteAsync( NpgsqlBinaryImporter importer, DateTimeOffset? value, CancellationToken token ) => value.HasValue
-																																	   ? importer.WriteAsync( value.Value, NpgsqlDbType.TimestampTz, token )
-																																	   : importer.WriteNullAsync( token );
+																														   ? importer.WriteAsync( value.Value, NpgsqlDbType.TimestampTz, token )
+																														   : importer.WriteNullAsync( token );
 
 	private static Task WriteAsync( NpgsqlBinaryImporter importer, double? value, CancellationToken token ) => value.HasValue
-																															   ? importer.WriteAsync( value.Value, NpgsqlDbType.Double, token )
-																															   : importer.WriteNullAsync( token );
+																												   ? importer.WriteAsync( value.Value, NpgsqlDbType.Double, token )
+																												   : importer.WriteNullAsync( token );
 
 	private static Task WriteAsync( NpgsqlBinaryImporter importer, long? value, CancellationToken token ) => value.HasValue
-																															 ? importer.WriteAsync( value.Value, NpgsqlDbType.Bigint, token )
-																															 : importer.WriteNullAsync( token );
+																												 ? importer.WriteAsync( value.Value, NpgsqlDbType.Bigint, token )
+																												 : importer.WriteNullAsync( token );
 
 	private static Task WriteAsync( NpgsqlBinaryImporter importer, bool? value, CancellationToken token ) => value.HasValue
-																															 ? importer.WriteAsync( value.Value, NpgsqlDbType.Boolean, token )
-																															 : importer.WriteNullAsync( token );
+																												 ? importer.WriteAsync( value.Value, NpgsqlDbType.Boolean, token )
+																												 : importer.WriteNullAsync( token );
 
 	#endregion
 }
