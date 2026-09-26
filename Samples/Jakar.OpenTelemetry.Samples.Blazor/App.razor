@@ -1,0 +1,12 @@
+@* Browser errors, unhandled rejections, resource/CSP errors, web vitals and navigation are captured by this single component. *@
+<JakarTelemetry />
+
+<Router AppAssembly="typeof(App).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" />
+        <FocusOnNavigate RouteData="routeData" Selector="h1" />
+    </Found>
+    <NotFound>
+        <p role="alert">Nothing here.</p>
+    </NotFound>
+</Router>

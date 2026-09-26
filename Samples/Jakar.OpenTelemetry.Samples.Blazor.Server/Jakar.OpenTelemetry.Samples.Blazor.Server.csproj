@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <Description>Sample for Jakar.OpenTelemetry.Api.Client.Blazor.Server: circuit exceptions, error boundary screenshots, browser errors and web vitals from an interactive server app.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client.Blazor.Server\Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
+    </ItemGroup>
+
+</Project>
