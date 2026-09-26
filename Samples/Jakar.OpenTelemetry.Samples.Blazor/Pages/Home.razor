@@ -24,7 +24,7 @@
     <img src="missing-image.png" alt="intentionally missing" width="1" height="1" />
 }
 
-<TelemetryErrorBoundary Name="Bomb">
+<TelemetryErrorBoundary @ref="_boundary" Name="Bomb">
     <ChildContent>
         <Bomb Armed="_armed" />
     </ChildContent>
@@ -36,6 +36,7 @@
 <p role="status">@_status</p>
 
 @code {
+    private TelemetryErrorBoundary? _boundary;
     private bool    _armed;
     private bool    _brokenImage;
     private string? _status;
@@ -57,5 +58,9 @@
 
     private void ThrowUnhandled() => throw new InvalidOperationException( "Sample unhandled exception in a WebAssembly event handler" );
 
-    private void Reset() => _armed = false;
+    private void Reset()
+    {
+        _armed = false;
+        _boundary?.Recover(); // the boundary keeps showing its error content until told to try again
+    }
 }

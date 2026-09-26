@@ -27,6 +27,9 @@ public sealed class TestApi( string connectionString ) : WebApplicationFactory<P
 	/// <summary> Extra configuration, applied last. </summary>
 	public Dictionary<string, string?> Settings { get; } = new(StringComparer.OrdinalIgnoreCase);
 
+	/// <summary> Hosting environment; <see cref="StartRealServer"/> switches to Development so static web assets (blazor.web.js, scoped CSS) are served from the build output. </summary>
+	public string EnvironmentName { get; set; } = "Testing";
+
 	/// <summary> Remote address reported for in-memory requests (the test server has none, which the dashboard IP allow list would reject). </summary>
 	public IPAddress? RemoteIpAddress { get; set; } = IPAddress.Loopback;
 
@@ -53,6 +56,7 @@ public sealed class TestApi( string connectionString ) : WebApplicationFactory<P
 		Settings["Kestrel:Endpoints:Grpc:Url"]      = $"http://{host}:{grpc}";
 		Settings["Kestrel:Endpoints:Grpc:Protocols"] = "Http2";
 
+		EnvironmentName = "Development";
 		UseKestrel();
 		StartServer();
 
@@ -72,7 +76,7 @@ public sealed class TestApi( string connectionString ) : WebApplicationFactory<P
 
 	protected override void ConfigureWebHost( IWebHostBuilder builder )
 	{
-		builder.UseEnvironment( "Testing" );
+		builder.UseEnvironment( EnvironmentName );
 
 		builder.ConfigureAppConfiguration( configuration =>
 										   {

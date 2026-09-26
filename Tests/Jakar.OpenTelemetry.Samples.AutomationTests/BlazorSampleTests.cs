@@ -246,7 +246,8 @@ public sealed class BlazorWebAssemblySampleTests : BlazorSampleTests
 													   }
 							  };
 		await File.WriteAllTextAsync( Path.Combine( wwwroot, "appsettings.json" ), settings.ToJsonString() );
-		foreach ( string compressed in Directory.GetFiles( wwwroot, "appsettings.json.*" ) ) { File.Delete( compressed ); }
+		// Explicit names: on Windows the pattern "appsettings.json.*" also matches "appsettings.json" itself.
+		foreach ( string extension in new[] { ".br", ".gz" } ) { File.Delete( Path.Combine( wwwroot, "appsettings.json" + extension ) ); }
 
 		WebApplicationBuilder builder = WebApplication.CreateSlimBuilder();
 		builder.Logging.ClearProviders();

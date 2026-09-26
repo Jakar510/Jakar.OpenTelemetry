@@ -1,4 +1,6 @@
 .login-card {
+    /* Padding and border are inside the width, otherwise the card is wider than a phone screen. */
+    box-sizing: border-box;
     width: min(100%, 34rem);
     margin: 8vh auto 0;
     padding: 1.4rem;
