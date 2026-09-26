@@ -9,14 +9,21 @@ using Jakar.OpenTelemetry.Api.Swagger;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.OpenApi.Models;
+using Npgsql;
 using ZiggyCreatures.Caching.Fusion;
 
 WebApplicationBuilder builder = WebApplication.CreateBuilder( args );
 
 builder.Services.AddOptions<OtlpIngestOptions>()
        .Bind( builder.Configuration.GetSection( OtlpIngestOptions.SECTION_NAME ) )
-       .Validate( static options => !string.IsNullOrWhiteSpace( options.ApiKeyHeaderName ) && !string.IsNullOrWhiteSpace( options.ApiKey ), $"{OtlpIngestOptions.SECTION_NAME} must define a non-empty API key and header name." )
+       .Validate( OtlpIngestOptions.IsValid, $"{OtlpIngestOptions.SECTION_NAME} must define a non-empty API key and header name, a positive MaxReceiveMessageSizeBytes and a non-negative RetryAfterSeconds." )
+       .ValidateOnStart();
+builder.Services.AddOptions<TelemetryRetentionOptions>()
+       .Bind( builder.Configuration.GetSection( TelemetryRetentionOptions.SECTION_NAME ) )
+       .Validate( TelemetryRetentionOptions.IsValid, $"{TelemetryRetentionOptions.SECTION_NAME} must define RetentionDays >= 0, DeleteBatchSize > 0 and a positive Interval." )
        .ValidateOnStart();
 builder.Services.AddOptions<DashboardIpWhitelistOptions>()
        .Bind( builder.Configuration.GetSection( DashboardIpWhitelistOptions.SECTION_NAME ) )
@@ -100,7 +107,18 @@ builder.Services.AddSwaggerGen( options =>
                                     options.DocumentFilter<OtlpGrpcDocumentFilter>();
                                 } );
 
-builder.Services.AddGrpc();
+int maxOtlpRequestBytes = builder.Configuration.GetSection( OtlpIngestOptions.SECTION_NAME ).Get<OtlpIngestOptions>()?.MaxReceiveMessageSizeBytes ?? new OtlpIngestOptions().MaxReceiveMessageSizeBytes;
+
+// gzip request compression is enabled by default for gRPC (GrpcServiceOptions.CompressionProviders).
+builder.Services.AddGrpc( options =>
+                          {
+                              options.MaxReceiveMessageSize = maxOtlpRequestBytes;
+                              options.EnableDetailedErrors  = false;
+                              options.Interceptors.Add<OtlpExceptionInterceptor>();
+                          } );
+
+// OTLP/HTTP: Content-Encoding gzip (plus deflate/br). Decompressed size is bounded by the endpoint's request size limit.
+builder.Services.AddRequestDecompression();
 builder.Services.AddSignalR().AddNewtonsoftJsonProtocol( static options => { options.PayloadSerializerSettings = NewtonsoftJsonDefaults.Settings; } );
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
@@ -120,8 +138,11 @@ builder.Services.AddFusionCache().WithDefaultEntryOptions( new FusionCacheEntryO
 
 builder.Services.AddSingleton<ConfiguredDashboardUserAuthenticator>();
 builder.Services.AddSingleton<DashboardIpWhitelistEvaluator>();
-builder.Services.AddSingleton<GrpcIngestAuthorizer>();
-builder.Services.AddDbContext<TelemetryDbContext>();
+builder.Services.AddSingleton<OtlpIngestAuthorizer>();
+
+// One pooled data source shared by EF (reads), binary COPY (ingest) and the maintenance services.
+builder.Services.AddSingleton( static sp => new NpgsqlDataSourceBuilder( sp.GetRequiredService<IConfiguration>().GetConnectionString( "Telemetry" ) ?? throw new InvalidOperationException( "ConnectionStrings:Telemetry is required." ) ).Build() );
+builder.Services.AddDbContextPool<TelemetryDbContext>( static ( sp, options ) => options.UseNpgsql( sp.GetRequiredService<NpgsqlDataSource>() ).UseQueryTrackingBehavior( QueryTrackingBehavior.NoTracking ) );
 builder.Services.Configure<PortalConfiguration>( builder.Configuration.GetSection( PortalConfiguration.SECTION_NAME ) );
 builder.Services.AddScoped( static sp =>
                             {
@@ -133,9 +154,12 @@ builder.Services.AddScoped( static sp =>
                                 return new HttpClient( handler ) { BaseAddress = baseUri };
                             } );
 
-builder.Services.AddScoped<TelemetryIngestService>();
+builder.Services.AddSingleton<TelemetryChangeNotifier>();
+builder.Services.AddSingleton<TelemetryIngestService>();
+builder.Services.AddSingleton<OtlpHttpReceiver>();
 builder.Services.AddScoped<TelemetryQueryService>();
-builder.Services.AddScoped<TelemetryBroadcastService>();
+builder.Services.AddHostedService<TelemetryChangeBroadcaster>();
+builder.Services.AddHostedService<TelemetryRetentionService>();
 builder.Services.AddScoped<TelemetryHubClient>();
 
 
@@ -148,13 +172,11 @@ if ( configuredUrls.Length > 0 )
     foreach ( string configuredUrl in configuredUrls.Where( static value => !string.IsNullOrWhiteSpace( value ) ) ) { app.Urls.Add( configuredUrl ); }
 }
 
-using ( IServiceScope scope = app.Services.CreateScope() )
-{
-    TelemetryDbContext db = scope.ServiceProvider.GetRequiredService<TelemetryDbContext>();
-    await db.Database.EnsureCreatedAsync();
-}
+await TelemetrySchema.EnsureAsync( app.Services.GetRequiredService<NpgsqlDataSource>(), app.Lifetime.ApplicationStopping );
 
-app.UseHttpsRedirection();
+// OTLP exporters do not follow redirects, so ingest is never redirected to HTTPS.
+app.UseWhen( static context => !AppSecurityHelpers.IsOtlpIngestRequest( context.Request.Path ), static branch => branch.UseHttpsRedirection() );
+app.UseRequestDecompression();
 app.UseMiddleware<DashboardIpWhitelistMiddleware>();
 app.UseCors( "portal" );
 app.UseAuthentication();
@@ -196,6 +218,7 @@ app.MapHub<TelemetryHub>( "/hubs/telemetry" ).RequireAuthorization( AppAuthPolic
 app.MapGrpcService<OtlpLogsService>();
 app.MapGrpcService<OtlpTraceService>();
 app.MapGrpcService<OtlpMetricsService>();
+app.MapOtlpHttpEndpoints( maxOtlpRequestBytes );
 app.MapStaticAssets();
 app.MapRazorComponents<App>().AddInteractiveServerRenderMode();
 

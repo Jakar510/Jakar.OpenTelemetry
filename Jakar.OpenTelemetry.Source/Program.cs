@@ -14,7 +14,7 @@ HostApplicationBuilder builder       = Host.CreateApplicationBuilder( args );
 SampleSourceOptions    sourceOptions = builder.Configuration.GetSection( SampleSourceOptions.SECTION_NAME ).Get<SampleSourceOptions>() ?? new SampleSourceOptions();
 string                 version       = typeof(Program).Assembly.GetName().Version?.ToString()                                          ?? "1.0.0";
 
-ApplyOtlpEnvironmentVariables( sourceOptions );
+ApplyOtlpExporterConfiguration( builder.Configuration, sourceOptions );
 
 builder.Services.AddSingleton( sourceOptions );
 
@@ -65,12 +65,17 @@ builder.Services.AddHostedService<TelemetrySourceWorker>();
 await builder.Build().RunAsync();
 return;
 
-static void ApplyOtlpEnvironmentVariables( SampleSourceOptions sourceOptions )
+// The OTLP exporter reads OTEL_EXPORTER_OTLP_* from IConfiguration. Environment variables were already snapshotted into configuration by
+// Host.CreateApplicationBuilder, so setting them with Environment.SetEnvironmentVariable here would be silently ignored.
+static void ApplyOtlpExporterConfiguration( ConfigurationManager configuration, SampleSourceOptions sourceOptions )
 {
     ArgumentException.ThrowIfNullOrWhiteSpace( sourceOptions.OtlpApiKey );
     ArgumentException.ThrowIfNullOrWhiteSpace( sourceOptions.ApiKeyHeaderName );
 
-    Environment.SetEnvironmentVariable( "OTEL_EXPORTER_OTLP_ENDPOINT", sourceOptions.OtlpEndpoint );
-    Environment.SetEnvironmentVariable( "OTEL_EXPORTER_OTLP_PROTOCOL", "grpc" );
-    Environment.SetEnvironmentVariable( "OTEL_EXPORTER_OTLP_HEADERS",  $"{sourceOptions.ApiKeyHeaderName}={Uri.EscapeDataString( sourceOptions.OtlpApiKey )}" );
+    configuration.AddInMemoryCollection( new Dictionary<string, string?>
+                                         {
+                                             ["OTEL_EXPORTER_OTLP_ENDPOINT"] = sourceOptions.OtlpEndpoint,
+                                             ["OTEL_EXPORTER_OTLP_PROTOCOL"] = sourceOptions.OtlpProtocol,
+                                             ["OTEL_EXPORTER_OTLP_HEADERS"]  = $"{sourceOptions.ApiKeyHeaderName}={Uri.EscapeDataString( sourceOptions.OtlpApiKey )}"
+                                         } );
 }

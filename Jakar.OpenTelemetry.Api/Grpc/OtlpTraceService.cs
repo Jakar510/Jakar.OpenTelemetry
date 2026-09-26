@@ -5,12 +5,11 @@ using OpenTelemetry.Proto.Collector.Trace.V1;
 
 namespace Jakar.OpenTelemetry.Api.Grpc;
 
-public sealed class OtlpTraceService( TelemetryIngestService telemetry, GrpcIngestAuthorizer authorizer ) : TraceService.TraceServiceBase
+public sealed class OtlpTraceService( TelemetryIngestService telemetry, OtlpIngestAuthorizer authorizer ) : TraceService.TraceServiceBase
 {
-    public override async Task<ExportTraceServiceResponse> Export( ExportTraceServiceRequest request, ServerCallContext context )
+    public override Task<ExportTraceServiceResponse> Export( ExportTraceServiceRequest request, ServerCallContext context )
     {
         authorizer.EnsureAuthorized( context.RequestHeaders );
-        await telemetry.IngestSpansAsync( request, context.CancellationToken );
-        return new ExportTraceServiceResponse();
+        return telemetry.IngestSpansAsync( request, context.CancellationToken );
     }
 }

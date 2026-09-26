@@ -18,11 +18,12 @@ It currently includes:
 
 ## Features
 
-- OTLP gRPC ingestion for:
-  - logs
-  - traces/spans
-  - metrics
-- PostgreSQL-backed storage
+- OTLP ingestion for logs, traces/spans, and metrics over:
+  - gRPC (`application/grpc`, gzip)
+  - HTTP (`POST /v1/traces`, `/v1/metrics`, `/v1/logs`) with binary protobuf or JSON bodies, gzip/deflate/br `Content-Encoding`
+- OTLP protocol semantics: partial success, retryable vs non-retryable failures (`UNAVAILABLE` + `RetryInfo` / HTTP 503 + `Retry-After`), message size limits
+- Full-fidelity data model: typed attributes, schema URLs, dropped counts, span/link flags, log `event_name`, exemplars, exponential histograms, summaries, exact int64 values
+- PostgreSQL-backed storage using binary `COPY` ingest, a self-upgrading schema, and optional time-based retention
 - Newtonsoft.Json-based serialization for HTTP, SignalR, and internal JSON handling
 - SignalR live updates to the dashboard
 - Server-side rendered Blazor dashboard at `/`
@@ -50,6 +51,10 @@ The API host is responsible for:
   - `OpenTelemetry.Proto.Collector.Logs.V1.LogsService/Export`
   - `OpenTelemetry.Proto.Collector.Trace.V1.TraceService/Export`
   - `OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService/Export`
+- OTLP/HTTP receivers:
+  - `POST /v1/traces`
+  - `POST /v1/metrics`
+  - `POST /v1/logs`
 - SignalR hub:
   - `/hubs/telemetry`
 - Snapshot endpoint:
@@ -92,7 +97,7 @@ It:
 - emits application logs
 - creates client spans
 - records counters and latency histograms
-- exports everything to the API using OTLP gRPC
+- exports everything to the API using OTLP gRPC (or OTLP/HTTP protobuf with `"OtlpProtocol": "http/protobuf"`)
 
 Default target:
 
@@ -129,7 +134,9 @@ Important sections:
 - `ConnectionStrings:Telemetry`
   PostgreSQL connection used by `TelemetryDbContext`
 - `OtlpIngest`
-  Configures the required OTLP gRPC API key header and value
+  Configures the required OTLP API key header and value (gRPC and HTTP), `MaxReceiveMessageSizeBytes` (default 16 MiB, applied to the decompressed body) and `RetryAfterSeconds` (throttle hint for retryable failures)
+- `TelemetryRetention`
+  `RetentionDays` (0 = keep forever), `DeleteBatchSize`, `Interval`. Old rows are deleted in small batches by a background service
 - `DashboardAuth`
   Configures login users and roles for the dashboard, JSON endpoints, SignalR, and Swagger
 - `DashboardIpWhitelist`
@@ -190,7 +197,7 @@ Default values:
 
 Create the database referenced by the API connection string, or update the connection string to match your local database.
 
-The API currently uses `EnsureCreatedAsync()` on startup, so it will create its schema automatically against the configured PostgreSQL database.
+On startup the API runs an idempotent schema script (`Data/TelemetrySchema.cs`) under an advisory lock. It creates the tables when missing and upgrades databases created by the previous `EnsureCreatedAsync()` model in place (varchar → text, hex ids → `bytea`, new columns and indexes). The first start against a large legacy database rewrites the tables once (generated `SortTimeUtc` column), so allow for that.
 
 ### 2. Build the solution
 
@@ -286,11 +293,17 @@ This whitelist applies to:
 - `/swagger`
 - the Blazor server circuit endpoints
 
-OTLP gRPC ingest routes are not controlled by the dashboard IP whitelist. They continue to use the configured API key requirement.
+OTLP ingest routes (gRPC and `/v1/*`) are not controlled by the dashboard IP whitelist, and are never redirected to HTTPS (OTLP exporters do not follow redirects). They use the configured API key requirement.
 
 ### OTLP API Key
 
-The OTLP gRPC ingest services require a configured API key header.
+The OTLP ingest endpoints (gRPC and HTTP) require a configured API key header. Missing/invalid keys get gRPC `UNAUTHENTICATED` or HTTP 401 with a `google.rpc.Status` body.
+
+### Transports
+
+- gRPC needs HTTP/2. Kestrel negotiates it over TLS, so use the `https` URL (or configure an `Http2`-only cleartext endpoint).
+- OTLP/HTTP works over both the `http` and `https` URLs. Responses use the request encoding (`application/x-protobuf` or `application/json`).
+- OTLP/JSON `traceId`/`spanId` hex strings are handled per the spec (the stock protobuf JSON parser would treat them as base64).
 
 By default the sample source sends:
 
@@ -303,11 +316,18 @@ The dashboard keeps an open SignalR connection to:
 
 - `/hubs/telemetry`
 
-When ingest succeeds, the API broadcasts a telemetry update event and the dashboard refreshes its snapshot.
+When ingest succeeds, the API broadcasts a telemetry update event and the dashboard refreshes its snapshot. Broadcasts and cache invalidation are coalesced to at most one per second and run outside the ingest request, so a SignalR/cache failure can never fail (and cause a duplicate retry of) an export that was already stored.
 
 ### Caching
 
 `TelemetryQueryService` uses FusionCache to cache telemetry snapshots. Cache invalidation occurs after successful ingest so the dashboard does not stay stale.
+
+### Storage
+
+- Ingest streams protobuf straight into PostgreSQL `COPY ... (FORMAT BINARY)`; each export is one atomic statement.
+- Attributes are `jsonb` objects with typed values (queryable with `->`, `@>`, etc.); trace/span ids are `bytea`; ids are UUIDv7 (time ordered).
+- Indexes: `SortTimeUtc DESC` (newest-first snapshot), `(ServiceName|Name, SortTimeUtc DESC)`, `TraceId`, and BRIN on `ReceivedAtUtc` for retention.
+- Dashboard totals use `pg_class.reltuples` estimates once a table exceeds 1M rows instead of `COUNT(*)`.
 
 ## Development Notes
 

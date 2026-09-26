@@ -161,10 +161,10 @@ public sealed class TelemetryHubClient : IHostedService, IAsyncDisposable
 
     private void RaiseStateChanged() => ConnectionStateChanged?.Invoke( Status );
 
-    public async Task<TelemetrySnapshotDto> GetSnapshotAsync( CancellationToken cancellationToken = default )
+    public async Task<TelemetrySnapshotDto> GetSnapshotAsync( CancellationToken token = default )
     {
         int                   take     = Math.Clamp( _configuration.DefaultTake, 25, 1000 );
-        string                json     = await _httpClient.GetStringAsync( $"api/telemetry/snapshot?take={take}", cancellationToken );
+        string                json     = await _httpClient.GetStringAsync( $"api/telemetry/snapshot?take={take}", token );
         TelemetrySnapshotDto? snapshot = json.FromJson<TelemetrySnapshotDto>();
         return snapshot ?? throw new InvalidOperationException( "The API returned an empty snapshot payload." );
     }

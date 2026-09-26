@@ -414,7 +414,7 @@ public sealed partial class Home : ComponentBase, IDisposable
     private bool SearchContains( string? value ) => SearchContains( value, SearchText );
 
     private static bool SearchContains( string? value, string query ) { return !string.IsNullOrWhiteSpace( value ) && !string.IsNullOrWhiteSpace( query ) && value.Contains( query, StringComparison.OrdinalIgnoreCase ); }
-    private static string FormatCount( int value ) => value.ToString( "N0", CultureInfo.InvariantCulture );
+    private static string FormatCount( long value ) => value.ToString( "N0", CultureInfo.InvariantCulture );
     private static string FormatDate( DateTimeOffset value ) => value.ToUniversalTime().ToString( "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture ) + "Z";
     private static string FormatMap<T>( T map ) where T : IReadOnlyDictionary<string, string?> => map.Count == 0 ? "none" : string.Join( ", ", map.Select( pair => $"{pair.Key}={CleanJson( pair.Value )}" ) );
 
