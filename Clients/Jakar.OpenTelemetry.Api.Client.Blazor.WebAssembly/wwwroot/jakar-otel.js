@@ -63,7 +63,8 @@ function onError(event) {
     const error = event.error;
     report('error', {
         type: (error && error.name) || 'Error',
-        message: event.message || (error && error.message) || 'Unknown script error',
+        // event.message is "Uncaught TypeError: ..." in Chromium, which would repeat the type; the error's own message is the clean one.
+        message: (error && error.message) || event.message || 'Unknown script error',
         stack: error && error.stack,
         source: stripQuery(event.filename || ''),
         line: event.lineno,
@@ -164,7 +165,8 @@ function stripQuery(url) {
 
 /**
  * Best-effort screenshot of the visible viewport without third-party libraries: the DOM (with same-origin CSS inlined and form values preserved)
- * is rendered through an SVG foreignObject onto a canvas. Cross-origin images, iframes and canvases render blank; returns null if the browser refuses.
+ * is rendered through an SVG foreignObject onto a canvas. Cross-origin images, iframes and canvases render blank.
+ * Returns PNG bytes, or an empty array if the browser refuses; .NET reads the result as a stream (never null, which a stream reference cannot carry).
  */
 export async function captureScreenshot(maxWidth) {
     try {
@@ -205,9 +207,9 @@ export async function captureScreenshot(maxWidth) {
         context.drawImage(image, 0, 0);
 
         const blob = await new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
-        return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
+        return blob ? new Uint8Array(await blob.arrayBuffer()) : new Uint8Array(0);
     } catch {
-        return null;
+        return new Uint8Array(0);
     }
 }
 

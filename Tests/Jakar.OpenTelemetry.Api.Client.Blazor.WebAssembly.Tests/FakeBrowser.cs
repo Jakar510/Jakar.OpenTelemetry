@@ -16,7 +16,11 @@ public sealed class FakeJsModule : IJSObjectReference
 	public ConcurrentDictionary<string, string>                          Storage     { get; } = new();
 	public ConcurrentDictionary<string, (string Meta, byte[] Data)>      Images      { get; } = new();
 	public ConcurrentQueue<(string Identifier, object?[] Arguments)>     Calls       { get; } = new();
+	/// <summary> PNG returned by <c>captureScreenshot</c>; <see langword="null"/> means the browser refused (the module then returns an empty array). </summary>
 	public byte[]?                                                       Screenshot  { get; set; }
+
+	/// <summary> When set, <c>captureScreenshot</c> never completes (until the caller's token is cancelled). </summary>
+	public bool                                                          HangCapture { get; set; }
 	public bool                                                          StorageFull { get; set; }
 	public bool                                                          Disposed    { get; private set; }
 
@@ -39,6 +43,14 @@ public sealed class FakeJsModule : IJSObjectReference
 			return ValueTask.FromException<TValue>( new JSException( $"{identifier} failed" ) );
 		}
 
+		if ( identifier == "captureScreenshot" )
+		{
+			if ( HangCapture ) { return new ValueTask<TValue>( HangAsync<TValue>( cancellationToken ) ); }
+
+			// Like the real module: an empty array when the browser refuses, delivered as a stream reference.
+			return ValueTask.FromResult( (TValue)(object)new FakeStreamReference( Screenshot ?? [ ] ) );
+		}
+
 		object? result = identifier switch
 						 {
 							 "storageGet"        => Storage.TryGetValue( (string)args[0]!, out string? value ) ? value : null,
@@ -48,7 +60,6 @@ public sealed class FakeJsModule : IJSObjectReference
 							 "imageMetas"        => Images.Values.Select( static x => x.Meta ).ToArray(),
 							 "imageGet"          => Images.TryGetValue( (string)args[0]!, out var image ) ? image.Data : null,
 							 "imageDelete"       => Images.TryRemove( (string)args[0]!, out _ ),
-							 "captureScreenshot" => Screenshot,
 							 _                   => null
 						 };
 
@@ -63,6 +74,12 @@ public sealed class FakeJsModule : IJSObjectReference
 		return ValueTask.CompletedTask;
 	}
 
+	private static async Task<TValue> HangAsync<TValue>( CancellationToken token )
+	{
+		await Task.Delay( Timeout.Infinite, token );
+		return default!;
+	}
+
 	private bool SetStorage( string key, string? value )
 	{
 		if ( StorageFull ) { return false; }
@@ -71,6 +88,23 @@ public sealed class FakeJsModule : IJSObjectReference
 		else { Storage[key] = value; }
 
 		return true;
+	}
+}
+
+/// <summary> A browser-side byte array exposed to .NET as a stream, like <c>IJSStreamReference</c> over the circuit. </summary>
+public sealed class FakeStreamReference( byte[] data ) : IJSStreamReference
+{
+	public long Length   => data.LongLength;
+	public bool Disposed { get; private set; }
+
+	public ValueTask<Stream> OpenReadStreamAsync( long maxAllowedSize = 512000, CancellationToken cancellationToken = default ) => data.LongLength > maxAllowedSize
+																																	   ? ValueTask.FromException<Stream>( new ArgumentOutOfRangeException( nameof(maxAllowedSize), $"The incoming data stream of length {data.LongLength} exceeds the maximum allowed length {maxAllowedSize}" ) )
+																																	   : ValueTask.FromResult<Stream>( new MemoryStream( data, writable: false ) );
+
+	public ValueTask DisposeAsync()
+	{
+		Disposed = true;
+		return ValueTask.CompletedTask;
 	}
 }
 

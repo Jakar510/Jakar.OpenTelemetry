@@ -115,6 +115,17 @@ public sealed class BrowserTelemetryBridgeTests
 	}
 
 	[Test]
+	public async Task Screenshot_StuckCapture_DoesNotBlockTheErrorLog()
+	{
+		_runtime.Module.HangCapture = true;
+		BrowserTelemetryBridge bridge = new(_logger, new BrowserTelemetryModule( _runtime ) { ScreenshotTimeout = TimeSpan.FromMilliseconds( 100 ) }, _telemetry.Object, true);
+
+		await bridge.OnBrowserEvent( "error", ERROR_PAYLOAD ).WaitAsync( TimeSpan.FromSeconds( 10 ) );
+
+		Assert.That( _logger.LatestRecord.Id.Id, Is.EqualTo( 9101 ) );
+	}
+
+	[Test]
 	public async Task OnBrowserEvent_Resource_LogsWarning()
 	{
 		await Create().OnBrowserEvent( "resource", """{"message":"Failed to load img https://cdn.test/a.png","resourceUrl":"https://cdn.test/a.png","url":"https://app.test/"}""" );

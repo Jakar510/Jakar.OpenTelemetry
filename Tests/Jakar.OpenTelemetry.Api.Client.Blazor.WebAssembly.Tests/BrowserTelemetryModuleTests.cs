@@ -36,6 +36,40 @@ public sealed class BrowserTelemetryModuleTests
 	}
 
 	[Test]
+	public async Task CaptureScreenshot_BrowserRefuses_ReturnsNull() => Assert.That( await new BrowserTelemetryModule( new FakeJsRuntime() ).CaptureScreenshotAsync(), Is.Null );
+
+	[Test]
+	public async Task CaptureScreenshot_LargeImage_IsStreamedWhole()
+	{
+		// Far above the 32 KB Blazor Server message limit that a single interop result would hit.
+		FakeJsRuntime runtime = new();
+		runtime.Module.Screenshot = TestImages.PngOfLength( 3 * 1024 * 1024 );
+
+		byte[]? png = await new BrowserTelemetryModule( runtime ).CaptureScreenshotAsync();
+
+		Assert.That( png, Is.EqualTo( runtime.Module.Screenshot ) );
+	}
+
+	[Test]
+	public void CaptureScreenshot_OverTheLimit_Throws()
+	{
+		FakeJsRuntime runtime = new();
+		runtime.Module.Screenshot = new byte[BrowserTelemetryModule.SCREENSHOT_MAX_BYTES + 1];
+
+		Assert.ThrowsAsync<ArgumentOutOfRangeException>( async () => await new BrowserTelemetryModule( runtime ).CaptureScreenshotAsync() );
+	}
+
+	[Test]
+	public void CaptureScreenshot_StuckBrowser_TimesOut()
+	{
+		FakeJsRuntime runtime = new();
+		runtime.Module.HangCapture = true;
+		BrowserTelemetryModule module = new(runtime) { ScreenshotTimeout = TimeSpan.FromMilliseconds( 100 ) };
+
+		Assert.CatchAsync<OperationCanceledException>( async () => await module.CaptureScreenshotAsync() );
+	}
+
+	[Test]
 	public async Task Dispose_DisposesImportedModule()
 	{
 		FakeJsRuntime          runtime = new();
