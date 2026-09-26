@@ -1,0 +1,26 @@
+﻿<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="Jakar.OpenTelemetry.Samples.Maui.MainPage"
+             Title="Jakar.OpenTelemetry">
+
+    <ScrollView>
+        <VerticalStackLayout Padding="24" Spacing="14">
+            <Label Text="Jakar.OpenTelemetry MAUI sample" Style="{StaticResource Headline}" SemanticProperties.HeadingLevel="Level1" />
+            <Label Text="Logs, traces and metrics export to the API. Crashes are persisted and reported on the next launch; screenshots upload when the server can accept them." />
+
+            <Button Text="Log error with screenshot" Clicked="OnLogErrorWithScreenshot" />
+            <Button Text="Traced operation" Clicked="OnTracedOperation" />
+            <Button Text="Flush telemetry now" Clicked="OnFlush" />
+            <Button Text="Unobserved task exception" Clicked="OnUnobservedTaskException" />
+
+            <Label Text="Crashes (the app terminates; relaunch to see the replayed report)" Margin="0,12,0,0" FontAttributes="Bold" />
+            <Button Text="Crash: UI thread" Clicked="OnCrashUiThread" BackgroundColor="DarkRed" />
+            <Button Text="Crash: background thread" Clicked="OnCrashBackgroundThread" BackgroundColor="DarkRed" />
+            <Button x:Name="NativeCrashButton" Text="Crash: native platform exception" Clicked="OnCrashNative" BackgroundColor="DarkRed" />
+
+            <Label x:Name="StatusLabel" Margin="0,12,0,0" />
+        </VerticalStackLayout>
+    </ScrollView>
+
+</ContentPage>

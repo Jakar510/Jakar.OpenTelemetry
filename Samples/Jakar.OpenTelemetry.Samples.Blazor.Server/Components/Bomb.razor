@@ -1,0 +1,11 @@
+@* Throws while rendering when armed, to exercise TelemetryErrorBoundary. *@
+@if ( Armed )
+{
+    throw new InvalidOperationException( "Sample component render failure" );
+}
+
+<p>Component rendered fine.</p>
+
+@code {
+    [Parameter] public bool Armed { get; set; }
+}
