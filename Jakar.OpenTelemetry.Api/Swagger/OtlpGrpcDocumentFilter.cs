@@ -51,7 +51,7 @@ public sealed class OtlpGrpcDocumentFilter( IOptions<OtlpIngestOptions> options 
                                                 Required    = true,
                                                 Description = "API key required for OTLP ingest.",
                                                 Schema      = new OpenApiSchema { Type = "string" },
-                                                Example     = new OpenApiString( _options.ApiKeyHeaderName == "x-api-key" ? "your-ingest-api-key" : _options.ApiKey )
+                                                Example     = new OpenApiString( "your-ingest-api-key" ) // never echo the configured key into the document
                                             }
                                         ],
                                         RequestBody = new OpenApiRequestBody

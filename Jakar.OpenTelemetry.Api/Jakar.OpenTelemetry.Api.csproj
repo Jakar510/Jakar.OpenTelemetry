@@ -25,6 +25,7 @@
         <PackageReference Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" Version="2.6.0" />
         <PackageReference Include="ZiggyCreatures.FusionCache.OpenTelemetry" Version="2.6.0" />
         <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.NewtonsoftJson" Version="2.6.0" />
+        <PackageReference Include="ZLinq" Version="1.5.6" />
     </ItemGroup>
 
     <ItemGroup>
@@ -38,6 +39,7 @@
     </ItemGroup>
 
     <ItemGroup>
+        <Protobuf Include="Protos\google\rpc\status.proto" GrpcServices="None" ProtoRoot="Protos"/>
         <Protobuf Include="Protos\opentelemetry\proto\common\v1\common.proto" GrpcServices="None" ProtoRoot="Protos"/>
         <Protobuf Include="Protos\opentelemetry\proto\resource\v1\resource.proto" GrpcServices="None" ProtoRoot="Protos"/>
         <Protobuf Include="Protos\opentelemetry\proto\logs\v1\logs.proto" GrpcServices="None" ProtoRoot="Protos"/>

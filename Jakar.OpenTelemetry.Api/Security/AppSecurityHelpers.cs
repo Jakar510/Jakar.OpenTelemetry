@@ -12,7 +12,10 @@ public static class AppSecurityHelpers
 
     public static bool IsOtlpIngestRequest( PathString path ) => path.StartsWithSegments( "/OpenTelemetry.Proto.Collector.Logs.V1.LogsService", StringComparison.OrdinalIgnoreCase ) ||
                                                                  path.StartsWithSegments( "/OpenTelemetry.Proto.Collector.Trace.V1.TraceService", StringComparison.OrdinalIgnoreCase ) ||
-                                                                 path.StartsWithSegments( "/OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService", StringComparison.OrdinalIgnoreCase );
+                                                                 path.StartsWithSegments( "/OpenTelemetry.Proto.Collector.Metrics.V1.MetricsService", StringComparison.OrdinalIgnoreCase ) ||
+                                                                 path.StartsWithSegments( Endpoints.OtlpHttpEndpointMappings.TRACES_PATH,            StringComparison.OrdinalIgnoreCase ) ||
+                                                                 path.StartsWithSegments( Endpoints.OtlpHttpEndpointMappings.METRICS_PATH,           StringComparison.OrdinalIgnoreCase ) ||
+                                                                 path.StartsWithSegments( Endpoints.OtlpHttpEndpointMappings.LOGS_PATH,              StringComparison.OrdinalIgnoreCase );
 
     public static bool IsLocalReturnUrl( string? returnUrl )
     {

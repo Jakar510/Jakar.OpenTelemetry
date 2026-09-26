@@ -11,9 +11,9 @@ public static class HttpEndpointMappings
     public static WebApplication MapHttpEndpoints( this WebApplication app )
     {
         app.MapPost( "/auth/login",
-                     static async Task<RedirectHttpResult> ( HttpContext httpContext, ConfiguredDashboardUserAuthenticator authenticator, CancellationToken cancellationToken ) =>
+                     static async Task<RedirectHttpResult> ( HttpContext httpContext, ConfiguredDashboardUserAuthenticator authenticator, CancellationToken token ) =>
                      {
-                         IFormCollection form      = await httpContext.Request.ReadFormAsync( cancellationToken );
+                         IFormCollection form      = await httpContext.Request.ReadFormAsync( token );
                          string          username  = form["username"].ToString();
                          string          password  = form["password"].ToString();
                          string          returnUrl = AppSecurityHelpers.NormalizeReturnUrl( form["returnUrl"].ToString() );
@@ -56,10 +56,10 @@ public static class HttpEndpointMappings
            .Produces( StatusCodes.Status403Forbidden );
 
         api.MapGet( "/telemetry/snapshot",
-                    static async Task<ContentHttpResult> ( int? take, TelemetryQueryService telemetry, CancellationToken cancellationToken ) =>
+                    static async Task<ContentHttpResult> ( int? take, TelemetryQueryService telemetry, CancellationToken token ) =>
                     {
                         int size = Math.Clamp( take ?? 250, 25, 1000 );
-                        return NewtonsoftJsonHttpResult.Ok( await telemetry.GetSnapshotAsync( size, cancellationToken ) );
+                        return NewtonsoftJsonHttpResult.Ok( await telemetry.GetSnapshotAsync( size, token ) );
                     } )
            .WithName( "GetTelemetrySnapshot" )
            .WithSummary( "Get a telemetry snapshot." )

@@ -6,9 +6,9 @@ public sealed record ApiIngestEndpointsDto( string Grpc, string SignalR, string 
 
 public sealed record ApiMetadataDto( string Name, ApiIngestEndpointsDto Ingest );
 
-public readonly record struct SpanEvent( DateTimeOffset? TimeUtc, string Name, ReadOnlyDictionary<string, string?> Attributes );
+public readonly record struct SpanEvent( DateTimeOffset? TimeUtc, string Name, ReadOnlyDictionary<string, string?> Attributes, uint DroppedAttributesCount = 0 );
 
-public readonly record struct SpanLink( string? TraceId, string? SpanId, string TraceState, ReadOnlyDictionary<string, string?> Attributes );
+public readonly record struct SpanLink( string? TraceId, string? SpanId, string TraceState, ReadOnlyDictionary<string, string?> Attributes, uint Flags = 0, uint DroppedAttributesCount = 0 );
 
 public sealed record NamedValueDto( string Name, double Value );
 
@@ -18,9 +18,9 @@ public sealed record TelemetryRealtimeEventDto( DateTimeOffset TimestampUtc, int
 
 public sealed record TelemetryOverviewDto(
     DateTimeOffset                             GeneratedAtUtc,
-    int                                        TotalLogs,
-    int                                        TotalSpans,
-    int                                        TotalMetrics,
+    long                                       TotalLogs,
+    long                                       TotalSpans,
+    long                                       TotalMetrics,
     IReadOnlyList<TelemetryTimeSeriesPointDto> LogTimeline,
     IReadOnlyList<TelemetryTimeSeriesPointDto> SpanTimeline,
     IReadOnlyList<TelemetryTimeSeriesPointDto> MetricTimeline,
@@ -45,7 +45,11 @@ public sealed record TelemetryLogRecordDto(
     uint                                Flags,
     ReadOnlyDictionary<string, string?> ResourceAttributes,
     ReadOnlyDictionary<string, string?> ScopeAttributes,
-    ReadOnlyDictionary<string, string?> Attributes );
+    ReadOnlyDictionary<string, string?> Attributes,
+    string?                             EventName              = null,
+    uint                                DroppedAttributesCount = 0,
+    string?                             ResourceSchemaUrl      = null,
+    string?                             ScopeSchemaUrl         = null );
 
 public sealed record TelemetrySpanRecordDto(
     Guid                                ID,
@@ -68,7 +72,13 @@ public sealed record TelemetrySpanRecordDto(
     ReadOnlyDictionary<string, string?> ScopeAttributes,
     ReadOnlyDictionary<string, string?> Attributes,
     SpanEvent[]?                        EventsJson,
-    SpanLink[]?                         LinksJson );
+    SpanLink[]?                         LinksJson,
+    uint                                Flags                  = 0,
+    uint                                DroppedAttributesCount = 0,
+    uint                                DroppedEventsCount     = 0,
+    uint                                DroppedLinksCount      = 0,
+    string?                             ResourceSchemaUrl      = null,
+    string?                             ScopeSchemaUrl         = null );
 
 public sealed record TelemetryMetricRecordDto(
     Guid                                ID,
@@ -94,6 +104,11 @@ public sealed record TelemetryMetricRecordDto(
     ReadOnlyDictionary<string, string?> Attributes,
     ReadOnlyDictionary<string, string?> MetadataAttributes,
     string?                             DistributionJson,
-    ReadOnlyDictionary<double, double>? QuantilesJson );
+    ReadOnlyDictionary<double, double>? QuantilesJson,
+    long?                               IntValue          = null,
+    uint                                Flags             = 0,
+    string?                             ExemplarsJson     = null,
+    string?                             ResourceSchemaUrl = null,
+    string?                             ScopeSchemaUrl    = null );
 
 public sealed record TelemetrySnapshotDto( TelemetryOverviewDto Overview, IReadOnlyList<TelemetryLogRecordDto> Logs, IReadOnlyList<TelemetrySpanRecordDto> Spans, IReadOnlyList<TelemetryMetricRecordDto> Metrics );

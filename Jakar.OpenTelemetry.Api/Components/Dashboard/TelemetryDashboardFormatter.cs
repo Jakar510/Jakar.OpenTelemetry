@@ -5,7 +5,7 @@ namespace Jakar.OpenTelemetry.Api.Components.Dashboard;
 
 internal static class TelemetryDashboardFormatter
 {
-    public static string FormatCount( int value ) => value.ToString( "N0", CultureInfo.InvariantCulture );
+    public static string FormatCount( long value ) => value.ToString( "N0", CultureInfo.InvariantCulture );
     public static string FormatDate( DateTimeOffset value ) => value.ToUniversalTime().ToString( "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture ) + "Z";
     public static string FormatMap<T>( T map ) where T : IReadOnlyDictionary<string, string?> => map.Count == 0 ? "none" : string.Join( ", ", map.Select( pair => $"{pair.Key}={CleanJson( pair.Value )}" ) );
 

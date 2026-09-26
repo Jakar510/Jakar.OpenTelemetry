@@ -5,12 +5,11 @@ using OpenTelemetry.Proto.Collector.Metrics.V1;
 
 namespace Jakar.OpenTelemetry.Api.Grpc;
 
-public sealed class OtlpMetricsService( TelemetryIngestService telemetry, GrpcIngestAuthorizer authorizer ) : MetricsService.MetricsServiceBase
+public sealed class OtlpMetricsService( TelemetryIngestService telemetry, OtlpIngestAuthorizer authorizer ) : MetricsService.MetricsServiceBase
 {
-    public override async Task<ExportMetricsServiceResponse> Export( ExportMetricsServiceRequest request, ServerCallContext context )
+    public override Task<ExportMetricsServiceResponse> Export( ExportMetricsServiceRequest request, ServerCallContext context )
     {
         authorizer.EnsureAuthorized( context.RequestHeaders );
-        await telemetry.IngestMetricsAsync( request, context.CancellationToken );
-        return new ExportMetricsServiceResponse();
+        return telemetry.IngestMetricsAsync( request, context.CancellationToken );
     }
 }

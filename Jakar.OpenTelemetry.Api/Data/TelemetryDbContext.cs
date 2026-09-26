@@ -1,34 +1,28 @@
-using Jakar.Extensions;
+using System.Collections.ObjectModel;
 using Jakar.OpenTelemetry.Api.Services;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Metadata.Builders;
 
 namespace Jakar.OpenTelemetry.Api.Data;
 
-public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> options, IConfiguration configuration ) : DbContext( options )
+/// <summary>
+///     Read-side model. The schema is owned by <see cref="TelemetrySchema"/> (not EF) and rows are written by <see cref="TelemetryIngestService"/> with binary COPY,
+///     so this context is configured for pooled, no-tracking queries only.
+/// </summary>
+public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> options ) : DbContext( options )
 {
     public DbSet<TelemetryLogEntity>    Logs    => Set<TelemetryLogEntity>();
     public DbSet<TelemetrySpanEntity>   Spans   => Set<TelemetrySpanEntity>();
     public DbSet<TelemetryMetricEntity> Metrics => Set<TelemetryMetricEntity>();
 
-    protected override void OnConfiguring( DbContextOptionsBuilder builder )
-    {
-        builder.EnableDetailedErrors();
 
-        string connectionString = Validate.ThrowIfNull(configuration.GetConnectionString( "Telemetry" ));
-        builder.UseNpgsql( connectionString );
-
-        base.OnConfiguring( builder );
-    }
     protected override void OnModelCreating( ModelBuilder modelBuilder )
     {
         modelBuilder.Entity<TelemetryLogEntity>( entity =>
                                                  {
+                                                     entity.ToTable( "Logs" );
                                                      entity.HasKey( x => x.ID );
-                                                     entity.HasIndex( x => x.TimestampUtc );
-                                                     entity.HasIndex( x => x.ServiceName );
-                                                     entity.HasIndex( x => x.TraceId );
-                                                     entity.HasIndex( x => x.SeverityText );
+                                                     ConfigureSortTime( entity.Property( x => x.SortTimeUtc ), """COALESCE("TimestampUtc", "ObservedTimestampUtc", "ReceivedAtUtc")""" );
                                                      ConfigureStringDictionary( entity.Property( x => x.ResourceAttributesJson ) );
                                                      ConfigureStringDictionary( entity.Property( x => x.ScopeAttributesJson ) );
                                                      ConfigureStringDictionary( entity.Property( x => x.AttributesJson ) );
@@ -36,58 +30,38 @@ public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> opt
 
         modelBuilder.Entity<TelemetrySpanEntity>( entity =>
                                                   {
+                                                      entity.ToTable( "Spans" );
                                                       entity.HasKey( x => x.ID );
-                                                      entity.HasIndex( x => x.StartTimeUtc );
-                                                      entity.HasIndex( x => x.ServiceName );
-                                                      entity.HasIndex( x => x.TraceId );
-                                                      entity.HasIndex( x => x.Name );
+                                                      ConfigureSortTime( entity.Property( x => x.SortTimeUtc ), """COALESCE("StartTimeUtc", "ReceivedAtUtc")""" );
                                                       ConfigureStringDictionary( entity.Property( x => x.ResourceAttributesJson ) );
                                                       ConfigureStringDictionary( entity.Property( x => x.ScopeAttributesJson ) );
                                                       ConfigureStringDictionary( entity.Property( x => x.AttributesJson ) );
-                                                      ConfigureSpanEventArray( entity.Property( x => x.EventsJson ) );
-                                                      ConfigureSpanLinkArray( entity.Property( x => x.LinksJson ) );
+
+                                                      entity.Property( x => x.EventsJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.SpanEventArrayConverter ).Metadata.SetValueComparer( TelemetryJson.SpanEventArrayComparer );
+                                                      entity.Property( x => x.LinksJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.SpanLinkArrayConverter ).Metadata.SetValueComparer( TelemetryJson.SpanLinkArrayComparer );
                                                   } );
 
         modelBuilder.Entity<TelemetryMetricEntity>( entity =>
                                                     {
+                                                        entity.ToTable( "Metrics" );
                                                         entity.HasKey( x => x.ID );
-                                                        entity.HasIndex( x => x.TimestampUtc );
-                                                        entity.HasIndex( x => x.ServiceName );
-                                                        entity.HasIndex( x => x.Name );
-                                                        entity.HasIndex( x => x.MetricType );
+                                                        ConfigureSortTime( entity.Property( x => x.SortTimeUtc ), """COALESCE("TimestampUtc", "ReceivedAtUtc")""" );
                                                         ConfigureStringDictionary( entity.Property( x => x.MetadataAttributesJson ) );
                                                         ConfigureStringDictionary( entity.Property( x => x.ResourceAttributesJson ) );
                                                         ConfigureStringDictionary( entity.Property( x => x.ScopeAttributesJson ) );
                                                         ConfigureStringDictionary( entity.Property( x => x.AttributesJson ) );
-                                                        ConfigureDoubleDictionary( entity.Property( x => x.QuantilesJson ) );
+                                                        entity.Property( x => x.DistributionJson ).HasColumnType( "jsonb" );
+                                                        entity.Property( x => x.ExemplarsJson ).HasColumnType( "jsonb" );
+                                                        entity.Property( x => x.QuantilesJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.DoubleDictionaryConverter ).Metadata.SetValueComparer( TelemetryJson.DoubleDictionaryComparer );
                                                     } );
     }
 
-    private static void ConfigureStringDictionary( PropertyBuilder<System.Collections.ObjectModel.ReadOnlyDictionary<string, string?>> property )
+    private static void ConfigureSortTime( PropertyBuilder<DateTimeOffset> property, string sql ) => property.HasComputedColumnSql( sql, stored: true );
+
+    private static void ConfigureStringDictionary( PropertyBuilder<ReadOnlyDictionary<string, string?>> property )
     {
         property.HasColumnType( "jsonb" );
         property.HasConversion( TelemetryJson.StringDictionaryConverter );
         property.Metadata.SetValueComparer( TelemetryJson.StringDictionaryComparer );
-    }
-
-    private static void ConfigureDoubleDictionary( PropertyBuilder<System.Collections.ObjectModel.ReadOnlyDictionary<double, double>?> property )
-    {
-        property.HasColumnType( "jsonb" );
-        property.HasConversion( TelemetryJson.DoubleDictionaryConverter );
-        property.Metadata.SetValueComparer( TelemetryJson.DoubleDictionaryComparer );
-    }
-
-    private static void ConfigureSpanEventArray( PropertyBuilder<Contracts.SpanEvent[]?> property )
-    {
-        property.HasColumnType( "jsonb" );
-        property.HasConversion( TelemetryJson.SpanEventArrayConverter );
-        property.Metadata.SetValueComparer( TelemetryJson.SpanEventArrayComparer );
-    }
-
-    private static void ConfigureSpanLinkArray( PropertyBuilder<Contracts.SpanLink[]?> property )
-    {
-        property.HasColumnType( "jsonb" );
-        property.HasConversion( TelemetryJson.SpanLinkArrayConverter );
-        property.Metadata.SetValueComparer( TelemetryJson.SpanLinkArrayComparer );
     }
 }

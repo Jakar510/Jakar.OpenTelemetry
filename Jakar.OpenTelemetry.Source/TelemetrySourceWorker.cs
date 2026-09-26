@@ -25,13 +25,13 @@ public sealed class TelemetrySourceWorker( IHttpClientFactory httpClientFactory,
         TimeSpan            interval      = TimeSpan.FromSeconds( Math.Max( 1, sourceOptions.IntervalSeconds ) );
         using PeriodicTimer timer         = new(interval);
 
-        logger.LogInformation( "Sample source started. OTLP endpoint {OtlpEndpoint}. Target URL {TargetUrl}. Interval {IntervalSeconds}s.", sourceOptions.OtlpEndpoint, sourceOptions.TargetUrl, sourceOptions.IntervalSeconds );
+        logger.LogInformation( "Sample source started: OTLP endpoint {OtlpEndpoint}, target URL {TargetUrl}, interval {IntervalSeconds}s", sourceOptions.OtlpEndpoint, sourceOptions.TargetUrl, sourceOptions.IntervalSeconds );
     
         await SendRequestAsync( sourceOptions, stoppingToken );
         while ( await timer.WaitForNextTickAsync( stoppingToken ) ) { await SendRequestAsync( sourceOptions, stoppingToken ); }
     }
 
-    private async Task SendRequestAsync( SampleSourceOptions sourceOptions, CancellationToken cancellationToken )
+    private async Task SendRequestAsync( SampleSourceOptions sourceOptions, CancellationToken token )
     {
         HttpClient client = httpClientFactory.CreateClient( CLIENT_NAME );
 
@@ -54,7 +54,7 @@ public sealed class TelemetrySourceWorker( IHttpClientFactory httpClientFactory,
         {
             logger.LogInformation( "Sending GET request to {TargetUrl}", sourceOptions.TargetUrl );
 
-            using HttpResponseMessage response = await client.GetAsync( sourceOptions.TargetUrl, cancellationToken );
+            using HttpResponseMessage response = await client.GetAsync( sourceOptions.TargetUrl, token );
             stopwatch.Stop();
 
             activity?.SetTag( "http.response.status_code", (int)response.StatusCode );
@@ -66,9 +66,9 @@ public sealed class TelemetrySourceWorker( IHttpClientFactory httpClientFactory,
 
             RequestCounter.Add( 1, tags );
 
-            logger.LogInformation( "Received {StatusCode} from {TargetUrl} in {ElapsedMilliseconds} ms.", (int)response.StatusCode, sourceOptions.TargetUrl, stopwatch.Elapsed.TotalMilliseconds );
+            logger.LogInformation( "Received {StatusCode} from {TargetUrl} in {ElapsedMilliseconds} ms", (int)response.StatusCode, sourceOptions.TargetUrl, stopwatch.Elapsed.TotalMilliseconds );
         }
-        catch ( OperationCanceledException ) when ( cancellationToken.IsCancellationRequested ) { logger.LogInformation( "Sample source is stopping." ); }
+        catch ( OperationCanceledException ) when ( token.IsCancellationRequested ) { logger.LogInformation( "Sample source stopping" ); }
         catch ( Exception e )
         {
             stopwatch.Stop();
@@ -78,7 +78,7 @@ public sealed class TelemetrySourceWorker( IHttpClientFactory httpClientFactory,
             RequestCounter.Add( 1, tags );
             FailureCounter.Add( 1, tags );
 
-            logger.LogError( e, "GET request to {TargetUrl} failed after {ElapsedMilliseconds} ms.", sourceOptions.TargetUrl, stopwatch.Elapsed.TotalMilliseconds );
+            logger.LogError( e, "GET request to {TargetUrl} failed after {ElapsedMilliseconds} ms", sourceOptions.TargetUrl, stopwatch.Elapsed.TotalMilliseconds );
         }
     }
 }
