@@ -102,9 +102,12 @@ public abstract class MauiSampleTests
 	/// <summary> Taps a control that terminates the app; the driver may report the tap itself as failed because the app died while handling it. </summary>
 	private protected void TapExpectingCrash( string automationId )
 	{
-		try { Tap( automationId ); }
+		try { TapForCrash( automationId ); }
 		catch ( WebDriverException ) { }
 	}
+
+	/// <summary> The input used for taps that crash the app; platforms can use real input where their automation API would swallow the exception. </summary>
+	private protected virtual void TapForCrash( string automationId ) => Tap( automationId );
 
 	private protected string WaitForStatus( string startsWith ) => new WebDriverWait( Driver, TimeSpan.FromSeconds( 30 ) ) { PollingInterval = TimeSpan.FromMilliseconds( 500 ) }.Until( _ =>
 																																															  {
@@ -164,10 +167,6 @@ public abstract class MauiSampleTests
 	[TestCase( "CrashBackgroundButton", "Sample crash on a background thread" )]
 	public async Task ManagedCrash_ReachesTheApi( string button, string message )
 	{
-		// Unresolved: on WinUI neither a UI Automation invoke nor keyboard input made this handler terminate the app (a UIA invoke turns the exception
-		// into a failed call). Needs a real mouse click on a foreground window; the background-thread crash is covered.
-		if ( Platform == "windows" && button == "CrashUiThreadButton" ) { Assert.Ignore( "UI-thread crash cannot be triggered through UI Automation on WinUI yet" ); }
-
 		TapExpectingCrash( button );
 		await Task.Delay( 3000 ); // the app persists the report, tries to flush, then dies
 

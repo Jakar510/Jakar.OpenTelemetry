@@ -13,7 +13,7 @@ internal static class Builds
 	/// <summary> Builds the MAUI sample for <paramref name="framework"/> and returns the output directory. </summary>
 	public static async Task<string> BuildAsync( string framework, params string[] properties )
 	{
-		( int exitCode, string output ) = await ChildProcess.RunAsync( "dotnet", [ "build", Paths.SampleProject, "-f", framework, "-c", Paths.Configuration, "--nologo", .. properties ], TimeSpan.FromMinutes( 20 ) );
+		( int exitCode, string output ) = await ChildProcess.RunAsync( "dotnet", [ "build", Paths.SampleProject, "-f", framework, "-c", Paths.Configuration, "--nologo", "-nodeReuse:false", .. properties ], TimeSpan.FromMinutes( 20 ), new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" } );
 		Assert.That( exitCode, Is.Zero, output );
 		return Path.Combine( Paths.SampleProject, "bin", Paths.Configuration, framework );
 	}
@@ -67,6 +67,20 @@ public sealed class WindowsSampleTests : MauiSampleTests
 
 	private protected override void Tap( string automationId ) => Driver.ExecuteScript( "windows: invoke", Find( automationId ) );
 
+	/// <summary>
+	///     A UI Automation invoke runs the click handler inside the automation call, so WinUI reports its exception to the caller instead of crashing.
+	///     Crash taps therefore use a real mouse click on the focused (foreground) window.
+	/// </summary>
+	private protected override void TapForCrash( string automationId )
+	{
+		IWebElement element = Find( automationId );
+		Driver.ExecuteScript( "windows: setFocus", element );
+		Driver.ExecuteScript( "windows: click", new Dictionary<string, object> { ["elementId"] = ElementId( element ) } );
+	}
+
+	/// <summary> The driver's id for <paramref name="element"/> (the Selenium property is not public). </summary>
+	private static string ElementId( IWebElement element ) => (string)element.GetType().GetProperty( "Id", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic )!.GetValue( element )!;
+
 	private WindowsDriver Launch()
 	{
 		using Process process = Process.Start( new ProcessStartInfo( App ) { WorkingDirectory = Path.GetDirectoryName( App )!, UseShellExecute = true } )!;
@@ -110,12 +124,20 @@ public sealed class WindowsSampleTests : MauiSampleTests
 
 	private static async Task WaitForExitAsync()
 	{
-		using CancellationTokenSource timeout = new(TimeSpan.FromSeconds( 30 ));
+		// A crashing WinUI app can take several seconds in Windows Error Reporting before it exits.
+		DateTime deadline = DateTime.UtcNow.AddSeconds( 90 );
+
 		while ( Process.GetProcessesByName( PROCESS ) is { Length: > 0 } running )
 		{
 			foreach ( Process process in running ) { process.Dispose(); }
 
-			await Task.Delay( 250, timeout.Token );
+			if ( DateTime.UtcNow > deadline )
+			{
+				KillStrayInstances();
+				Assert.Ignore( "The app never crashed: the real click did not reach it (Windows refuses to bring a window to the foreground while another app has input focus). Run on an idle desktop." );
+			}
+
+			await Task.Delay( 250 );
 		}
 	}
 }
@@ -151,7 +173,9 @@ public sealed class AndroidSampleTests : MauiSampleTests
 		{
 			string avd      = Environment.GetEnvironmentVariable( AppiumSettings.AVD_VARIABLE ) is { Length: > 0 } name ? name : "jakar-otel-api36";
 			string emulator = Path.Combine( AppiumSettings.AndroidHome, "emulator", OperatingSystem.IsWindows() ? "emulator.exe" : "emulator" );
-			_emulator = ChildProcess.Start( emulator, [ "-avd", avd, "-no-snapshot-save", "-no-audio", "-no-boot-anim" ] );
+			// Software rendering by default: host GPU mode can hang the boot indefinitely on some drivers.
+			string gpu = Environment.GetEnvironmentVariable( "JAKAR_OTEL_ANDROID_GPU" ) is { Length: > 0 } mode ? mode : "swiftshader_indirect";
+			_emulator = ChildProcess.Start( emulator, [ "-avd", avd, "-no-snapshot-save", "-no-audio", "-no-boot-anim", "-gpu", gpu ] );
 
 			using CancellationTokenSource timeout = new(TimeSpan.FromMinutes( 5 ));
 			while ( true )
@@ -187,6 +211,7 @@ public sealed class AndroidSampleTests : MauiSampleTests
 		options.AddAdditionalAppiumOption( "appium:newCommandTimeout",    300 );
 		options.AddAdditionalAppiumOption( "appium:uiautomator2ServerInstallTimeout", 120_000 );
 		options.AddAdditionalAppiumOption( "appium:adbExecTimeout",       120_000 );
+		options.AddAdditionalAppiumOption( "appium:ignoreHiddenApiPolicyError", true ); // not needed by the app, and refused by recent emulator images
 		return new AndroidDriver( Server, options, TimeSpan.FromMinutes( 5 ) );
 	}
 

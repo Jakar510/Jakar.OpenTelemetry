@@ -227,7 +227,7 @@ public sealed class BlazorWebAssemblySampleTests : BlazorSampleTests
 	{
 		string output = Path.Combine( Path.GetTempPath(), "jakar-otel-tests", "wasm-sample", Paths.Configuration );
 
-		await using ( SampleProcess publish = SampleProcess.Start( "dotnet", [ "publish", Paths.SampleProject( SAMPLE ), "-c", Paths.Configuration, "-o", output, "--nologo" ], new Dictionary<string, string?>() ) )
+		await using ( SampleProcess publish = SampleProcess.Start( "dotnet", [ "publish", Paths.SampleProject( SAMPLE ), "-c", Paths.Configuration, "-o", output, "--nologo", "-nodeReuse:false" ], new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" } ) )
 		{
 			Assert.That( await publish.WaitForExitAsync( TimeSpan.FromMinutes( 10 ) ), Is.Zero, publish.Output );
 		}

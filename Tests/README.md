@@ -68,7 +68,13 @@ appium driver install mac2                                   # Mac Catalyst
 | `JAKAR_OTEL_APPIUM_PLATFORMS` | Comma list of `windows`, `android`, `ios`, `maccatalyst` (default `windows,android` on Windows, `ios,maccatalyst` on macOS) |
 | `JAKAR_OTEL_APPIUM_URL` | Use this Appium server instead of starting `appium` from PATH |
 | `JAKAR_OTEL_ANDROID_AVD` | AVD to boot (default `jakar-otel-api36`) |
+| `JAKAR_OTEL_ANDROID_GPU` | Emulator `-gpu` mode (default `swiftshader_indirect`) |
 | `JAKAR_OTEL_IOS_DEVICE` | iOS simulator (default `iPhone 16`) |
 | `ANDROID_HOME`, `JAVA_HOME` | Probed from common install locations when unset |
 
 The app window (Windows) or emulator opens while the suite runs; the Android suite disables crash dialogs on the test device.
+
+Known issues:
+
+- The `android-36.1` x86_64 image did not run on the machine this suite was written on (AMD GPU): host GPU mode hung the boot, and SwiftShader/ANGLE left SurfaceFlinger crash-looping. Use an `android-35` image (`sdkmanager "system-images;android-35;google_apis;x86_64"`, elevated when the SDK is under Program Files) and `JAKAR_OTEL_ANDROID_AVD`.
+- The Windows UI-thread crash test needs a real mouse click on the foreground window (a UI Automation invoke turns the exception into a failed automation call). Windows may refuse to bring the app to the foreground while you are using another window; the test then reports itself as inconclusive (skipped).

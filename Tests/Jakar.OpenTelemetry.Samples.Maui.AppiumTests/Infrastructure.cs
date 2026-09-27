@@ -112,7 +112,8 @@ internal sealed class ChildProcess : IAsyncDisposable
 		try { await child._process.WaitForExitAsync( limit.Token ); }
 		catch ( OperationCanceledException ) { return ( -1, child.Output + $"{Environment.NewLine}(timed out after {timeout})" ); }
 
-		child._process.WaitForExit();
+		// Bounded: build servers and MSBuild nodes can inherit the output pipes and keep them open after the process exits.
+		child._process.WaitForExit( 5000 );
 		return ( child._process.ExitCode, child.Output );
 	}
 
@@ -162,7 +163,22 @@ internal sealed class TelemetryDatabase( string connectionString ) : IAsyncDispo
 			await Task.Delay( 500, CancellationToken.None );
 		}
 
-		Assert.Fail( $"Expected a row in {table} where {where}" );
+		Assert.Fail( $"Expected a row in {table} where {where}. Latest logs:{Environment.NewLine}{await LatestLogsAsync()}" );
+	}
+
+	/// <summary> Diagnostics for a failed wait: the newest log records with their crash/exception attributes. </summary>
+	private async Task<string> LatestLogsAsync()
+	{
+		await using NpgsqlCommand command = _dataSource.CreateCommand( """SELECT "SeverityNumber", "Body", "AttributesJson"->>'crash.source', "AttributesJson"->>'exception.type', "AttributesJson"->>'exception.message' FROM "Logs" ORDER BY "ReceivedAtUtc" DESC LIMIT 15""" );
+		await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
+		System.Text.StringBuilder     lines  = new();
+
+		while ( await reader.ReadAsync() )
+		{
+			lines.AppendLine( $"  [{reader.GetInt32( 0 )}] {( reader.IsDBNull( 1 ) ? "" : reader.GetString( 1 ) )} | source={( reader.IsDBNull( 2 ) ? "" : reader.GetString( 2 ) )} type={( reader.IsDBNull( 3 ) ? "" : reader.GetString( 3 ) )} message={( reader.IsDBNull( 4 ) ? "" : reader.GetString( 4 ) )}" );
+		}
+
+		return lines.ToString();
 	}
 
 	public ValueTask DisposeAsync() => _dataSource.DisposeAsync();

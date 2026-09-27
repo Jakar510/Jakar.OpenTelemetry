@@ -120,7 +120,7 @@ internal sealed class SampleProcess : IAsyncDisposable
 		try { await _process.WaitForExitAsync( limit.Token ); }
 		catch ( OperationCanceledException ) { Assert.Fail( $"Process did not exit within {timeout}. Output:{Environment.NewLine}{Output}" ); }
 
-		_process.WaitForExit(); // flush redirected output
+		_process.WaitForExit( 5000 ); // flush redirected output; bounded because MSBuild nodes can inherit the pipes
 		return _process.ExitCode;
 	}
 
