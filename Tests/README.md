@@ -76,5 +76,6 @@ The app window (Windows) or emulator opens while the suite runs; the Android sui
 
 Known issues:
 
-- The `android-36.1` x86_64 image did not run on the machine this suite was written on (AMD GPU): host GPU mode hung the boot, and SwiftShader/ANGLE left SurfaceFlinger crash-looping. Use an `android-35` image (`sdkmanager "system-images;android-35;google_apis;x86_64"`, elevated when the SDK is under Program Files) and `JAKAR_OTEL_ANDROID_AVD`.
+- An `android-36.1` `google_apis` x86_64 AVD created with `avdmanager` did not boot reliably on the machine this suite was written on (AMD GPU): host GPU mode hung the boot, and SwiftShader/ANGLE left SurfaceFlinger crash-looping. A Pixel 9 Pro / API 36.1 (Google Play) device created and started from Android Device Manager worked; with a device already connected the suite uses it and does not boot an AVD. `android-35` is the other fallback (`JAKAR_OTEL_ANDROID_AVD`).
+- The sample's "native crash" throws from a managed lambda on a Java thread, so .NET's Android bridge usually reports it (`crash.source` = `android.unhandled_exception_raiser`, `exception.type` = `Java.Lang.IllegalStateException`) before the Java default handler would; the test accepts either hook.
 - The Windows UI-thread crash test needs a real mouse click on the foreground window (a UI Automation invoke turns the exception into a failed automation call). Windows may refuse to bring the app to the foreground while you are using another window; the test then reports itself as inconclusive (skipped).

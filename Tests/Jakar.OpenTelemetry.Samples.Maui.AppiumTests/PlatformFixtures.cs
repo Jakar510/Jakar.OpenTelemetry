@@ -250,7 +250,9 @@ public sealed class AndroidSampleTests : MauiSampleTests
 		WaitForElement( "FlushButton" );
 		Tap( "FlushButton" );
 
-		await Telemetry.WaitForAsync( "Logs", """ "ResourceAttributesJson"->>'os.name' = 'Android' AND "AttributesJson"->>'crash.source' = 'android.java_uncaught_exception' AND "AttributesJson"->>'exception.type' = 'java.lang.IllegalStateException'""" );
+		// The sample throws from a managed lambda on a Java thread, so .NET's Android bridge (UnhandledExceptionRaiser) usually sees it before the Java
+		// default handler does; either hook must report it as a terminating crash of the Java exception type.
+		await Telemetry.WaitForAsync( "Logs", """ "ResourceAttributesJson"->>'os.name' = 'Android' AND "SeverityNumber" = 21 AND "AttributesJson"->>'crash.source' IN ('android.java_uncaught_exception', 'android.unhandled_exception_raiser') AND lower("AttributesJson"->>'exception.type') = 'java.lang.illegalstateexception'""" );
 	}
 
 	[Test]
