@@ -12,13 +12,12 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 	private static (string Name, object Value) Service( string name ) => ( "service", name );
 
 
-	[Test]
-	public async Task Run_ExportsLogsTraceAndErrorWithScreenshot_ThenExitsCleanly()
+	[Test] public async Task Run_ExportsLogsTraceAndErrorWithScreenshot_ThenExitsCleanly()
 	{
 		string service = $"console-run-{Guid.NewGuid():N}";
 
-		await using SampleProcess sample = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) );
-		int exitCode = await sample.WaitForExitAsync( RunTimeout );
+		await using SampleProcess sample   = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) );
+		int                       exitCode = await sample.WaitForExitAsync( RunTimeout );
 
 		Assert.Multiple( () =>
 						 {
@@ -26,16 +25,15 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 							 Assert.That( sample.Output, Does.Contain( "Telemetry flushed" ) );
 						 } );
 
-		await Telemetry.WaitForAsync( "Logs",  """ "ServiceName" = @service AND "Body" = 'Console sample started in run mode'""", parameters: Service( service ) );
-		await Telemetry.WaitForAsync( "Spans", """ "ServiceName" = @service AND "Name" = 'sample.operation' AND "AttributesJson"->>'sample.mode' = 'run'""", parameters: Service( service ) );
-		await Telemetry.WaitForAsync( "Logs",  """ "ServiceName" = @service AND "Body" LIKE 'Sample error with screenshot %' AND "SeverityNumber" = 17 AND "AttributesJson" ? 'log.tags'""", parameters: Service( service ) );
+		await Telemetry.WaitForAsync( "Logs",   """ "ServiceName" = @service AND "Body" = 'Console sample started in run mode'""",                                                            parameters: Service( service ) );
+		await Telemetry.WaitForAsync( "Spans",  """ "ServiceName" = @service AND "Name" = 'sample.operation' AND "AttributesJson"->>'sample.mode' = 'run'""",                                 parameters: Service( service ) );
+		await Telemetry.WaitForAsync( "Logs",   """ "ServiceName" = @service AND "Body" LIKE 'Sample error with screenshot %' AND "SeverityNumber" = 17 AND "AttributesJson" ? 'log.tags'""", parameters: Service( service ) );
 		await Telemetry.WaitForAsync( "Images", """ "FileName" = 'console-error.png' AND "ContentType" = 'image/png'""" );
 
 		Assert.That( await Telemetry.CountAsync( "Logs", """ "ServiceName" = @service AND "Body" = 'Traced operation finished' AND "TraceId" IS NOT NULL""", Service( service ) ), Is.EqualTo( 1 ), "logs inside the operation carry its trace id" );
 	}
 
-	[Test]
-	public async Task Crash_IsReportedImmediately_AndNotAsAbnormalTerminationNextTime()
+	[Test] public async Task Crash_IsReportedImmediately_AndNotAsAbnormalTerminationNextTime()
 	{
 		string service = $"console-crash-{Guid.NewGuid():N}";
 
@@ -49,8 +47,7 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 		Assert.That( await Telemetry.CountAsync( "Logs", """ "ServiceName" = @service AND "Body" LIKE '%without a clean shutdown%'""", Service( service ) ), Is.Zero, "the crash already explained the termination" );
 	}
 
-	[Test]
-	public async Task CrashWhileOffline_IsReplayedOnTheNextRun()
+	[Test] public async Task CrashWhileOffline_IsReplayedOnTheNextRun()
 	{
 		string service = $"console-offline-{Guid.NewGuid():N}";
 		Uri    offline = new($"http://127.0.0.1:{Ports.Free()}/");
@@ -65,14 +62,13 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 
 		await using ( SampleProcess next = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) ) ) { Assert.That( await next.WaitForExitAsync( RunTimeout ), Is.Zero, next.Output ); }
 
-		await Telemetry.WaitForAsync( "Logs", """ "ServiceName" = @service AND "Body" LIKE 'Crash in previous session%' AND "AttributesJson"->>'exception.type' = 'System.InvalidProgramException' AND "AttributesJson"->>'crash.previous_session' = 'true'""", parameters: Service( service ) );
-		await Telemetry.WaitForAsync( "Images", """ "FileName" = 'console-error.png'""", minimum: 2 );
+		await Telemetry.WaitForAsync( "Logs",   """ "ServiceName" = @service AND "Body" LIKE 'Crash in previous session%' AND "AttributesJson"->>'exception.type' = 'System.InvalidProgramException' AND "AttributesJson"->>'crash.previous_session' = 'true'""", parameters: Service( service ) );
+		await Telemetry.WaitForAsync( "Images", """ "FileName" = 'console-error.png'""",                                                                                                                                                                          minimum: 2 );
 
 		Assert.That( Directory.GetFiles( Path.Combine( Storage.Path, "crashes" ), "*.json" ), Is.Empty, "replayed reports are deleted" );
 	}
 
-	[Test]
-	public async Task KilledProcess_IsReportedAsAbnormalTerminationOnTheNextRun()
+	[Test] public async Task KilledProcess_IsReportedAsAbnormalTerminationOnTheNextRun()
 	{
 		string service = $"console-hang-{Guid.NewGuid():N}";
 

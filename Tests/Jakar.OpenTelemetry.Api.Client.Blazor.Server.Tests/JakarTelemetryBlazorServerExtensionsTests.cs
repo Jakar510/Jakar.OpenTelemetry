@@ -26,8 +26,7 @@ public sealed class JakarTelemetryBlazorServerExtensionsTests
 	}
 
 
-	[Test]
-	public async Task AddJakarOpenTelemetryBlazorServer_RegistersScopedModuleAndCircuitHandlerOnce()
+	[Test] public async Task AddJakarOpenTelemetryBlazorServer_RegistersScopedModuleAndCircuitHandlerOnce()
 	{
 		WebApplicationBuilder builder = Builder();
 		bool                  sdk     = false;
@@ -36,21 +35,20 @@ public sealed class JakarTelemetryBlazorServerExtensionsTests
 		builder.AddJakarOpenTelemetryBlazorServer( configureOpenTelemetry: _ => sdk = true );
 		builder.AddJakarOpenTelemetryBlazorServer();
 
-		await using WebApplication app   = builder.Build();
+		await using WebApplication    app    = builder.Build();
 		await using AsyncServiceScope first  = app.Services.CreateAsyncScope();
 		await using AsyncServiceScope second = app.Services.CreateAsyncScope();
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( sdk, Is.True );
+							 Assert.That( sdk,                                                                                           Is.True );
 							 Assert.That( first.ServiceProvider.GetServices<CircuitHandler>().OfType<TelemetryCircuitHandler>().Count(), Is.EqualTo( 1 ) );
-							 Assert.That( first.ServiceProvider.GetRequiredService<BrowserTelemetryModule>(), Is.SameAs( first.ServiceProvider.GetRequiredService<BrowserTelemetryModule>() ) );
-							 Assert.That( first.ServiceProvider.GetRequiredService<BrowserTelemetryModule>(), Is.Not.SameAs( second.ServiceProvider.GetRequiredService<BrowserTelemetryModule>() ), "one module per circuit" );
+							 Assert.That( first.ServiceProvider.GetRequiredService<BrowserTelemetryModule>(),                            Is.SameAs( first.ServiceProvider.GetRequiredService<BrowserTelemetryModule>() ) );
+							 Assert.That( first.ServiceProvider.GetRequiredService<BrowserTelemetryModule>(),                            Is.Not.SameAs( second.ServiceProvider.GetRequiredService<BrowserTelemetryModule>() ), "one module per circuit" );
 						 } );
 	}
 
-	[Test]
-	public async Task CircuitHandler_InboundActivity_IsScopedWithCircuitId()
+	[Test] public async Task CircuitHandler_InboundActivity_IsScopedWithCircuitId()
 	{
 		FakeLogger<TelemetryCircuitHandler> logger  = new();
 		TelemetryCircuitHandler             handler = new(logger);
@@ -72,35 +70,33 @@ public sealed class JakarTelemetryBlazorServerExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( invoked, Is.True );
+							 Assert.That( invoked,                                                                                            Is.True );
 							 Assert.That( records[0].Scopes.OfType<IEnumerable<KeyValuePair<string, object?>>>().SelectMany( static x => x ), Does.Contain( new KeyValuePair<string, object?>( "blazor.circuit.id", "circuit-123" ) ) );
-							 Assert.That( records[1].Scopes, Is.Empty );
+							 Assert.That( records[1].Scopes,                                                                                  Is.Empty );
 						 } );
 	}
 
-	[Test]
-	public async Task CircuitHandler_BeforeOpen_UsesEmptyScope()
+	[Test] public async Task CircuitHandler_BeforeOpen_UsesEmptyScope()
 	{
 		FakeLogger<TelemetryCircuitHandler> logger  = new();
 		TelemetryCircuitHandler             handler = new(logger);
 
 		await handler.CreateInboundActivityHandler( _ =>
-												   {
-													   logger.LogInformation( "early" );
-													   return Task.CompletedTask;
-												   } )( null! );
+													{
+														logger.LogInformation( "early" );
+														return Task.CompletedTask;
+													} )( null! );
 
 		Assert.That( logger.LatestRecord.Scopes.OfType<IEnumerable<KeyValuePair<string, object?>>>().SelectMany( static x => x ), Is.Empty );
 	}
 
-	[Test]
-	public async Task CircuitHandler_ConnectionUpAndDown_RecordMetricsAndLog()
+	[Test] public async Task CircuitHandler_ConnectionUpAndDown_RecordMetricsAndLog()
 	{
-		using MetricCollector<long> connected   = new(null, TelemetryCircuitHandler.METER_NAME, "jakar.blazor.circuits.connected");
-		using MetricCollector<long> disconnects = new(null, TelemetryCircuitHandler.METER_NAME, "jakar.blazor.circuits.disconnects");
-		FakeLogger<TelemetryCircuitHandler> logger  = new();
-		TelemetryCircuitHandler             handler = new(logger);
-		Circuit                             circuit = FakeCircuit.Create( "circuit-9" );
+		using MetricCollector<long>         connected   = new(null, TelemetryCircuitHandler.METER_NAME, "jakar.blazor.circuits.connected");
+		using MetricCollector<long>         disconnects = new(null, TelemetryCircuitHandler.METER_NAME, "jakar.blazor.circuits.disconnects");
+		FakeLogger<TelemetryCircuitHandler> logger      = new();
+		TelemetryCircuitHandler             handler     = new(logger);
+		Circuit                             circuit     = FakeCircuit.Create( "circuit-9" );
 
 		await handler.OnConnectionUpAsync( circuit, CancellationToken.None );
 		await handler.OnConnectionDownAsync( circuit, CancellationToken.None );
@@ -108,8 +104,18 @@ public sealed class JakarTelemetryBlazorServerExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( connected.GetMeasurementSnapshot().Select( static x => x.Value ),   Is.EqualTo( new long[] { 1, -1, 1 } ) );
-							 Assert.That( disconnects.GetMeasurementSnapshot().Select( static x => x.Value ), Is.EqualTo( new long[] { 1 } ) );
+							 Assert.That( connected.GetMeasurementSnapshot().Select( static x => x.Value ),
+										  Is.EqualTo( new long[]
+														  {
+															  1,
+															  -1,
+															  1
+														  } ) );
+							 Assert.That( disconnects.GetMeasurementSnapshot().Select( static x => x.Value ),
+										  Is.EqualTo( new long[]
+														  {
+															  1
+														  } ) );
 							 Assert.That( logger.LatestRecord.Level,   Is.EqualTo( LogLevel.Debug ) );
 							 Assert.That( logger.LatestRecord.Message, Is.EqualTo( "Circuit circuit-9 connection lost" ) );
 						 } );

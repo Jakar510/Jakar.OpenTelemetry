@@ -26,15 +26,14 @@ public sealed class LiveUpdateTests : ApiFixture
 																							   options.HttpMessageHandlerFactory = _ => Api.Server.CreateHandler();
 																							   if ( cookie is not null ) { options.Headers["Cookie"] = cookie; }
 																						   } )
-																				   .AddNewtonsoftJsonProtocol()
-																				   .Build();
+																				 .AddNewtonsoftJsonProtocol()
+																				 .Build();
 
 
-	[Test]
-	public async Task Hub_BroadcastsCoalescedIngestEvents()
+	[Test] public async Task Hub_BroadcastsCoalescedIngestEvents()
 	{
-		await using HubConnection connection = Connect( await LoginCookieAsync() );
-		TaskCompletionSource<TelemetryRealtimeEventDto> received = new(TaskCreationOptions.RunContinuationsAsynchronously);
+		await using HubConnection                       connection = Connect( await LoginCookieAsync() );
+		TaskCompletionSource<TelemetryRealtimeEventDto> received   = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		connection.On<TelemetryRealtimeEventDto>( nameof(ITelemetryHub.TelemetryUpdated), payload => received.TrySetResult( payload ) );
 		await connection.StartAsync();
 
@@ -46,14 +45,13 @@ public sealed class LiveUpdateTests : ApiFixture
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( payload.NewLogs + payload.NewSpans, Is.GreaterThanOrEqualTo( 1 ) );
-							 Assert.That( payload.Summary,                    Does.StartWith( "Ingested" ) );
+							 Assert.That( payload.NewLogs + payload.NewSpans,                        Is.GreaterThanOrEqualTo( 1 ) );
+							 Assert.That( payload.Summary,                                           Does.StartWith( "Ingested" ) );
 							 Assert.That( Api.Services.GetRequiredService<TelemetryLiveFeed>().Last, Is.Not.Null, "the dashboard feed got the same event" );
 						 } );
 	}
 
-	[Test]
-	public void Hub_RequiresDashboardLogin()
+	[Test] public void Hub_RequiresDashboardLogin()
 	{
 		HubConnection connection = Connect( null );
 
@@ -62,8 +60,7 @@ public sealed class LiveUpdateTests : ApiFixture
 		Assert.That( exception!.StatusCode, Is.EqualTo( HttpStatusCode.Unauthorized ) );
 	}
 
-	[Test]
-	public async Task Hub_ExposesNoClientCallableMethods()
+	[Test] public async Task Hub_ExposesNoClientCallableMethods()
 	{
 		await using HubConnection connection = Connect( await LoginCookieAsync() );
 		await connection.StartAsync();

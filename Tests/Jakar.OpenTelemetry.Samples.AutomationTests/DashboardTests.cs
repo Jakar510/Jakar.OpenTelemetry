@@ -17,13 +17,11 @@ public sealed partial class DashboardTests : LiveApiFixture
 	private HttpClient      _ingest  = null!;
 
 
-	[OneTimeSetUp]
-	public void CreateIngestClient() => _ingest = new HttpClient { BaseAddress = Api.HttpAddress };
+	[OneTimeSetUp] public void CreateIngestClient() => _ingest = new HttpClient { BaseAddress = Api.HttpAddress };
 
 	[OneTimeTearDown] public void DisposeIngestClient() => _ingest.Dispose();
 
-	[SetUp]
-	public async Task OpenBrowserAsync()
+	[SetUp] public async Task OpenBrowserAsync()
 	{
 		await Telemetry.ExecuteAsync( """TRUNCATE "Logs", "Spans", "Metrics", "Images" """ );
 		await Api.Services.GetRequiredService<ZiggyCreatures.Caching.Fusion.IFusionCache>().RemoveByTagAsync( "telemetry:snapshot" );
@@ -50,8 +48,8 @@ public sealed partial class DashboardTests : LiveApiFixture
 	{
 		using HttpRequestMessage request = new(HttpMethod.Put, LogTags.ImagePath( tag.ID )) { Content = new ByteArrayContent( png ) };
 		request.Content.Headers.ContentType = new MediaTypeHeaderValue( "image/png" );
-		request.Headers.Add( "x-api-key", TestApi.API_KEY );
-		request.Headers.Add( LogTags.SHA256_HEADER, Convert.ToBase64String( SHA256.HashData( png ) ) );
+		request.Headers.Add( "x-api-key",              TestApi.API_KEY );
+		request.Headers.Add( LogTags.SHA256_HEADER,    Convert.ToBase64String( SHA256.HashData( png ) ) );
 		request.Headers.Add( LogTags.FILE_NAME_HEADER, tag.FileName );
 		using HttpResponseMessage response = await _ingest.SendAsync( request );
 		response.EnsureSuccessStatusCode();
@@ -79,8 +77,7 @@ public sealed partial class DashboardTests : LiveApiFixture
 	private ILocator LogRows => _page.Locator( "table.selectable tbody tr" );
 
 
-	[Test]
-	public async Task Login_RejectsWrongPassword_ThenSignsIn()
+	[Test] public async Task Login_RejectsWrongPassword_ThenSignsIn()
 	{
 		await SignInAsync( password: "wrong" );
 
@@ -95,11 +92,10 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await Assertions.Expect( _page.Locator( ".shell-user" ) ).ToHaveTextAsync( TestApi.ADMIN_USER );
 	}
 
-	[Test]
-	public async Task Dashboard_ShowsTelemetry_FiltersAndPivotsToTheTrace()
+	[Test] public async Task Dashboard_ShowsTelemetry_FiltersAndPivotsToTheTrace()
 	{
-		await PostAsync( "/v1/logs",   Otlp.Logs( "checkout", Otlp.Log( "payment declined", SeverityNumber.Error, "Error" ), Otlp.Log( "cart loaded" ) ) );
-		await PostAsync( "/v1/traces", Otlp.Traces( Otlp.Span( "POST /checkout" ) ) );
+		await PostAsync( "/v1/logs",    Otlp.Logs( "checkout", Otlp.Log( "payment declined", SeverityNumber.Error, "Error" ), Otlp.Log( "cart loaded" ) ) );
+		await PostAsync( "/v1/traces",  Otlp.Traces( Otlp.Span( "POST /checkout" ) ) );
 		await PostAsync( "/v1/metrics", Otlp.Metrics( Otlp.Gauge( "checkout.queue" ) ) );
 
 		await SignInAsync();
@@ -123,8 +119,7 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await Assertions.Expect( LogRows.First ).ToContainTextAsync( "checkout.queue" );
 	}
 
-	[Test]
-	public async Task Dashboard_RefreshesLive_AndCanBePaused()
+	[Test] public async Task Dashboard_RefreshesLive_AndCanBePaused()
 	{
 		await SignInAsync();
 		await WaitForInteractivityAsync();
@@ -145,14 +140,13 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await Assertions.Expect( _page.GetByText( "arrived while paused" ) ).ToBeVisibleAsync();
 	}
 
-	[Test]
-	public async Task Screenshots_ShowUploadedAndPendingImages_WithLightboxAndFilters()
+	[Test] public async Task Screenshots_ShowUploadedAndPendingImages_WithLightboxAndFilters()
 	{
 		ImageTag uploaded = ImageTag.Create( "uploaded.png" );
 		ImageTag pending  = ImageTag.Create( "pending.png" );
 		await UploadAsync( uploaded, TestImages.Png );
-		await PostAsync( "/v1/logs", Otlp.Logs( "shop", Otlp.Log( "checkout crashed", SeverityNumber.Error, "Error", Otlp.Kv( LogTags.ATTRIBUTE_KEY, Otlp.Array( Otlp.Str( uploaded.ToString() ), Otlp.Str( pending.ToString() ) ) ), Otlp.Kv( "exception.message", "card declined" ) ) ) );
-		await PostAsync( "/v1/logs", Otlp.Logs( "admin", Otlp.Log( "info with image", SeverityNumber.Info, "Information", Otlp.Kv( LogTags.ATTRIBUTE_KEY, ImageTag.Create( "info.png" ).ToString() ) ) ) );
+		await PostAsync( "/v1/logs", Otlp.Logs( "shop",  Otlp.Log( "checkout crashed", SeverityNumber.Error, "Error",       Otlp.Kv( LogTags.ATTRIBUTE_KEY, Otlp.Array( Otlp.Str( uploaded.ToString() ), Otlp.Str( pending.ToString() ) ) ), Otlp.Kv( "exception.message", "card declined" ) ) ) );
+		await PostAsync( "/v1/logs", Otlp.Logs( "admin", Otlp.Log( "info with image",  SeverityNumber.Info,  "Information", Otlp.Kv( LogTags.ATTRIBUTE_KEY, ImageTag.Create( "info.png" ).ToString() ) ) ) );
 
 		await SignInAsync( path: "/screenshots" );
 		await Assertions.Expect( _page.Locator( ".screenshot-card" ) ).ToHaveCountAsync( 1 );
@@ -181,8 +175,7 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await Assertions.Expect( _page.Locator( ".screenshot-card" ) ).ToContainTextAsync( "info with image" );
 	}
 
-	[Test]
-	public async Task Screenshots_DeepLinkFromTheDashboardShowsOneLog()
+	[Test] public async Task Screenshots_DeepLinkFromTheDashboardShowsOneLog()
 	{
 		ImageTag tag = ImageTag.Create( "linked.png" );
 		await UploadAsync( tag, TestImages.Png );
@@ -202,8 +195,7 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await Assertions.Expect( _page.Locator( ".screenshot-card" ) ).ToHaveCountAsync( 2 );
 	}
 
-	[Test]
-	public async Task SignOut_ReturnsToLogin()
+	[Test] public async Task SignOut_ReturnsToLogin()
 	{
 		await SignInAsync();
 		await _page.GetByRole( AriaRole.Button, new PageGetByRoleOptions { Name = "Sign out" } ).ClickAsync();
@@ -214,8 +206,7 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await Assertions.Expect( _page ).ToHaveURLAsync( new Regex( @"/login\?ReturnUrl=%2Fscreenshots" ) );
 	}
 
-	[Test]
-	public async Task SwaggerUi_LoadsForSignedInUsers()
+	[Test] public async Task SwaggerUi_LoadsForSignedInUsers()
 	{
 		await SignInAsync();
 
@@ -226,8 +217,7 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await Assertions.Expect( _page.GetByText( "/OpenTelemetry.Proto.Collector.Logs.V1.LogsService/Export" ) ).ToBeVisibleAsync();
 	}
 
-	[Test]
-	public async Task PhoneWidth_HasNoHorizontalScroll()
+	[Test] public async Task PhoneWidth_HasNoHorizontalScroll()
 	{
 		await _context.DisposeAsync();
 		_context = await Browsers.NewContextAsync( new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 375, Height = 812 }, IsMobile = true, HasTouch = true } );
@@ -237,7 +227,12 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await SignInAsync();
 		await WaitForInteractivityAsync();
 
-		foreach ( string path in new[] { "/", "/screenshots", "/login" } )
+		foreach ( string path in new[]
+									 {
+										 "/",
+										 "/screenshots",
+										 "/login"
+									 } )
 		{
 			await _page.GotoAsync( Url( path ) );
 			await WaitForCircuitAsync();

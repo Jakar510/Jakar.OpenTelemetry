@@ -51,17 +51,19 @@ public sealed class TestApi( string connectionString ) : WebApplicationFactory<P
 		int grpc = FreePort();
 
 		// The appsettings "Urls" would bind the developer ports; the endpoints below replace them.
-		Settings["Urls:0"]                          = string.Empty;
-		Settings["Urls:1"]                          = string.Empty;
-		Settings["Kestrel:Endpoints:Http:Url"]      = $"http://{host}:{http}";
-		Settings["Kestrel:Endpoints:Grpc:Url"]      = $"http://{host}:{grpc}";
+		Settings["Urls:0"]                           = string.Empty;
+		Settings["Urls:1"]                           = string.Empty;
+		Settings["Kestrel:Endpoints:Http:Url"]       = $"http://{host}:{http}";
+		Settings["Kestrel:Endpoints:Grpc:Url"]       = $"http://{host}:{grpc}";
 		Settings["Kestrel:Endpoints:Grpc:Protocols"] = "Http2";
 
 		EnvironmentName = "Development";
 		UseKestrel();
 		StartServer();
 
-		string reachable = host is "0.0.0.0" or "::" ? "127.0.0.1" : host;
+		string reachable = host is "0.0.0.0" or "::"
+							   ? "127.0.0.1"
+							   : host;
 		HttpAddress = new Uri( $"http://{reachable}:{http}/" );
 		GrpcAddress = new Uri( $"http://{reachable}:{grpc}/" );
 		return this;
@@ -82,25 +84,25 @@ public sealed class TestApi( string connectionString ) : WebApplicationFactory<P
 		builder.ConfigureAppConfiguration( configuration =>
 										   {
 											   Dictionary<string, string?> settings = new(StringComparer.OrdinalIgnoreCase)
-																					  {
-																						  ["ConnectionStrings:Telemetry"]            = ConnectionString,
-																						  ["OtlpIngest:ApiKey"]                      = API_KEY,
-																						  ["OtlpIngest:RetryAfterSeconds"]           = "2",
-																						  ["DashboardAuth:Users:0:Username"]         = ADMIN_USER,
-																						  ["DashboardAuth:Users:0:Password"]         = ADMIN_PASSWORD,
-																						  ["DashboardAuth:Users:0:Roles:0"]          = "Admin",
-																						  ["DashboardAuth:Users:0:Roles:1"]          = "Viewer",
-																						  ["DashboardAuth:Users:1:Username"]         = VIEWER_USER,
-																						  ["DashboardAuth:Users:1:Password"]         = VIEWER_PASSWORD,
-																						  ["DashboardAuth:Users:2:Username"]         = GUEST_USER,
-																						  ["DashboardAuth:Users:2:Password"]         = GUEST_PASSWORD,
-																						  ["DashboardAuth:Users:2:Roles:0"]          = "Guest",
-																						  ["DashboardIpWhitelist:AllowedIPs:0"]      = "127.0.0.1",
-																						  ["DashboardIpWhitelist:AllowedIPs:1"]      = "::1",
-																						  ["TelemetryRetention:RetentionDays"]       = "0",
-																						  ["Logging:LogLevel:Default"]               = "Warning",
-																						  ["Logging:LogLevel:Microsoft.AspNetCore"]  = "Warning"
-																					  };
+																						  {
+																							  ["ConnectionStrings:Telemetry"]           = ConnectionString,
+																							  ["OtlpIngest:ApiKey"]                     = API_KEY,
+																							  ["OtlpIngest:RetryAfterSeconds"]          = "2",
+																							  ["DashboardAuth:Users:0:Username"]        = ADMIN_USER,
+																							  ["DashboardAuth:Users:0:Password"]        = ADMIN_PASSWORD,
+																							  ["DashboardAuth:Users:0:Roles:0"]         = "Admin",
+																							  ["DashboardAuth:Users:0:Roles:1"]         = "Viewer",
+																							  ["DashboardAuth:Users:1:Username"]        = VIEWER_USER,
+																							  ["DashboardAuth:Users:1:Password"]        = VIEWER_PASSWORD,
+																							  ["DashboardAuth:Users:2:Username"]        = GUEST_USER,
+																							  ["DashboardAuth:Users:2:Password"]        = GUEST_PASSWORD,
+																							  ["DashboardAuth:Users:2:Roles:0"]         = "Guest",
+																							  ["DashboardIpWhitelist:AllowedIPs:0"]     = "127.0.0.1",
+																							  ["DashboardIpWhitelist:AllowedIPs:1"]     = "::1",
+																							  ["TelemetryRetention:RetentionDays"]      = "0",
+																							  ["Logging:LogLevel:Default"]              = "Warning",
+																							  ["Logging:LogLevel:Microsoft.AspNetCore"] = "Warning"
+																						  };
 
 											   foreach ( ( string key, string? value ) in Settings ) { settings[key] = value; }
 

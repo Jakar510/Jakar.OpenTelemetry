@@ -11,13 +11,12 @@ namespace Jakar.OpenTelemetry.Api.Client.Maui.Tests;
 [NonParallelizable] // swaps process-wide Essentials implementations
 public sealed class MauiDeviceResourceTests
 {
-	private Essentials       _essentials = null!;
+	private Essentials        _essentials = null!;
 	private Mock<IAppInfo>    _app        = null!;
 	private Mock<IDeviceInfo> _device     = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_app    = new Mock<IAppInfo>();
 		_device = new Mock<IDeviceInfo>();
@@ -38,8 +37,7 @@ public sealed class MauiDeviceResourceTests
 	[TearDown] public void TearDown() => _essentials.Dispose();
 
 
-	[Test]
-	public void Apply_ReplacesDefaultsAndAddsDeviceAttributes()
+	[Test] public void Apply_ReplacesDefaultsAndAddsDeviceAttributes()
 	{
 		JakarTelemetryOptions options = new();
 
@@ -49,22 +47,22 @@ public sealed class MauiDeviceResourceTests
 						 {
 							 Assert.That( options.ServiceName,    Is.EqualTo( "com.jakar.sample" ) );
 							 Assert.That( options.ServiceVersion, Is.EqualTo( "2.1.0+42" ) );
-							 Assert.That( options.ResourceAttributes, Is.EquivalentTo( new Dictionary<string, object>
-																					  {
-																						  ["app.name"]                = "Sample",
-																						  ["device.manufacturer"]     = "Google",
-																						  ["device.model.identifier"] = "Pixel 9",
-																						  ["device.model.name"]       = "Test Phone",
-																						  ["device.idiom"]            = "Phone",
-																						  ["device.virtual"]          = true,
-																						  ["os.name"]                 = "Android",
-																						  ["os.version"]              = "15"
-																					  } ) );
+							 Assert.That( options.ResourceAttributes,
+										  Is.EquivalentTo( new Dictionary<string, object>
+															   {
+																   ["app.name"]                = "Sample",
+																   ["device.manufacturer"]     = "Google",
+																   ["device.model.identifier"] = "Pixel 9",
+																   ["device.model.name"]       = "Test Phone",
+																   ["device.idiom"]            = "Phone",
+																   ["device.virtual"]          = true,
+																   ["os.name"]                 = "Android",
+																   ["os.version"]              = "15"
+															   } ) );
 						 } );
 	}
 
-	[Test]
-	public void Apply_KeepsConfiguredValues()
+	[Test] public void Apply_KeepsConfiguredValues()
 	{
 		JakarTelemetryOptions options = new() { ServiceName = "configured", ServiceVersion = "9.9" };
 		options.ResourceAttributes["os.name"] = "custom";
@@ -79,11 +77,10 @@ public sealed class MauiDeviceResourceTests
 						 } );
 	}
 
-	[Test]
-	public void Apply_BlankPackageName_KeepsDefaultServiceName()
+	[Test] public void Apply_BlankPackageName_KeepsDefaultServiceName()
 	{
 		_app.Setup( static x => x.PackageName ).Returns( " " );
-		JakarTelemetryOptions options = new();
+		JakarTelemetryOptions options  = new();
 		string                expected = options.ServiceName;
 
 		MauiDeviceResource.Apply( options );
@@ -91,8 +88,7 @@ public sealed class MauiDeviceResourceTests
 		Assert.That( options.ServiceName, Is.EqualTo( expected ) );
 	}
 
-	[Test]
-	public void Apply_EssentialsUnavailable_KeepsOptions()
+	[Test] public void Apply_EssentialsUnavailable_KeepsOptions()
 	{
 		_essentials.Dispose();
 		JakarTelemetryOptions options = new() { ServiceName = "kept" };
@@ -110,8 +106,7 @@ public sealed class MauiConnectivityGateTests
 	private Mock<IConnectivity> _connectivity = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_connectivity = new Mock<IConnectivity>();
 		_essentials   = new Essentials().Use( typeof(Connectivity), _connectivity.Object );
@@ -123,10 +118,7 @@ public sealed class MauiConnectivityGateTests
 	private static MauiConnectivityGate Gate( bool requireUnmetered ) => new(ClientTestOptions.Wrap( ClientTestOptions.Create( "/tmp", o => o.Images.RequireUnmeteredNetwork = requireUnmetered ) ));
 
 
-	[TestCase( NetworkAccess.None,             false, ExpectedResult = false )]
-	[TestCase( NetworkAccess.Local,            false, ExpectedResult = false )]
-	[TestCase( NetworkAccess.ConstrainedInternet, false, ExpectedResult = false )]
-	[TestCase( NetworkAccess.Internet,         false, ExpectedResult = true )]
+	[TestCase( NetworkAccess.None, false, ExpectedResult = false )] [TestCase( NetworkAccess.Local, false, ExpectedResult = false )] [TestCase( NetworkAccess.ConstrainedInternet, false, ExpectedResult = false )] [TestCase( NetworkAccess.Internet, false, ExpectedResult = true )]
 	public bool CanUpload_RequiresInternet( NetworkAccess access, bool requireUnmetered )
 	{
 		_connectivity.Setup( static x => x.NetworkAccess ).Returns( access );
@@ -135,10 +127,7 @@ public sealed class MauiConnectivityGateTests
 		return Gate( requireUnmetered ).CanUpload;
 	}
 
-	[TestCase( ConnectionProfile.Cellular,  ExpectedResult = false )]
-	[TestCase( ConnectionProfile.Bluetooth, ExpectedResult = false )]
-	[TestCase( ConnectionProfile.WiFi,      ExpectedResult = true )]
-	[TestCase( ConnectionProfile.Ethernet,  ExpectedResult = true )]
+	[TestCase( ConnectionProfile.Cellular, ExpectedResult = false )] [TestCase( ConnectionProfile.Bluetooth, ExpectedResult = false )] [TestCase( ConnectionProfile.WiFi, ExpectedResult = true )] [TestCase( ConnectionProfile.Ethernet, ExpectedResult = true )]
 	public bool CanUpload_UnmeteredRequired_NeedsWifiOrEthernet( ConnectionProfile profile )
 	{
 		_connectivity.Setup( static x => x.NetworkAccess ).Returns( NetworkAccess.Internet );
@@ -147,8 +136,7 @@ public sealed class MauiConnectivityGateTests
 		return Gate( requireUnmetered: true ).CanUpload;
 	}
 
-	[Test]
-	public void CanUpload_ConnectivityUnknown_AllowsUpload()
+	[Test] public void CanUpload_ConnectivityUnknown_AllowsUpload()
 	{
 		_connectivity.Setup( static x => x.NetworkAccess ).Throws( new PermissionException( "ACCESS_NETWORK_STATE" ) );
 
@@ -160,8 +148,7 @@ public sealed class MauiConnectivityGateTests
 [NonParallelizable]
 public sealed class MauiScreenshotProviderTests
 {
-	[Test]
-	public async Task Capture_NotSupported_ReturnsNull()
+	[Test] public async Task Capture_NotSupported_ReturnsNull()
 	{
 		Mock<IScreenshot> screenshot = new();
 		screenshot.Setup( static x => x.IsCaptureSupported ).Returns( false );
@@ -180,8 +167,7 @@ public sealed class JakarTelemetryMauiExtensionsTests
 	private Mock<IConnectivity> _connectivity = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_temp         = new TempDirectory();
 		_connectivity = new Mock<IConnectivity>();
@@ -190,8 +176,7 @@ public sealed class JakarTelemetryMauiExtensionsTests
 		_essentials = new Essentials().Use( typeof(FileSystem), fileSystem.Object ).Use( typeof(Connectivity), _connectivity.Object );
 	}
 
-	[TearDown]
-	public void TearDown()
+	[TearDown] public void TearDown()
 	{
 		IPlatformApplication.Current = null;
 		_essentials.Dispose();
@@ -208,8 +193,7 @@ public sealed class JakarTelemetryMauiExtensionsTests
 	}
 
 
-	[Test]
-	public async Task UseJakarOpenTelemetry_RegistersMauiServicesAndStartsOnBuild()
+	[Test] public async Task UseJakarOpenTelemetry_RegistersMauiServicesAndStartsOnBuild()
 	{
 		bool sdk = false;
 
@@ -219,22 +203,21 @@ public sealed class JakarTelemetryMauiExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( sdk,                                                          Is.True );
-							 Assert.That( runtime.IsStarted,                                            Is.True, "MAUI has no hosted services: the initializer starts the client" );
-							 Assert.That( app.Services.GetServices<IScreenshotProvider>().OfType<MauiScreenshotProvider>().Count(),  Is.EqualTo( 1 ) );
-							 Assert.That( app.Services.GetServices<ITelemetryUploadGate>().OfType<MauiConnectivityGate>().Count(),   Is.EqualTo( 1 ) );
+							 Assert.That( sdk,                                                                                        Is.True );
+							 Assert.That( runtime.IsStarted,                                                                          Is.True, "MAUI has no hosted services: the initializer starts the client" );
+							 Assert.That( app.Services.GetServices<IScreenshotProvider>().OfType<MauiScreenshotProvider>().Count(),   Is.EqualTo( 1 ) );
+							 Assert.That( app.Services.GetServices<ITelemetryUploadGate>().OfType<MauiConnectivityGate>().Count(),    Is.EqualTo( 1 ) );
 							 Assert.That( app.Services.GetServices<IMauiInitializeService>().OfType<JakarTelemetryMauiInitializer>(), Is.Not.Empty );
-							 Assert.That( Directory.Exists( Path.Combine( _temp.Path, "jakar-otel" ) ),  Is.True, "durable state lives under AppDataDirectory/jakar-otel" );
+							 Assert.That( Directory.Exists( Path.Combine( _temp.Path, "jakar-otel" ) ),                               Is.True, "durable state lives under AppDataDirectory/jakar-otel" );
 						 } );
 
 		_connectivity.Raise( static x => x.ConnectivityChanged += null, new ConnectivityChangedEventArgs( NetworkAccess.Internet, [ ConnectionProfile.WiFi ] ) );
-		_connectivity.Raise( static x => x.ConnectivityChanged += null, new ConnectivityChangedEventArgs( NetworkAccess.None, [ ] ) );
+		_connectivity.Raise( static x => x.ConnectivityChanged += null, new ConnectivityChangedEventArgs( NetworkAccess.None,     [ ] ) );
 
 		await runtime.StopAsync();
 	}
 
-	[Test]
-	public async Task UseJakarOpenTelemetry_ConfiguredStorageDirectoryWins()
+	[Test] public async Task UseJakarOpenTelemetry_ConfiguredStorageDirectoryWins()
 	{
 		string configured = _temp.Combine( "custom" );
 
@@ -244,8 +227,7 @@ public sealed class JakarTelemetryMauiExtensionsTests
 		await app.Services.GetRequiredService<JakarTelemetryRuntime>().StopAsync();
 	}
 
-	[Test]
-	public async Task UseJakarOpenTelemetry_CaptureDisabled_SkipsNativeHandlers()
+	[Test] public async Task UseJakarOpenTelemetry_CaptureDisabled_SkipsNativeHandlers()
 	{
 		await using MauiApp app = Build( static o => o.CaptureUnhandledExceptions = false );
 
@@ -253,8 +235,7 @@ public sealed class JakarTelemetryMauiExtensionsTests
 		await app.Services.GetRequiredService<JakarTelemetryRuntime>().StopAsync();
 	}
 
-	[Test]
-	public async Task Lifecycle_ResolvesRuntimeFromCurrentApplication()
+	[Test] public async Task Lifecycle_ResolvesRuntimeFromCurrentApplication()
 	{
 		await using MauiApp app = Build();
 
@@ -266,15 +247,14 @@ public sealed class JakarTelemetryMauiExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( MauiLifecycle.Runtime, Is.SameAs( app.Services.GetRequiredService<JakarTelemetryRuntime>() ) );
+							 Assert.That( MauiLifecycle.Runtime,                             Is.SameAs( app.Services.GetRequiredService<JakarTelemetryRuntime>() ) );
 							 Assert.That( app.Services.GetService<ILifecycleEventService>(), Is.Not.Null, "lifecycle hooks are registered" );
 						 } );
 
 		await app.Services.GetRequiredService<JakarTelemetryRuntime>().StopAsync();
 	}
 
-	[Test]
-	public void PlatformCrashHandlers_InstallOnlyOnce()
+	[Test] public void PlatformCrashHandlers_InstallOnlyOnce()
 	{
 		JakarCrashReporter reporter = new(new NullCrashReportStore(), Mock.Of<ITelemetryFlusher>(), ClientTestOptions.Wrap( ClientTestOptions.Create( _temp.Path ) ), LoggerFactory.Create( static _ => { } ));
 		FakeLogger         logger   = new();

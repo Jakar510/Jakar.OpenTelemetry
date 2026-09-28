@@ -10,23 +10,21 @@ namespace Jakar.OpenTelemetry.Api.Client.Tests;
 [TestFixture]
 public sealed class OpenTelemetrySdkFlusherTests
 {
-	[Test]
-	public async Task Flush_NoProviders_Succeeds()
+	[Test] public async Task Flush_NoProviders_Succeeds()
 	{
 		await using ServiceProvider services = new ServiceCollection().BuildServiceProvider();
 		OpenTelemetrySdkFlusher     flusher  = new(services);
 
 		await Assert.MultipleAsync( async () =>
-						 {
-							 Assert.That( flusher.Flush( TimeSpan.FromSeconds( 1 ) ),                  Is.True );
-							 Assert.That( await flusher.FlushAsync( TimeSpan.FromSeconds( 1 ) ),        Is.True );
-							 Assert.That( flusher.Flush( TimeSpan.Zero ),                               Is.True, "a zero timeout is clamped to 1 ms" );
-							 Assert.That( flusher.Flush( TimeSpan.FromDays( 365 ) ),                    Is.True, "a huge timeout is clamped to int.MaxValue ms" );
-						 } );
+									{
+										Assert.That( flusher.Flush( TimeSpan.FromSeconds( 1 ) ),            Is.True );
+										Assert.That( await flusher.FlushAsync( TimeSpan.FromSeconds( 1 ) ), Is.True );
+										Assert.That( flusher.Flush( TimeSpan.Zero ),                        Is.True, "a zero timeout is clamped to 1 ms" );
+										Assert.That( flusher.Flush( TimeSpan.FromDays( 365 ) ),             Is.True, "a huge timeout is clamped to int.MaxValue ms" );
+									} );
 	}
 
-	[Test]
-	public async Task Flush_AllProvidersFlush_ReturnsTrue()
+	[Test] public async Task Flush_AllProvidersFlush_ReturnsTrue()
 	{
 		ServiceCollection collection = new();
 		collection.AddLogging();
@@ -36,8 +34,7 @@ public sealed class OpenTelemetrySdkFlusherTests
 		Assert.That( new OpenTelemetrySdkFlusher( services ).Flush( TimeSpan.FromSeconds( 5 ) ), Is.True );
 	}
 
-	[Test]
-	public async Task Flush_ProcessorFailsToFlush_ReturnsFalse()
+	[Test] public async Task Flush_ProcessorFailsToFlush_ReturnsFalse()
 	{
 		ServiceCollection collection = new();
 		collection.AddLogging();

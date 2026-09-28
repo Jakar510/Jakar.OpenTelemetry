@@ -16,13 +16,12 @@ public sealed class OtlpJsonIdsTests
 	private const string SPAN_HEX  = "a1a2a3a4a5a6a7a8";
 
 
-	[Test]
-	public void Traces_HexIdsParsedAsBase64_AreRecovered()
+	[Test] public void Traces_HexIdsParsedAsBase64_AreRecovered()
 	{
 		ExportTraceServiceRequest request = Parser.Parse<ExportTraceServiceRequest>( $$"""
-																						{"resourceSpans":[{"scopeSpans":[{"spans":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}","parentSpanId":"{{SPAN_HEX}}","name":"s",
-																						 "links":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}"}]}]}]}]}
-																						""" );
+																					   {"resourceSpans":[{"scopeSpans":[{"spans":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}","parentSpanId":"{{SPAN_HEX}}","name":"s",
+																					    "links":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}"}]}]}]}]}
+																					   """ );
 
 		OtlpJsonIds.Normalize( request );
 
@@ -38,8 +37,7 @@ public sealed class OtlpJsonIdsTests
 						 } );
 	}
 
-	[Test]
-	public void Traces_CorrectLengthOrEmptyIds_AreLeftUntouched()
+	[Test] public void Traces_CorrectLengthOrEmptyIds_AreLeftUntouched()
 	{
 		byte[]                    trace   = Convert.FromHexString( TRACE_HEX );
 		ExportTraceServiceRequest request = Otlp.Traces( Otlp.Span() );
@@ -54,8 +52,7 @@ public sealed class OtlpJsonIdsTests
 						 } );
 	}
 
-	[Test]
-	public void Traces_Base64OfWrongAlphabet_IsRejected()
+	[Test] public void Traces_Base64OfWrongAlphabet_IsRejected()
 	{
 		// 24 bytes whose base64 form contains characters that are not hex digits.
 		ExportTraceServiceRequest request = Otlp.Traces( Otlp.Span() );
@@ -64,8 +61,7 @@ public sealed class OtlpJsonIdsTests
 		Assert.Throws<FormatException>( () => OtlpJsonIds.Normalize( request ) );
 	}
 
-	[Test]
-	public void Logs_HexIds_AreRecovered()
+	[Test] public void Logs_HexIds_AreRecovered()
 	{
 		ExportLogsServiceRequest request = Parser.Parse<ExportLogsServiceRequest>( $$"""{"resourceLogs":[{"scopeLogs":[{"logRecords":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}"},{}]}]}]}""" );
 
@@ -75,23 +71,15 @@ public sealed class OtlpJsonIdsTests
 						 {
 							 Assert.That( Convert.ToHexStringLower( request.ResourceLogs[0].ScopeLogs[0].LogRecords[0].TraceId.Span ), Is.EqualTo( TRACE_HEX ) );
 							 Assert.That( Convert.ToHexStringLower( request.ResourceLogs[0].ScopeLogs[0].LogRecords[0].SpanId.Span ),  Is.EqualTo( SPAN_HEX ) );
-							 Assert.That( request.ResourceLogs[0].ScopeLogs[0].LogRecords[1].TraceId.IsEmpty,                         Is.True );
+							 Assert.That( request.ResourceLogs[0].ScopeLogs[0].LogRecords[1].TraceId.IsEmpty,                          Is.True );
 						 } );
 	}
 
-	[Test]
-	public void Metrics_ExemplarIdsInEveryPointType_AreRecovered()
+	[Test] public void Metrics_ExemplarIdsInEveryPointType_AreRecovered()
 	{
-		string exemplar = $$"""{"exemplars":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}","asDouble":1}]}""";
-		string json = "{\"resourceMetrics\":[{\"scopeMetrics\":[{\"metrics\":["
-					+ $"{{\"name\":\"g\",\"gauge\":{{\"dataPoints\":[{exemplar}]}}}},"
-					+ $"{{\"name\":\"s\",\"sum\":{{\"dataPoints\":[{exemplar}]}}}},"
-					+ $"{{\"name\":\"h\",\"histogram\":{{\"dataPoints\":[{exemplar}]}}}},"
-					+ $"{{\"name\":\"e\",\"exponentialHistogram\":{{\"dataPoints\":[{exemplar}]}}}},"
-					+ "{\"name\":\"q\",\"summary\":{\"dataPoints\":[{}]}},"
-					+ "{\"name\":\"none\"}"
-					+ "]}]}]}";
-		ExportMetricsServiceRequest request = Parser.Parse<ExportMetricsServiceRequest>( json );
+		string                      exemplar = $$"""{"exemplars":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}","asDouble":1}]}""";
+		string                      json     = "{\"resourceMetrics\":[{\"scopeMetrics\":[{\"metrics\":[" + $"{{\"name\":\"g\",\"gauge\":{{\"dataPoints\":[{exemplar}]}}}}," + $"{{\"name\":\"s\",\"sum\":{{\"dataPoints\":[{exemplar}]}}}}," + $"{{\"name\":\"h\",\"histogram\":{{\"dataPoints\":[{exemplar}]}}}}," + $"{{\"name\":\"e\",\"exponentialHistogram\":{{\"dataPoints\":[{exemplar}]}}}}," + "{\"name\":\"q\",\"summary\":{\"dataPoints\":[{}]}}," + "{\"name\":\"none\"}" + "]}]}]}";
+		ExportMetricsServiceRequest request  = Parser.Parse<ExportMetricsServiceRequest>( json );
 
 		OtlpJsonIds.Normalize( request );
 

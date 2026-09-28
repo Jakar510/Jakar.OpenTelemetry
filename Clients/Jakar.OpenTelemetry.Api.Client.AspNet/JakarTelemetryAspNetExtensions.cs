@@ -40,8 +40,6 @@ public static class JakarTelemetryAspNetExtensions
 	}
 }
 
-
-
 /// <summary> Puts <see cref="TelemetryRequestScopeMiddleware"/> first in the pipeline so the scope covers every later middleware, including the exception handlers. </summary>
 internal sealed class TelemetryRequestScopeStartupFilter : IStartupFilter
 {
@@ -52,13 +50,12 @@ internal sealed class TelemetryRequestScopeStartupFilter : IStartupFilter
 																						};
 }
 
-
-
 /// <summary>
 ///     Opens a logging scope for the whole request. Scopes are ambient across loggers, so framework logs (including the unhandled-exception logs of the
 ///     exception handlers and Kestrel) are exported with the request method and route.
 /// </summary>
-internal sealed class TelemetryRequestScopeMiddleware( RequestDelegate next, ILoggerFactory loggerFactory )
+internal sealed class TelemetryRequestScopeMiddleware( RequestDelegate next,
+													   ILoggerFactory  loggerFactory )
 {
 	private readonly ILogger _logger = loggerFactory.CreateLogger( "Jakar.OpenTelemetry.Api.Client.AspNet" );
 
@@ -88,11 +85,11 @@ internal sealed class TelemetryRequestScopeMiddleware( RequestDelegate next, ILo
 		public int Count => 2;
 
 		public KeyValuePair<string, object?> this[ int index ] => index switch
-																 {
-																	 0 => new KeyValuePair<string, object?>( "http.request.method", _method ),
-																	 1 => new KeyValuePair<string, object?>( "http.route", Route() ),
-																	 _ => throw new ArgumentOutOfRangeException( nameof(index) )
-																 };
+																	  {
+																		  0 => new KeyValuePair<string, object?>( "http.request.method", _method ),
+																		  1 => new KeyValuePair<string, object?>( "http.route",          Route() ),
+																		  _ => throw new ArgumentOutOfRangeException( nameof(index) )
+																	  };
 
 		public void Complete()
 		{

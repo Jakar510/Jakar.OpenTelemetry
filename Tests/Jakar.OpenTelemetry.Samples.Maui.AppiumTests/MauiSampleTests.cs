@@ -40,13 +40,12 @@ public abstract class MauiSampleTests
 	private protected abstract Task KillAsync();
 
 
-	[OneTimeSetUp]
-	public async Task StartAsync()
+	[OneTimeSetUp] public async Task StartAsync()
 	{
 		if ( !AppiumSettings.IsEnabled( Platform ) ) { Assert.Ignore( $"{Platform} is not in {AppiumSettings.PLATFORMS_VARIABLE}" ); }
 
 		// Hosted where the sample expects it; all interfaces so the emulator (10.0.2.2) and simulators reach it.
-		_api = new TestApi( await TestDatabase.CreateDatabaseAsync() );
+		_api                               = new TestApi( await TestDatabase.CreateDatabaseAsync() );
 		_api.Settings["OtlpIngest:ApiKey"] = AppiumSettings.SAMPLE_API_KEY;
 
 		try { _api.StartRealServer( "0.0.0.0", AppiumSettings.SAMPLE_API_PORT ); }
@@ -58,24 +57,21 @@ public abstract class MauiSampleTests
 		await PrepareAsync();
 	}
 
-	[OneTimeTearDown]
-	public async Task StopAsync()
+	[OneTimeTearDown] public async Task StopAsync()
 	{
 		if ( Telemetry is not null ) { await Telemetry.DisposeAsync(); }
 
 		if ( _api is not null ) { await _api.DisposeAsync(); }
 	}
 
-	[SetUp]
-	public async Task LaunchAsync()
+	[SetUp] public async Task LaunchAsync()
 	{
 		await Telemetry.ExecuteAsync( """TRUNCATE "Logs", "Spans", "Metrics", "Images" """ );
 		Driver = StartSession();
 		WaitForElement( "FlushButton" );
 	}
 
-	[TearDown]
-	public void Quit()
+	[TearDown] public void Quit()
 	{
 		try { Driver.Quit(); }
 		catch ( WebDriverException ) { } // the app may already be gone (crash tests)
@@ -92,10 +88,10 @@ public abstract class MauiSampleTests
 	private protected virtual IWebElement Find( string automationId ) => Driver.FindElement( MobileBy.AccessibilityId( automationId ) );
 
 	private protected IWebElement WaitForElement( string automationId, TimeSpan? timeout = null ) => new WebDriverWait( Driver, timeout ?? TimeSpan.FromSeconds( 60 ) ) { PollingInterval = TimeSpan.FromMilliseconds( 500 ) }.Until( _ =>
-																																																		  {
-																																																			  try { return Find( automationId ); }
-																																																			  catch ( WebDriverException ) { return null; }
-																																																		  } );
+																																																									  {
+																																																										  try { return Find( automationId ); }
+																																																										  catch ( WebDriverException ) { return null; }
+																																																									  } );
 
 	private protected virtual void Tap( string automationId ) => Find( automationId ).Click();
 
@@ -110,31 +106,31 @@ public abstract class MauiSampleTests
 	private protected virtual void TapForCrash( string automationId ) => Tap( automationId );
 
 	private protected string WaitForStatus( string startsWith ) => new WebDriverWait( Driver, TimeSpan.FromSeconds( 30 ) ) { PollingInterval = TimeSpan.FromMilliseconds( 500 ) }.Until( _ =>
-																																															  {
-																																																  try
-																																																  {
-																																																	  string text = Find( "StatusLabel" ).Text;
-																																																	  return text.StartsWith( startsWith, StringComparison.Ordinal ) ? text : null;
-																																																  }
-																																																  catch ( WebDriverException ) { return null; }
-																																															  } );
+																																														 {
+																																															 try
+																																															 {
+																																																 string text = Find( "StatusLabel" ).Text;
+																																																 return text.StartsWith( startsWith, StringComparison.Ordinal )
+																																																			? text
+																																																			: null;
+																																															 }
+																																															 catch ( WebDriverException ) { return null; }
+																																														 } );
 
 
-	[Test]
-	public async Task TracedOperation_ExportsSpanAndCorrelatedLog()
+	[Test] public async Task TracedOperation_ExportsSpanAndCorrelatedLog()
 	{
 		Tap( "TracedOperationButton" );
 		WaitForStatus( "Traced operation " );
 		Tap( "FlushButton" );
 		WaitForStatus( "Telemetry flushed" );
 
-		await Telemetry.WaitForAsync( "Spans", $"""{APP_LOGS} AND "Name" = 'sample.operation' AND "AttributesJson"->>'sample.platform' = @os""", parameters: Os );
-		await Telemetry.WaitForAsync( "Logs",  $"""{APP_LOGS} AND "Body" = 'Sample traced operation finished' AND "TraceId" IS NOT NULL""", parameters: Os );
+		await Telemetry.WaitForAsync( "Spans", $"""{APP_LOGS} AND "Name" = 'sample.operation' AND "AttributesJson"->>'sample.platform' = @os""",                     parameters: Os );
+		await Telemetry.WaitForAsync( "Logs",  $"""{APP_LOGS} AND "Body" = 'Sample traced operation finished' AND "TraceId" IS NOT NULL""",                          parameters: Os );
 		await Telemetry.WaitForAsync( "Logs",  $"""{APP_LOGS} AND "ResourceAttributesJson" ? 'device.model.identifier' AND "ResourceAttributesJson" ? 'app.name'""", parameters: Os );
 	}
 
-	[Test]
-	public async Task ErrorWithScreenshot_ExportsErrorAndUploadsScreenshot()
+	[Test] public async Task ErrorWithScreenshot_ExportsErrorAndUploadsScreenshot()
 	{
 		Tap( "LogErrorButton" );
 		string status = WaitForStatus( "Logged error" );
@@ -147,8 +143,7 @@ public abstract class MauiSampleTests
 		await Telemetry.WaitForAsync( "Images", """ "FileName" LIKE 'screenshot-%.png' AND "ContentType" = 'image/png' AND "Length" > 1000""" );
 	}
 
-	[Test]
-	public async Task UnobservedTaskException_IsLogged()
+	[Test] public async Task UnobservedTaskException_IsLogged()
 	{
 		Tap( "UnobservedTaskButton" );
 		WaitForStatus( "Unobserved task exception raised" );
@@ -163,8 +158,7 @@ public abstract class MauiSampleTests
 		}
 	}
 
-	[TestCase( "CrashUiThreadButton",   "Sample crash on the UI thread" )]
-	[TestCase( "CrashBackgroundButton", "Sample crash on a background thread" )]
+	[TestCase( "CrashUiThreadButton", "Sample crash on the UI thread" )] [TestCase( "CrashBackgroundButton", "Sample crash on a background thread" )]
 	public async Task ManagedCrash_ReachesTheApi( string button, string message )
 	{
 		TapExpectingCrash( button );
@@ -177,8 +171,7 @@ public abstract class MauiSampleTests
 		await Telemetry.WaitForAsync( "Logs", $"""{APP_LOGS} AND "SeverityNumber" = 21 AND "AttributesJson"->>'exception.message' = @message""", parameters: [ Os, ( "message", message ) ] );
 	}
 
-	[Test]
-	public async Task KilledApp_IsReportedAsAbnormalTerminationOnNextLaunch()
+	[Test] public async Task KilledApp_IsReportedAsAbnormalTerminationOnNextLaunch()
 	{
 		Tap( "TracedOperationButton" );
 		WaitForStatus( "Traced operation " );

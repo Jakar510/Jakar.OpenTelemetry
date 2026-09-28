@@ -11,16 +11,14 @@ public sealed class BrowserOtlpLoggerProviderTests
 	private BrowserOtlpLogExporter _exporter = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_runtime  = new FakeJsRuntime();
 		_http     = new FakeHttpMessageHandler();
 		_exporter = new BrowserOtlpLogExporter( new BrowserTelemetryModule( _runtime ), new FakeHttpClientFactory( _http ), ClientTestOptions.Wrap( ClientTestOptions.Create( "/tmp", static o => o.ExportInterval = TimeSpan.FromHours( 1 ) ) ) );
 	}
 
-	[TearDown]
-	public async Task TearDown()
+	[TearDown] public async Task TearDown()
 	{
 		await _exporter.DisposeAsync();
 		_http.Dispose();
@@ -38,8 +36,7 @@ public sealed class BrowserOtlpLoggerProviderTests
 	private static Dictionary<string, string> Attributes( JsonElement record ) => record.GetProperty( "attributes" ).EnumerateArray().ToDictionary( static x => x.GetProperty( "key" ).GetString()!, static x => x.GetProperty( "value" ).EnumerateObject().Single().Value.ToString() );
 
 
-	[Test]
-	public async Task Log_StructuredStateBecomesAttributes_WithoutOriginalFormat()
+	[Test] public async Task Log_StructuredStateBecomesAttributes_WithoutOriginalFormat()
 	{
 		using BrowserOtlpLoggerProvider provider = new(_exporter);
 		ILogger                         logger   = provider.CreateLogger( "Sample.Category" );
@@ -53,15 +50,14 @@ public sealed class BrowserOtlpLoggerProviderTests
 						 {
 							 Assert.That( record.GetProperty( "body" ).GetProperty( "stringValue" ).GetString(), Is.EqualTo( "Order 7 failed for ann" ) );
 							 Assert.That( record.GetProperty( "eventName" ).GetString(),                         Is.EqualTo( "sample.event" ) );
-							 Assert.That( attributes["OrderId"],                                                  Is.EqualTo( "7" ) );
-							 Assert.That( attributes["User"],                                                     Is.EqualTo( "ann" ) );
-							 Assert.That( attributes["event.id"],                                                 Is.EqualTo( "42" ) );
-							 Assert.That( attributes,                                                             Does.Not.ContainKey( "{OriginalFormat}" ) );
+							 Assert.That( attributes["OrderId"],                                                 Is.EqualTo( "7" ) );
+							 Assert.That( attributes["User"],                                                    Is.EqualTo( "ann" ) );
+							 Assert.That( attributes["event.id"],                                                Is.EqualTo( "42" ) );
+							 Assert.That( attributes,                                                            Does.Not.ContainKey( "{OriginalFormat}" ) );
 						 } );
 	}
 
-	[Test]
-	public async Task Log_ScopesAreExported()
+	[Test] public async Task Log_ScopesAreExported()
 	{
 		using BrowserOtlpLoggerProvider provider = new(_exporter);
 		provider.SetScopeProvider( new LoggerExternalScopeProvider() );
@@ -81,16 +77,14 @@ public sealed class BrowserOtlpLoggerProviderTests
 						 } );
 	}
 
-	[Test]
-	public void BeginScope_WithoutScopeProvider_ReturnsNull()
+	[Test] public void BeginScope_WithoutScopeProvider_ReturnsNull()
 	{
 		using BrowserOtlpLoggerProvider provider = new(_exporter);
 
 		Assert.That( provider.CreateLogger( "c" ).BeginScope( "x" ), Is.Null );
 	}
 
-	[Test]
-	public async Task Log_ExceptionAndActivityAreRecorded()
+	[Test] public async Task Log_ExceptionAndActivityAreRecorded()
 	{
 		using BrowserOtlpLoggerProvider provider = new(_exporter);
 		using Activity                  activity = new Activity( "op" ).SetIdFormat( ActivityIdFormat.W3C ).Start();
@@ -102,17 +96,16 @@ public sealed class BrowserOtlpLoggerProviderTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( attributes["exception.type"],       Is.EqualTo( "System.InvalidOperationException" ) );
-							 Assert.That( attributes["exception.message"],    Is.EqualTo( "bad" ) );
-							 Assert.That( attributes["exception.stacktrace"], Does.Contain( "InvalidOperationException" ) );
-							 Assert.That( attributes,                          Does.Not.ContainKey( "event.id" ) );
+							 Assert.That( attributes["exception.type"],                Is.EqualTo( "System.InvalidOperationException" ) );
+							 Assert.That( attributes["exception.message"],             Is.EqualTo( "bad" ) );
+							 Assert.That( attributes["exception.stacktrace"],          Does.Contain( "InvalidOperationException" ) );
+							 Assert.That( attributes,                                  Does.Not.ContainKey( "event.id" ) );
 							 Assert.That( record.GetProperty( "traceId" ).GetString(), Is.EqualTo( activity.TraceId.ToHexString() ) );
 							 Assert.That( record.GetProperty( "spanId" ).GetString(),  Is.EqualTo( activity.SpanId.ToHexString() ) );
 						 } );
 	}
 
-	[Test]
-	public async Task Log_NonStructuredState_UsesFormatterOnly()
+	[Test] public async Task Log_NonStructuredState_UsesFormatterOnly()
 	{
 		using BrowserOtlpLoggerProvider provider = new(_exporter);
 
@@ -127,12 +120,11 @@ public sealed class BrowserOtlpLoggerProviderTests
 						 } );
 	}
 
-	[Test]
-	public async Task ExportersOwnHttpCategory_AndLevelNone_AreNotExported()
+	[Test] public async Task ExportersOwnHttpCategory_AndLevelNone_AreNotExported()
 	{
 		using BrowserOtlpLoggerProvider provider = new(_exporter);
-		ILogger own = provider.CreateLogger( "System.Net.Http.HttpClient.Jakar.OpenTelemetry.Logs.LogicalHandler" );
-		ILogger app = provider.CreateLogger( "App" );
+		ILogger                         own      = provider.CreateLogger( "System.Net.Http.HttpClient.Jakar.OpenTelemetry.Logs.LogicalHandler" );
+		ILogger                         app      = provider.CreateLogger( "App" );
 
 		own.LogWarning( "would feed itself" );
 		app.Log( LogLevel.None, "none" );

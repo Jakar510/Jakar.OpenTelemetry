@@ -65,9 +65,18 @@ internal static class AppiumServer
 
 	private static string? FindAppium()
 	{
-		string   name        = OperatingSystem.IsWindows() ? "appium.cmd" : "appium";
+		string name = OperatingSystem.IsWindows()
+						  ? "appium.cmd"
+						  : "appium";
 		// The persisted user/machine PATH too: a freshly installed Node is not yet on the PATH of processes started before the install.
-		string   path        = string.Join( Path.PathSeparator, Environment.GetEnvironmentVariable( "PATH" ), OperatingSystem.IsWindows() ? Environment.GetEnvironmentVariable( "PATH", EnvironmentVariableTarget.User ) : null, OperatingSystem.IsWindows() ? Environment.GetEnvironmentVariable( "PATH", EnvironmentVariableTarget.Machine ) : null );
+		string path = string.Join( Path.PathSeparator,
+								   Environment.GetEnvironmentVariable( "PATH" ),
+								   OperatingSystem.IsWindows()
+									   ? Environment.GetEnvironmentVariable( "PATH", EnvironmentVariableTarget.User )
+									   : null,
+								   OperatingSystem.IsWindows()
+									   ? Environment.GetEnvironmentVariable( "PATH", EnvironmentVariableTarget.Machine )
+									   : null );
 		string[] directories = [ .. path.Split( Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries ), Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.ApplicationData ), "npm" ), "/opt/homebrew/bin", "/usr/local/bin" ];
 		return directories.Select( directory => Path.Combine( directory, name ) ).FirstOrDefault( File.Exists );
 	}
@@ -76,8 +85,7 @@ internal static class AppiumServer
 [SetUpFixture]
 public sealed class AppiumSetup
 {
-	[OneTimeTearDown]
-	public async Task TearDown()
+	[OneTimeTearDown] public async Task TearDown()
 	{
 		await AppiumServer.StopAsync();
 		await TestDatabase.DisposeAsync();

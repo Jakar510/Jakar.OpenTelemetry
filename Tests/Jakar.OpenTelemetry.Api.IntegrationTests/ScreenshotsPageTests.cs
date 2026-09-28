@@ -21,8 +21,7 @@ public sealed class ScreenshotsPageTests : ApiFixture
 	private TelemetryLiveFeed _feed    = null!;
 
 
-	[SetUp]
-	public async Task RenderContextAsync()
+	[SetUp] public async Task RenderContextAsync()
 	{
 		TelemetryIngestService ingest = Api.Services.GetRequiredService<TelemetryIngestService>();
 		await ingest.IngestLogsAsync( Otlp.Logs( "alpha", Otlp.Log( "alpha failed", SeverityNumber.Error, "Error", Otlp.Kv( LogTags.ATTRIBUTE_KEY, ImageTag.Create( "a.png" ).ToString() ) ) ), CancellationToken.None );
@@ -38,21 +37,25 @@ public sealed class ScreenshotsPageTests : ApiFixture
 	[TearDown] public async Task DisposeContextAsync() => await _context.DisposeAsync();
 
 
-	[Test]
-	public void Render_ShowsErrorLogsWithImages()
+	[Test] public void Render_ShowsErrorLogsWithImages()
 	{
 		IRenderedComponent<Screenshots> page = _context.Render<Screenshots>();
 
 		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, Wait );
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( page.Find( "select" ).QuerySelectorAll( "option" ).Select( static x => x.TextContent ), Is.EqualTo( new[] { "All services", "alpha", "beta" } ) );
+							 Assert.That( page.Find( "select" ).QuerySelectorAll( "option" ).Select( static x => x.TextContent ),
+										  Is.EqualTo( new[]
+														  {
+															  "All services",
+															  "alpha",
+															  "beta"
+														  } ) );
 							 Assert.That( _factory.Calls, Is.EqualTo( 1 ), "the first render queries once" );
 						 } );
 	}
 
-	[Test]
-	public async Task RefreshRequestedDuringARefresh_IsNotDropped()
+	[Test] public async Task RefreshRequestedDuringARefresh_IsNotDropped()
 	{
 		IRenderedComponent<Screenshots> page = _context.Render<Screenshots>();
 		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, Wait );
@@ -73,8 +76,7 @@ public sealed class ScreenshotsPageTests : ApiFixture
 		Assert.That( _factory.Calls - before, Is.EqualTo( 2 ), "the running refresh plus one coalesced follow-up" );
 	}
 
-	[Test]
-	public void LiveEventWithoutLogsOrImages_DoesNotRefresh()
+	[Test] public void LiveEventWithoutLogsOrImages_DoesNotRefresh()
 	{
 		IRenderedComponent<Screenshots> page = _context.Render<Screenshots>();
 		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, Wait );
@@ -85,8 +87,7 @@ public sealed class ScreenshotsPageTests : ApiFixture
 		Assert.That( _factory.Calls, Is.EqualTo( before ) );
 	}
 
-	[Test]
-	public void QueryFailure_ShowsErrorBanner()
+	[Test] public void QueryFailure_ShowsErrorBanner()
 	{
 		_factory.Failure = new InvalidOperationException( "database offline." );
 
@@ -99,7 +100,7 @@ public sealed class ScreenshotsPageTests : ApiFixture
 	/// <summary> Delegates to the real factory, but can hold every caller until <see cref="Open"/>; counts calls. </summary>
 	private sealed class GatedFactory( IDbContextFactory<TelemetryDbContext> inner ) : IDbContextFactory<TelemetryDbContext>
 	{
-		private TaskCompletionSource _gate    = CompletedGate();
+		private TaskCompletionSource _gate = CompletedGate();
 		private int                  _waiters;
 		private int                  _calls;
 

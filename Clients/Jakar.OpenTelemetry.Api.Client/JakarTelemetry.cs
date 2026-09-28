@@ -47,12 +47,6 @@ internal sealed class JakarTelemetryClient( ITelemetryImageQueue             que
 
 	public JakarCrashReporter Crashes => crashes;
 
-	public async ValueTask<ImageTag> AttachImageAsync( ReadOnlyMemory<byte> data, string fileName, string contentType = ImageContentTypes.PNG, CancellationToken token = default )
-	{
-		ImageTag tag = await queue.EnqueueAsync( data, fileName, contentType, token );
-		uploader.Signal();
-		return tag;
-	}
 
 	public async ValueTask<ImageTag?> CaptureScreenshotAsync( string? fileName = null, CancellationToken token = default )
 	{
@@ -70,6 +64,12 @@ internal sealed class JakarTelemetryClient( ITelemetryImageQueue             que
 		}
 
 		return await AttachImageAsync( image.Data, fileName ?? image.FileName, image.ContentType, token );
+	}
+	public async ValueTask<ImageTag> AttachImageAsync( ReadOnlyMemory<byte> data, string fileName, string contentType = ImageContentTypes.PNG, CancellationToken token = default )
+	{
+		ImageTag tag = await queue.EnqueueAsync( data, fileName, contentType, token );
+		uploader.Signal();
+		return tag;
 	}
 
 	public async Task<bool> FlushAsync( CancellationToken token = default )

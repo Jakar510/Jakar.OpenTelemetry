@@ -51,7 +51,17 @@ builder.Services.AddHostedService<TelemetrySourceWorker>();
 
 WebApplication app = builder.Build();
 
-app.MapGet( "/", static () => TypedResults.Ok( new { sample = "Jakar.OpenTelemetry.Source", endpoints = new[] { "GET /boom", "GET /screenshot", "POST /flush" } } ) );
+app.MapGet( "/",
+			static () => TypedResults.Ok( new
+											  {
+												  sample = "Jakar.OpenTelemetry.Source",
+												  endpoints = new[]
+																  {
+																	  "GET /boom",
+																	  "GET /screenshot",
+																	  "POST /flush"
+																  }
+											  } ) );
 
 app.MapGet( "/boom", static IResult () => throw new InvalidOperationException( "Sample unhandled request exception" ) );
 

@@ -13,16 +13,16 @@ public static class ClientTestOptions
 	public static JakarTelemetryOptions Create( string storageDirectory, Action<JakarTelemetryOptions>? configure = null )
 	{
 		JakarTelemetryOptions options = new()
-										{
-											Endpoint         = Endpoint,
-											ApiKey           = API_KEY,
-											ServiceName      = "client-tests",
-											ServiceVersion   = "1.2.3",
-											StorageDirectory = storageDirectory,
-											ExportInterval   = TimeSpan.FromMilliseconds( 200 ),
-											ExportTimeout    = TimeSpan.FromSeconds( 5 ),
-											FlushTimeout     = TimeSpan.FromSeconds( 2 )
-										};
+											{
+												Endpoint         = Endpoint,
+												ApiKey           = API_KEY,
+												ServiceName      = "client-tests",
+												ServiceVersion   = "1.2.3",
+												StorageDirectory = storageDirectory,
+												ExportInterval   = TimeSpan.FromMilliseconds( 200 ),
+												ExportTimeout    = TimeSpan.FromSeconds( 5 ),
+												FlushTimeout     = TimeSpan.FromSeconds( 2 )
+											};
 
 		options.Images.PollInterval      = TimeSpan.FromMilliseconds( 100 );
 		options.Images.InitialRetryDelay = TimeSpan.FromSeconds( 1 );

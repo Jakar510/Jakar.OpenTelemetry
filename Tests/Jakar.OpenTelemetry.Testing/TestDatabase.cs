@@ -27,10 +27,10 @@ public static class TestDatabase
 	public const string IMAGE_VARIABLE             = "JAKAR_OTEL_TEST_POSTGRES_IMAGE";
 	public const string DEFAULT_IMAGE              = "postgres:18-alpine";
 
-	private static readonly SemaphoreSlim           Lock      = new(1, 1);
-	private static readonly List<string>            Databases = [ ];
-	private static          PostgreSqlContainer?    s_container;
-	private static          string?                 s_serverConnectionString;
+	private static readonly SemaphoreSlim        Lock      = new(1, 1);
+	private static readonly List<string>         Databases = [ ];
+	private static          PostgreSqlContainer? s_container;
+	private static          string?              s_serverConnectionString;
 
 
 	public static bool IsExternal => string.Equals( Environment.GetEnvironmentVariable( MODE_VARIABLE ), "external", StringComparison.OrdinalIgnoreCase ) || ( string.IsNullOrWhiteSpace( Environment.GetEnvironmentVariable( MODE_VARIABLE ) ) && !string.IsNullOrWhiteSpace( Environment.GetEnvironmentVariable( CONNECTION_STRING_VARIABLE ) ) );
@@ -102,7 +102,9 @@ public static class TestDatabase
 				return s_serverConnectionString = new NpgsqlConnectionStringBuilder( configured ) { Database = "postgres" }.ConnectionString;
 			}
 
-			PostgreSqlContainer container = new PostgreSqlBuilder( Environment.GetEnvironmentVariable( IMAGE_VARIABLE ) is { Length: > 0 } image ? image : DEFAULT_IMAGE ).Build();
+			PostgreSqlContainer container = new PostgreSqlBuilder( Environment.GetEnvironmentVariable( IMAGE_VARIABLE ) is { Length: > 0 } image
+																	   ? image
+																	   : DEFAULT_IMAGE ).Build();
 			await container.StartAsync( token );
 			s_container = container;
 			return s_serverConnectionString = new NpgsqlConnectionStringBuilder( container.GetConnectionString() ) { Database = "postgres" }.ConnectionString;

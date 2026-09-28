@@ -11,25 +11,17 @@ namespace Jakar.OpenTelemetry.Api.Client.Images;
 ///     and the metadata is written last, so a crash mid-write never leaves a half image that looks complete.
 ///     The queue is bounded by count, total bytes and age (oldest dropped first) so an offline device cannot fill its storage.
 /// </summary>
-public sealed class FileSystemTelemetryImageQueue : ITelemetryImageQueue
+public sealed class FileSystemTelemetryImageQueue( IOptions<JakarTelemetryOptions>        options,
+												   ILogger<FileSystemTelemetryImageQueue> logger ) : ITelemetryImageQueue
 {
 	private const string DATA_EXTENSION = ".bin";
 	private const string META_EXTENSION = ".json";
 	private const string TEMP_EXTENSION = ".tmp";
 
-	private readonly ImageUploadOptions                     _options;
-	private readonly ILogger<FileSystemTelemetryImageQueue> _logger;
-	private readonly SemaphoreSlim                          _lock = new(1, 1);
-	private readonly string                                 _directory;
-	private          bool                                   _cleaned;
-
-
-	public FileSystemTelemetryImageQueue( IOptions<JakarTelemetryOptions> options, ILogger<FileSystemTelemetryImageQueue> logger )
-	{
-		_options   = options.Value.Images;
-		_logger    = logger;
-		_directory = Path.Combine( options.Value.ResolveStorageDirectory(), "images" );
-	}
+	private readonly ImageUploadOptions _options   = options.Value.Images;
+	private readonly SemaphoreSlim      _lock      = new(1, 1);
+	private readonly string             _directory = Path.Combine( options.Value.ResolveStorageDirectory(), "images" );
+	private          bool               _cleaned;
 
 
 	public async ValueTask<ImageTag> EnqueueAsync( ReadOnlyMemory<byte> data, string fileName, string contentType, CancellationToken token = default )
@@ -143,7 +135,7 @@ public sealed class FileSystemTelemetryImageQueue : ITelemetryImageQueue
 			}
 			catch ( Exception e ) when ( e is JsonException or IOException )
 			{
-				_logger.LogWarning( e, "Discarding unreadable queued image metadata {Path}", meta );
+				logger.LogWarning( e, "Discarding unreadable queued image metadata {Path}", meta );
 				TryDelete( meta );
 			}
 		}
@@ -165,7 +157,7 @@ public sealed class FileSystemTelemetryImageQueue : ITelemetryImageQueue
 				 count           <= _options.MaxQueueCount &&
 				 bytes           <= _options.MaxQueueBytes ) { break; }
 
-			_logger.LogWarning( "Dropping queued image {ImageId} ({FileName}) to keep the upload queue within its limits", item.ID, item.FileName );
+			logger.LogWarning( "Dropping queued image {ImageId} ({FileName}) to keep the upload queue within its limits", item.ID, item.FileName );
 			Delete( item.ID );
 			bytes -= item.Length;
 			count--;
@@ -195,6 +187,6 @@ public sealed class FileSystemTelemetryImageQueue : ITelemetryImageQueue
 	private void TryDelete( string path )
 	{
 		try { File.Delete( path ); }
-		catch ( Exception e ) when ( e is IOException or UnauthorizedAccessException ) { _logger.LogDebug( e, "Could not delete {Path}", path ); }
+		catch ( Exception e ) when ( e is IOException or UnauthorizedAccessException ) { logger.LogDebug( e, "Could not delete {Path}", path ); }
 	}
 }

@@ -25,8 +25,9 @@ internal static class AppiumSettings
 	public const string AVD_VARIABLE       = "JAKAR_OTEL_ANDROID_AVD";
 
 	/// <summary> The port and key compiled into the MAUI sample (Jakar.OpenTelemetry.Api development settings). </summary>
-	public const int    SAMPLE_API_PORT = 5287;
-	public const string SAMPLE_API_KEY  = "CA374E78-07E0-4B8F-AE03-4F54087DB999";
+	public const int SAMPLE_API_PORT = 5287;
+
+	public const string SAMPLE_API_KEY = "CA374E78-07E0-4B8F-AE03-4F54087DB999";
 
 	public const string APP_ID = "com.jakar.opentelemetry.samples.maui";
 
@@ -43,18 +44,33 @@ internal static class AppiumSettings
 
 	public static string AndroidHome => Environment.GetEnvironmentVariable( "ANDROID_HOME" ) is { Length: > 0 } home
 											? home
-											: new[] { @"C:\Program Files (x86)\Android\android-sdk", Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.LocalApplicationData ), "Android", "Sdk" ), Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.UserProfile ), "Library", "Android", "sdk" ) }.FirstOrDefault( Directory.Exists ) ?? string.Empty;
+											: new[]
+												  {
+													  @"C:\Program Files (x86)\Android\android-sdk",
+													  Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.LocalApplicationData ), "Android", "Sdk" ),
+													  Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.UserProfile ),          "Library", "Android", "sdk" )
+												  }.FirstOrDefault( Directory.Exists ) ??
+											  string.Empty;
 
 	public static string? JavaHome => Environment.GetEnvironmentVariable( "JAVA_HOME" ) is { Length: > 0 } home
 										  ? home
-										  : new[] { @"C:\Program Files\Eclipse Adoptium", @"C:\Program Files\Microsoft" }.Where( Directory.Exists ).SelectMany( static x => Directory.GetDirectories( x, "jdk-*" ) ).OrderByDescending( static x => x ).FirstOrDefault();
+										  : new[]
+												{
+													@"C:\Program Files\Eclipse Adoptium",
+													@"C:\Program Files\Microsoft"
+												}.Where( Directory.Exists )
+												 .SelectMany( static x => Directory.GetDirectories( x, "jdk-*" ) )
+												 .OrderByDescending( static x => x )
+												 .FirstOrDefault();
 }
 
 internal static class Paths
 {
 	public static readonly string Repository = FindRepository();
 
-	public static readonly string Configuration = AppContext.BaseDirectory.Contains( $"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase ) ? "Release" : "Debug";
+	public static readonly string Configuration = AppContext.BaseDirectory.Contains( $"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase )
+													  ? "Release"
+													  : "Debug";
 
 	public static string SampleProject => Path.Combine( Repository, "Samples", "Jakar.OpenTelemetry.Samples.Maui" );
 
@@ -72,7 +88,7 @@ internal static class Paths
 /// <summary> A child process whose output is captured. </summary>
 internal sealed class ChildProcess : IAsyncDisposable
 {
-	private readonly Process                  _process;
+	private readonly Process                 _process;
 	private readonly ConcurrentQueue<string> _output = new();
 
 	private ChildProcess( Process process ) => _process = process;
@@ -82,7 +98,14 @@ internal sealed class ChildProcess : IAsyncDisposable
 
 	public static ChildProcess Start( string fileName, IEnumerable<string> arguments, IDictionary<string, string?>? environment = null )
 	{
-		ProcessStartInfo info = new(fileName) { RedirectStandardOutput = true, RedirectStandardError = true, UseShellExecute = false, StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8 };
+		ProcessStartInfo info = new(fileName)
+									{
+										RedirectStandardOutput = true,
+										RedirectStandardError  = true,
+										UseShellExecute        = false,
+										StandardOutputEncoding = Encoding.UTF8,
+										StandardErrorEncoding  = Encoding.UTF8
+									};
 		foreach ( string argument in arguments ) { info.ArgumentList.Add( argument ); }
 
 		foreach ( ( string key, string? value ) in environment ?? new Dictionary<string, string?>() ) { info.Environment[key] = value; }
@@ -106,7 +129,7 @@ internal sealed class ChildProcess : IAsyncDisposable
 	/// <summary> Runs to completion and returns the exit code and output. </summary>
 	public static async Task<(int ExitCode, string Output)> RunAsync( string fileName, IEnumerable<string> arguments, TimeSpan timeout, IDictionary<string, string?>? environment = null )
 	{
-		await using ChildProcess child = Start( fileName, arguments, environment );
+		await using ChildProcess      child = Start( fileName, arguments, environment );
 		using CancellationTokenSource limit = new(timeout);
 
 		try { await child._process.WaitForExitAsync( limit.Token ); }
@@ -169,14 +192,11 @@ internal sealed class TelemetryDatabase( string connectionString ) : IAsyncDispo
 	/// <summary> Diagnostics for a failed wait: the newest log records with their crash/exception attributes. </summary>
 	private async Task<string> LatestLogsAsync()
 	{
-		await using NpgsqlCommand command = _dataSource.CreateCommand( """SELECT "SeverityNumber", "Body", "AttributesJson"->>'crash.source', "AttributesJson"->>'exception.type', "AttributesJson"->>'exception.message' FROM "Logs" ORDER BY "ReceivedAtUtc" DESC LIMIT 15""" );
-		await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
-		System.Text.StringBuilder     lines  = new();
+		await using NpgsqlCommand    command = _dataSource.CreateCommand( """SELECT "SeverityNumber", "Body", "AttributesJson"->>'crash.source', "AttributesJson"->>'exception.type', "AttributesJson"->>'exception.message' FROM "Logs" ORDER BY "ReceivedAtUtc" DESC LIMIT 15""" );
+		await using NpgsqlDataReader reader  = await command.ExecuteReaderAsync();
+		System.Text.StringBuilder    lines   = new();
 
-		while ( await reader.ReadAsync() )
-		{
-			lines.AppendLine( $"  [{reader.GetInt32( 0 )}] {( reader.IsDBNull( 1 ) ? "" : reader.GetString( 1 ) )} | source={( reader.IsDBNull( 2 ) ? "" : reader.GetString( 2 ) )} type={( reader.IsDBNull( 3 ) ? "" : reader.GetString( 3 ) )} message={( reader.IsDBNull( 4 ) ? "" : reader.GetString( 4 ) )}" );
-		}
+		while ( await reader.ReadAsync() ) { lines.AppendLine( $"  [{reader.GetInt32( 0 )}] {( reader.IsDBNull( 1 ) ? "" : reader.GetString( 1 ) )} | source={( reader.IsDBNull( 2 ) ? "" : reader.GetString( 2 ) )} type={( reader.IsDBNull( 3 ) ? "" : reader.GetString( 3 ) )} message={( reader.IsDBNull( 4 ) ? "" : reader.GetString( 4 ) )}" ); }
 
 		return lines.ToString();
 	}

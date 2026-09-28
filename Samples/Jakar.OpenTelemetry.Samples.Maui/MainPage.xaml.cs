@@ -12,8 +12,8 @@ public partial class MainPage : ContentPage
 
 	private static readonly ActivitySource ActivitySource = new(ACTIVITY_SOURCE_NAME);
 
-	private readonly IJakarTelemetry     _telemetry;
-	private readonly ILogger<MainPage>   _logger;
+	private readonly IJakarTelemetry   _telemetry;
+	private readonly ILogger<MainPage> _logger;
 
 	public MainPage()
 	{
@@ -52,7 +52,9 @@ public partial class MainPage : ContentPage
 	private async void OnFlush( object? sender, EventArgs e )
 	{
 		bool flushed = await _telemetry.FlushAsync();
-		StatusLabel.Text = flushed ? "Telemetry flushed" : "Flush timed out, telemetry stays queued";
+		StatusLabel.Text = flushed
+							   ? "Telemetry flushed"
+							   : "Flush timed out, telemetry stays queued";
 	}
 
 	private void OnUnobservedTaskException( object? sender, EventArgs e )
@@ -68,17 +70,17 @@ public partial class MainPage : ContentPage
 
 	private void OnCrashNative( object? sender, EventArgs e )
 	{
-#if ANDROID
+		#if ANDROID
 		// A Java exception escaping a Java thread reaches Thread.DefaultUncaughtExceptionHandler.
 		new Java.Lang.Thread( static () => throw new Java.Lang.IllegalStateException( "Sample Java crash" ) ).Start();
-#elif IOS || MACCATALYST
+		#elif IOS || MACCATALYST
 		// A genuine Objective-C throw from native code reaches the uncaught NSException handler.
 		ObjectiveCThrow( new Foundation.NSException( "JakarSampleException", "Sample Objective-C crash", null ).Handle );
-#endif
+		#endif
 	}
 
-#if IOS || MACCATALYST
+	#if IOS || MACCATALYST
 	[System.Runtime.InteropServices.DllImport( "/usr/lib/libobjc.dylib", EntryPoint = "objc_exception_throw" )]
 	private static extern void ObjectiveCThrow( IntPtr exception );
-#endif
+	#endif
 }

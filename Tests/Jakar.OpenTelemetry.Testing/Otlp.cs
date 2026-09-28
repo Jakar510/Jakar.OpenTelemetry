@@ -62,17 +62,17 @@ public static class Otlp
 	public static LogRecord Log( string body = "hello", SeverityNumber severity = SeverityNumber.Info, string? severityText = "Information", params KeyValue[] attributes )
 	{
 		LogRecord record = new()
-						   {
-							   TimeUnixNano         = UnixNano( Time ),
-							   ObservedTimeUnixNano = UnixNano( Time.AddMilliseconds( 1 ) ),
-							   SeverityNumber       = severity,
-							   SeverityText         = severityText ?? string.Empty,
-							   Body                 = Str( body ),
-							   TraceId              = ByteString.CopyFrom( TraceId ),
-							   SpanId               = ByteString.CopyFrom( SpanId ),
-							   Flags                = 1,
-							   EventName            = "test.event"
-						   };
+							   {
+								   TimeUnixNano         = UnixNano( Time ),
+								   ObservedTimeUnixNano = UnixNano( Time.AddMilliseconds( 1 ) ),
+								   SeverityNumber       = severity,
+								   SeverityText         = severityText ?? string.Empty,
+								   Body                 = Str( body ),
+								   TraceId              = ByteString.CopyFrom( TraceId ),
+								   SpanId               = ByteString.CopyFrom( SpanId ),
+								   Flags                = 1,
+								   EventName            = "test.event"
+							   };
 		record.Attributes.Add( attributes );
 		return record;
 	}
@@ -96,30 +96,35 @@ public static class Otlp
 	public static Span Span( string name = "GET /", byte[]? traceId = null, byte[]? spanId = null, Span.Types.SpanKind kind = global::OpenTelemetry.Proto.Trace.V1.Span.Types.SpanKind.Server )
 	{
 		Span span = new()
-					{
-						TraceId           = ByteString.CopyFrom( traceId ?? TraceId ),
-						SpanId            = ByteString.CopyFrom( spanId  ?? SpanId ),
-						ParentSpanId      = ByteString.CopyFrom( Parent ),
-						Name              = name,
-						Kind              = kind,
-						TraceState        = "vendor=value",
-						Flags             = 0x301,
-						StartTimeUnixNano = UnixNano( Time ),
-						EndTimeUnixNano   = UnixNano( Time.AddMilliseconds( 42 ) ),
-						Status            = new Status { Code = Status.Types.StatusCode.Error, Message = "boom" },
-						Attributes        = { Kv( "http.method", "GET" ), Kv( "http.status_code", Int( 500 ) ) },
-						Events =
 						{
-							new Span.Types.Event { TimeUnixNano = UnixNano( Time.AddMilliseconds( 5 ) ), Name = "exception", Attributes = { Kv( "exception.type", "System.Exception" ) }, DroppedAttributesCount = 1 }
-						},
-						Links =
-						{
-							new Span.Types.Link { TraceId = ByteString.CopyFrom( TraceId ), SpanId = ByteString.CopyFrom( Parent ), TraceState = "a=b", Attributes = { Kv( "link.attr", "x" ) }, Flags = 1, DroppedAttributesCount = 2 }
-						},
-						DroppedAttributesCount = 3,
-						DroppedEventsCount     = 4,
-						DroppedLinksCount      = 5
-					};
+							TraceId           = ByteString.CopyFrom( traceId ?? TraceId ),
+							SpanId            = ByteString.CopyFrom( spanId  ?? SpanId ),
+							ParentSpanId      = ByteString.CopyFrom( Parent ),
+							Name              = name,
+							Kind              = kind,
+							TraceState        = "vendor=value",
+							Flags             = 0x301,
+							StartTimeUnixNano = UnixNano( Time ),
+							EndTimeUnixNano   = UnixNano( Time.AddMilliseconds( 42 ) ),
+							Status            = new Status { Code = Status.Types.StatusCode.Error, Message = "boom" },
+							Attributes        = { Kv( "http.method", "GET" ), Kv( "http.status_code", Int( 500 ) ) },
+							Events            = { new Span.Types.Event { TimeUnixNano = UnixNano( Time.AddMilliseconds( 5 ) ), Name = "exception", Attributes = { Kv( "exception.type", "System.Exception" ) }, DroppedAttributesCount = 1 } },
+							Links =
+								{
+									new Span.Types.Link
+										{
+											TraceId                = ByteString.CopyFrom( TraceId ),
+											SpanId                 = ByteString.CopyFrom( Parent ),
+											TraceState             = "a=b",
+											Attributes             = { Kv( "link.attr", "x" ) },
+											Flags                  = 1,
+											DroppedAttributesCount = 2
+										}
+								},
+							DroppedAttributesCount = 3,
+							DroppedEventsCount     = 4,
+							DroppedLinksCount      = 5
+						};
 		return span;
 	}
 
@@ -140,7 +145,7 @@ public static class Otlp
 	public static Exemplar Exemplar( double? asDouble = 1.5, long? asInt = null )
 	{
 		Exemplar exemplar = new() { TimeUnixNano = UnixNano( Time ), TraceId = ByteString.CopyFrom( TraceId ), SpanId = ByteString.CopyFrom( SpanId ), FilteredAttributes = { Kv( "filtered", "yes" ) } };
-		if ( asInt is { } i ) { exemplar.AsInt = i; }
+		if ( asInt is { } i ) { exemplar.AsInt            = i; }
 		else if ( asDouble is { } d ) { exemplar.AsDouble = d; }
 
 		return exemplar;
@@ -148,55 +153,80 @@ public static class Otlp
 
 	public static Metric Gauge( string name = "test.gauge", double? asDouble = 3.25, long? asInt = null )
 	{
-		NumberDataPoint point = new() { StartTimeUnixNano = UnixNano( Time.AddSeconds( -10 ) ), TimeUnixNano = UnixNano( Time ), Attributes = { Kv( "point.attr", "p" ) }, Flags = 1, Exemplars = { Exemplar() } };
-		if ( asInt is { } i ) { point.AsInt = i; }
+		NumberDataPoint point = new()
+									{
+										StartTimeUnixNano = UnixNano( Time.AddSeconds( -10 ) ),
+										TimeUnixNano      = UnixNano( Time ),
+										Attributes        = { Kv( "point.attr", "p" ) },
+										Flags             = 1,
+										Exemplars         = { Exemplar() }
+									};
+		if ( asInt is { } i ) { point.AsInt            = i; }
 		else if ( asDouble is { } d ) { point.AsDouble = d; }
 
-		return new Metric { Name = name, Description = "a gauge", Unit = "1", Gauge = new Gauge { DataPoints = { point } }, Metadata = { Kv( "meta.key", "meta-value" ) } };
+		return new Metric
+				   {
+					   Name        = name,
+					   Description = "a gauge",
+					   Unit        = "1",
+					   Gauge       = new Gauge { DataPoints = { point } },
+					   Metadata    = { Kv( "meta.key", "meta-value" ) }
+				   };
 	}
 
-	public static Metric Sum( string name = "test.sum", long value = 9_007_199_254_740_993 ) => new()
-																									{
-																										Name = name,
-																										Unit = "{request}",
-																										Sum = new Sum
-																											  {
-																												  AggregationTemporality = AggregationTemporality.Cumulative,
-																												  IsMonotonic            = true,
-																												  DataPoints             = { new NumberDataPoint { TimeUnixNano = UnixNano( Time ), AsInt = value, Exemplars = { Exemplar( asInt: 7 ) } } }
-																											  }
-																									};
+	public static Metric Sum( string name = "test.sum", long value = 9_007_199_254_740_993 ) => new() { Name = name, Unit = "{request}", Sum = new Sum { AggregationTemporality = AggregationTemporality.Cumulative, IsMonotonic = true, DataPoints = { new NumberDataPoint { TimeUnixNano = UnixNano( Time ), AsInt = value, Exemplars = { Exemplar( asInt: 7 ) } } } } };
 
 	public static Metric Histogram( string name = "test.histogram", bool withSum = true ) => new()
 																								 {
 																									 Name = name,
 																									 Unit = "ms",
 																									 Histogram = new Histogram
-																												 {
-																													 AggregationTemporality = AggregationTemporality.Delta,
-																													 DataPoints =
 																													 {
-																														 withSum
-																															 ? new HistogramDataPoint { TimeUnixNano = UnixNano( Time ), Count = 3, Sum = 12.5, Min = 1, Max = 8, BucketCounts = { 1, 1, 1 }, ExplicitBounds = { 5, double.PositiveInfinity } }
-																															 : new HistogramDataPoint { TimeUnixNano = UnixNano( Time ), Count = 3, BucketCounts = { 3 } }
+																														 AggregationTemporality = AggregationTemporality.Delta,
+																														 DataPoints =
+																															 {
+																																 withSum
+																																	 ? new HistogramDataPoint
+																																		   {
+																																			   TimeUnixNano   = UnixNano( Time ),
+																																			   Count          = 3,
+																																			   Sum            = 12.5,
+																																			   Min            = 1,
+																																			   Max            = 8,
+																																			   BucketCounts   = { 1, 1, 1 },
+																																			   ExplicitBounds = { 5, double.PositiveInfinity }
+																																		   }
+																																	 : new HistogramDataPoint { TimeUnixNano = UnixNano( Time ), Count = 3, BucketCounts = { 3 } }
+																															 }
 																													 }
-																												 }
 																								 };
 
 	public static Metric ExponentialHistogram( string name = "test.exponential", bool withBuckets = true ) => new()
-																												 {
-																													 Name = name,
-																													 ExponentialHistogram = new ExponentialHistogram
-																																			{
-																																				AggregationTemporality = AggregationTemporality.Cumulative,
-																																				DataPoints =
-																																				{
-																																					withBuckets
-																																						? new ExponentialHistogramDataPoint { TimeUnixNano = UnixNano( Time ), Count = 4, Sum = 10, Min = 0.5, Max = 4, Scale = 2, ZeroCount = 1, ZeroThreshold = double.NaN, Positive = new ExponentialHistogramDataPoint.Types.Buckets { Offset = 1, BucketCounts = { 1, 2 } }, Negative = new ExponentialHistogramDataPoint.Types.Buckets { Offset = -1, BucketCounts = { 1 } } }
-																																						: new ExponentialHistogramDataPoint { TimeUnixNano = UnixNano( Time ), Count = 4 }
-																																				}
-																																			}
-																												 };
+																												  {
+																													  Name = name,
+																													  ExponentialHistogram = new ExponentialHistogram
+																																				 {
+																																					 AggregationTemporality = AggregationTemporality.Cumulative,
+																																					 DataPoints =
+																																						 {
+																																							 withBuckets
+																																								 ? new ExponentialHistogramDataPoint
+																																									   {
+																																										   TimeUnixNano  = UnixNano( Time ),
+																																										   Count         = 4,
+																																										   Sum           = 10,
+																																										   Min           = 0.5,
+																																										   Max           = 4,
+																																										   Scale         = 2,
+																																										   ZeroCount     = 1,
+																																										   ZeroThreshold = double.NaN,
+																																										   Positive      = new ExponentialHistogramDataPoint.Types.Buckets { Offset = 1, BucketCounts  = { 1, 2 } },
+																																										   Negative      = new ExponentialHistogramDataPoint.Types.Buckets { Offset = -1, BucketCounts = { 1 } }
+																																									   }
+																																								 : new ExponentialHistogramDataPoint { TimeUnixNano = UnixNano( Time ), Count = 4 }
+																																						 }
+																																				 }
+																												  };
 
 	public static Metric Summary( string name = "test.summary", bool withQuantiles = true )
 	{

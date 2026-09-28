@@ -22,32 +22,23 @@ public interface ITelemetryUploadGate
 ///     </list>
 ///     Uploads are idempotent on the server, so a retry after an ambiguous failure never duplicates an image.
 /// </summary>
-public sealed class TelemetryImageUploader : IAsyncDisposable
+public sealed class TelemetryImageUploader( ITelemetryImageQueue              queue,
+											IHttpClientFactory                httpClientFactory,
+											IEnumerable<ITelemetryUploadGate> gates,
+											IOptions<JakarTelemetryOptions>   options,
+											ILogger<TelemetryImageUploader>   logger,
+											TimeProvider?                     time = null ) : IAsyncDisposable
 {
 	public const string HTTP_CLIENT_NAME = "Jakar.OpenTelemetry.Images";
 
-	private readonly ITelemetryImageQueue            _queue;
-	private readonly IHttpClientFactory              _httpClientFactory;
-	private readonly ITelemetryUploadGate[]          _gates;
-	private readonly JakarTelemetryOptions           _options;
-	private readonly ILogger<TelemetryImageUploader> _logger;
-	private readonly TimeProvider                    _time;
-	private readonly SemaphoreSlim                   _wake = new(0, 1);
-	private readonly SemaphoreSlim                   _pass = new(1, 1);
-	private          CancellationTokenSource?        _stopping;
-	private          Task?                           _loop;
-	private          DateTimeOffset                  _serverBusyUntil;
-
-
-	public TelemetryImageUploader( ITelemetryImageQueue queue, IHttpClientFactory httpClientFactory, IEnumerable<ITelemetryUploadGate> gates, IOptions<JakarTelemetryOptions> options, ILogger<TelemetryImageUploader> logger, TimeProvider? time = null )
-	{
-		_queue             = queue;
-		_httpClientFactory = httpClientFactory;
-		_gates             = gates.ToArray();
-		_options           = options.Value;
-		_logger            = logger;
-		_time              = time ?? TimeProvider.System;
-	}
+	private readonly ITelemetryUploadGate[]   _gates   = gates.ToArray();
+	private readonly JakarTelemetryOptions    _options = options.Value;
+	private readonly TimeProvider             _time    = time ?? TimeProvider.System;
+	private readonly SemaphoreSlim            _wake    = new(0, 1);
+	private readonly SemaphoreSlim            _pass    = new(1, 1);
+	private          CancellationTokenSource? _stopping;
+	private          Task?                    _loop;
+	private          DateTimeOffset           _serverBusyUntil;
 
 
 	public void Start()
@@ -76,6 +67,7 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 	{
 		await StopAsync();
 		_stopping?.Dispose();
+		_stopping = null;
 		_wake.Dispose();
 		_pass.Dispose();
 	}
@@ -95,7 +87,7 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 	public async Task<int> UploadNowAsync( CancellationToken token = default )
 	{
 		await UploadDueAsync( token );
-		return await _queue.CountAsync( token );
+		return await queue.CountAsync( token );
 	}
 
 
@@ -105,7 +97,7 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 		{
 			try { await UploadDueAsync( token ); }
 			catch ( OperationCanceledException ) when ( token.IsCancellationRequested ) { return; }
-			catch ( Exception e ) { _logger.LogWarning( e, "Image upload pass failed, retrying next interval" ); }
+			catch ( Exception e ) { logger.LogWarning( e, "Image upload pass failed, retrying next interval" ); }
 
 			try { await _wake.WaitAsync( _options.Images.PollInterval, token ); }
 			catch ( OperationCanceledException ) { return; }
@@ -126,7 +118,7 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 				DateTimeOffset now = _time.GetUtcNow();
 				if ( now < _serverBusyUntil ) { return; }
 
-				IReadOnlyList<PendingImage> due = await _queue.GetDueAsync( now, _options.Images.MaxConcurrentUploads * 4, token );
+				IReadOnlyList<PendingImage> due = await queue.GetDueAsync( now, _options.Images.MaxConcurrentUploads * 4, token );
 				if ( due.Count == 0 ) { return; }
 
 				using CancellationTokenSource busy = CancellationTokenSource.CreateLinkedTokenSource( token );
@@ -148,11 +140,11 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 
 	private async Task<UploadOutcome> UploadAsync( PendingImage image, CancellationToken token )
 	{
-		byte[]? data = await _queue.ReadAsync( image, token );
+		byte[]? data = await queue.ReadAsync( image, token );
 
 		if ( data is null )
 		{
-			await _queue.CompleteAsync( image.ID, token );
+			await queue.CompleteAsync( image.ID, token );
 			return UploadOutcome.Dropped;
 		}
 
@@ -168,7 +160,7 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 
 		HttpResponseMessage response;
 
-		try { response = await _httpClientFactory.CreateClient( HTTP_CLIENT_NAME ).SendAsync( request, timeout.Token ); }
+		try { response = await httpClientFactory.CreateClient( HTTP_CLIENT_NAME ).SendAsync( request, timeout.Token ); }
 		catch ( Exception e ) when ( e is HttpRequestException or TaskCanceledException && !token.IsCancellationRequested )
 		{
 			await RetryLaterAsync( image, e.Message, token );
@@ -180,8 +172,8 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 			switch ( response.StatusCode )
 			{
 				case HttpStatusCode.OK or HttpStatusCode.Created or HttpStatusCode.NoContent:
-					await _queue.CompleteAsync( image.ID, token );
-					_logger.LogDebug( "Uploaded image {ImageId} ({FileName})", image.ID, image.FileName );
+					await queue.CompleteAsync( image.ID, token );
+					logger.LogDebug( "Uploaded image {ImageId} ({FileName})", image.ID, image.FileName );
 					return UploadOutcome.Uploaded;
 
 				case HttpStatusCode.TooManyRequests or HttpStatusCode.ServiceUnavailable:
@@ -189,18 +181,18 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 					TimeSpan       delay = RetryAfter( response, now ) ?? _options.Images.InitialRetryDelay;
 					DateTimeOffset until = now + delay;
 					_serverBusyUntil = until;
-					await _queue.RescheduleAsync( image, until, $"server busy ({(int)response.StatusCode})", token );
-					_logger.LogInformation( "Image server at capacity, pausing uploads for {Delay}", delay );
+					await queue.RescheduleAsync( image, until, $"server busy ({(int)response.StatusCode})", token );
+					logger.LogInformation( "Image server at capacity, pausing uploads for {Delay}", delay );
 					return UploadOutcome.ServerBusy;
 
 				case HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden:
-					await _queue.RescheduleAsync( image, _time.GetUtcNow() + _options.Images.MaxRetryDelay, $"rejected credentials ({(int)response.StatusCode})", token );
-					_logger.LogError( "Image upload rejected with {StatusCode}, check {Header}; keeping image {ImageId} for later", (int)response.StatusCode, _options.ApiKeyHeaderName, image.ID );
+					await queue.RescheduleAsync( image, _time.GetUtcNow() + _options.Images.MaxRetryDelay, $"rejected credentials ({(int)response.StatusCode})", token );
+					logger.LogError( "Image upload rejected with {StatusCode}, check {Header}; keeping image {ImageId} for later", (int)response.StatusCode, _options.ApiKeyHeaderName, image.ID );
 					return UploadOutcome.Retry;
 
 				case HttpStatusCode.BadRequest or HttpStatusCode.Conflict or HttpStatusCode.RequestEntityTooLarge or HttpStatusCode.UnsupportedMediaType:
-					await _queue.CompleteAsync( image.ID, token );
-					_logger.LogError( "Image {ImageId} ({FileName}) permanently rejected with {StatusCode}: {Reason}, dropping it", image.ID, image.FileName, (int)response.StatusCode, await ReadReasonAsync( response, token ) );
+					await queue.CompleteAsync( image.ID, token );
+					logger.LogError( "Image {ImageId} ({FileName}) permanently rejected with {StatusCode}: {Reason}, dropping it", image.ID, image.FileName, (int)response.StatusCode, await ReadReasonAsync( response, token ) );
 					return UploadOutcome.Dropped;
 
 				default:
@@ -217,8 +209,8 @@ public sealed class TelemetryImageUploader : IAsyncDisposable
 		double seconds  = Math.Min( _options.Images.MaxRetryDelay.TotalSeconds, _options.Images.InitialRetryDelay.TotalSeconds * Math.Pow( 2, exponent ) );
 		seconds *= 0.8 + Random.Shared.NextDouble() * 0.4;
 
-		await _queue.RescheduleAsync( image, _time.GetUtcNow() + TimeSpan.FromSeconds( seconds ), error, token );
-		_logger.LogDebug( "Image {ImageId} upload failed ({Error}), retrying in {Delay:0}s", image.ID, error, seconds );
+		await queue.RescheduleAsync( image, _time.GetUtcNow() + TimeSpan.FromSeconds( seconds ), error, token );
+		logger.LogDebug( "Image {ImageId} upload failed ({Error}), retrying in {Delay:0}s", image.ID, error, seconds );
 	}
 
 	private static TimeSpan? RetryAfter( HttpResponseMessage response, DateTimeOffset now )

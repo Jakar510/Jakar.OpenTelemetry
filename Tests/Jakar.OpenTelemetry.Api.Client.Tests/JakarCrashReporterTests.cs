@@ -12,8 +12,7 @@ public sealed class JakarCrashReporterTests
 	private JakarTelemetryOptions   _options  = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_store    = new Mock<ICrashReportStore>();
 		_flusher  = new Mock<ITelemetryFlusher>();
@@ -23,8 +22,7 @@ public sealed class JakarCrashReporterTests
 		_store.Setup( static x => x.LoadAll() ).Returns( [ ] );
 	}
 
-	[TearDown]
-	public void TearDown()
+	[TearDown] public void TearDown()
 	{
 		_factory.Dispose();
 		_provider.Dispose();
@@ -38,8 +36,7 @@ public sealed class JakarCrashReporterTests
 	private static Dictionary<string, object?> ScopeAttributes( FakeLogRecord record ) => record.Scopes.OfType<IEnumerable<KeyValuePair<string, object?>>>().SelectMany( static x => x ).ToDictionary( static x => x.Key, static x => x.Value );
 
 
-	[Test]
-	public void SessionID_IsStablePerInstanceAndUnique()
+	[Test] public void SessionID_IsStablePerInstanceAndUnique()
 	{
 		JakarCrashReporter reporter = Create();
 
@@ -51,38 +48,36 @@ public sealed class JakarCrashReporterTests
 						 } );
 	}
 
-	[Test]
-	public void ReportException_NonTerminating_LogsErrorWithoutPersistingOrFlushing()
+	[Test] public void ReportException_NonTerminating_LogsErrorWithoutPersistingOrFlushing()
 	{
 		InvalidOperationException exception = new("bad state");
 
 		Create().ReportException( exception, "unit.test", isTerminating: false, new Dictionary<string, string> { ["thread"] = "main" } );
 
-		FakeLogRecord record = Logs.Single();
+		FakeLogRecord               record     = Logs.Single();
 		Dictionary<string, object?> attributes = ScopeAttributes( record );
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( record.Level,                    Is.EqualTo( LogLevel.Error ) );
-							 Assert.That( record.Category,                 Is.EqualTo( JakarCrashReporter.CATEGORY ) );
-							 Assert.That( record.Id.Id,                    Is.EqualTo( 9001 ) );
-							 Assert.That( record.Exception,                Is.SameAs( exception ) );
-							 Assert.That( record.Message,                  Is.EqualTo( "unit.test: System.InvalidOperationException: bad state" ) );
-							 Assert.That( attributes["exception.type"],    Is.EqualTo( "System.InvalidOperationException" ) );
-							 Assert.That( attributes["exception.message"], Is.EqualTo( "bad state" ) );
-							 Assert.That( attributes["crash.source"],      Is.EqualTo( "unit.test" ) );
-							 Assert.That( attributes["crash.terminating"], Is.EqualTo( false ) );
+							 Assert.That( record.Level,                         Is.EqualTo( LogLevel.Error ) );
+							 Assert.That( record.Category,                      Is.EqualTo( JakarCrashReporter.CATEGORY ) );
+							 Assert.That( record.Id.Id,                         Is.EqualTo( 9001 ) );
+							 Assert.That( record.Exception,                     Is.SameAs( exception ) );
+							 Assert.That( record.Message,                       Is.EqualTo( "unit.test: System.InvalidOperationException: bad state" ) );
+							 Assert.That( attributes["exception.type"],         Is.EqualTo( "System.InvalidOperationException" ) );
+							 Assert.That( attributes["exception.message"],      Is.EqualTo( "bad state" ) );
+							 Assert.That( attributes["crash.source"],           Is.EqualTo( "unit.test" ) );
+							 Assert.That( attributes["crash.terminating"],      Is.EqualTo( false ) );
 							 Assert.That( attributes["crash.previous_session"], Is.EqualTo( false ) );
-							 Assert.That( attributes["crash.thread"],      Is.EqualTo( "main" ) );
-							 Assert.That( attributes,                      Does.ContainKey( "crash.id" ).And.ContainKey( "crash.session_id" ).And.ContainKey( "crash.time" ).And.ContainKey( "exception.stacktrace" ) );
+							 Assert.That( attributes["crash.thread"],           Is.EqualTo( "main" ) );
+							 Assert.That( attributes,                           Does.ContainKey( "crash.id" ).And.ContainKey( "crash.session_id" ).And.ContainKey( "crash.time" ).And.ContainKey( "exception.stacktrace" ) );
 						 } );
 
 		_store.Verify( static x => x.Save( It.IsAny<CrashReport>() ), Times.Never );
 		_flusher.Verify( static x => x.Flush( It.IsAny<TimeSpan>() ), Times.Never );
 	}
 
-	[Test]
-	public void ReportException_Terminating_PersistsEndsSessionLogsCriticalAndFlushes()
+	[Test] public void ReportException_Terminating_PersistsEndsSessionLogsCriticalAndFlushes()
 	{
 		_flusher.Setup( static x => x.Flush( It.IsAny<TimeSpan>() ) ).Returns( false );
 		MockSequence sequence = new();
@@ -93,13 +88,12 @@ public sealed class JakarCrashReporterTests
 
 		Assert.That( Logs.Single().Level, Is.EqualTo( LogLevel.Critical ) );
 		_store.Verify( static x => x.Save( It.Is<CrashReport>( static r => r.IsTerminating && r.Message == "fatal" && r.Details == null ) ), Times.Once );
-		_store.Verify( static x => x.EndSession(),                    Times.Once );
-		_flusher.Verify( x => x.Flush( _options.FlushTimeout ),        Times.Once );
-		_store.Verify( static x => x.Delete( It.IsAny<Guid>() ),       Times.Never, "an unflushed crash stays persisted for replay" );
+		_store.Verify( static x => x.EndSession(),                                                                                           Times.Once );
+		_flusher.Verify( x => x.Flush( _options.FlushTimeout ), Times.Once );
+		_store.Verify( static x => x.Delete( It.IsAny<Guid>() ), Times.Never, "an unflushed crash stays persisted for replay" );
 	}
 
-	[Test]
-	public void ReportException_TerminatingFlushedWithPersistedExports_DeletesReport()
+	[Test] public void ReportException_TerminatingFlushedWithPersistedExports_DeletesReport()
 	{
 		_flusher.Setup( static x => x.Flush( It.IsAny<TimeSpan>() ) ).Returns( true );
 		CrashReport? saved = null;
@@ -110,8 +104,7 @@ public sealed class JakarCrashReporterTests
 		_store.Verify( x => x.Delete( saved!.ID ), Times.Once );
 	}
 
-	[Test]
-	public void ReportException_TerminatingFlushedWithoutPersistedExports_KeepsReport()
+	[Test] public void ReportException_TerminatingFlushedWithoutPersistedExports_KeepsReport()
 	{
 		_options.PersistFailedExports = false;
 		_flusher.Setup( static x => x.Flush( It.IsAny<TimeSpan>() ) ).Returns( true );
@@ -121,8 +114,7 @@ public sealed class JakarCrashReporterTests
 		_store.Verify( static x => x.Delete( It.IsAny<Guid>() ), Times.Never );
 	}
 
-	[Test]
-	public void ReportException_SecondTerminatingCrash_IsIgnored()
+	[Test] public void ReportException_SecondTerminatingCrash_IsIgnored()
 	{
 		JakarCrashReporter reporter = Create();
 
@@ -130,12 +122,16 @@ public sealed class JakarCrashReporterTests
 		reporter.ReportException( new Exception( "second" ), "hook.b", isTerminating: true );
 		reporter.ReportException( new Exception( "third" ),  "hook.c", isTerminating: false );
 
-		Assert.That( Logs.Select( static x => x.Message ), Is.EqualTo( new[] { "hook.a: System.Exception: first", "hook.c: System.Exception: third" } ) );
+		Assert.That( Logs.Select( static x => x.Message ),
+					 Is.EqualTo( new[]
+									 {
+										 "hook.a: System.Exception: first",
+										 "hook.c: System.Exception: third"
+									 } ) );
 		_store.Verify( static x => x.Save( It.IsAny<CrashReport>() ), Times.Once );
 	}
 
-	[Test]
-	public void ReportException_StoreFailure_IsLoggedAndStillLogsCrash()
+	[Test] public void ReportException_StoreFailure_IsLoggedAndStillLogsCrash()
 	{
 		_store.Setup( static x => x.Save( It.IsAny<CrashReport>() ) ).Throws( new IOException( "disk full" ) );
 
@@ -143,13 +139,12 @@ public sealed class JakarCrashReporterTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( Logs.Any( static x => x.Level == LogLevel.Warning  && x.Message.StartsWith( "Could not persist crash report" ) ), Is.True );
-							 Assert.That( Logs.Any( static x => x.Level == LogLevel.Critical ),                                                          Is.True );
+							 Assert.That( Logs.Any( static x => x.Level == LogLevel.Warning && x.Message.StartsWith( "Could not persist crash report" ) ), Is.True );
+							 Assert.That( Logs.Any( static x => x.Level == LogLevel.Critical ),                                                            Is.True );
 						 } );
 	}
 
-	[Test]
-	public void ReportException_FlushThrows_IsSwallowed()
+	[Test] public void ReportException_FlushThrows_IsSwallowed()
 	{
 		_flusher.Setup( static x => x.Flush( It.IsAny<TimeSpan>() ) ).Throws( new ObjectDisposedException( "provider" ) );
 
@@ -158,8 +153,7 @@ public sealed class JakarCrashReporterTests
 		_store.Verify( static x => x.Delete( It.IsAny<Guid>() ), Times.Never );
 	}
 
-	[Test]
-	public void ReportNative_RecordsTypeMessageAndStack()
+	[Test] public void ReportNative_RecordsTypeMessageAndStack()
 	{
 		Create().ReportNative( "android.java", "java.lang.IllegalStateException", "native boom", "at Foo.bar()", isTerminating: false, new Dictionary<string, string> { ["thread.name"] = "main" } );
 
@@ -175,16 +169,14 @@ public sealed class JakarCrashReporterTests
 						 } );
 	}
 
-	[Test]
-	public void ReportNative_WithoutDetails_HasNoDetailAttributes()
+	[Test] public void ReportNative_WithoutDetails_HasNoDetailAttributes()
 	{
 		Create().ReportNative( "browser", "Error", null, null, isTerminating: false );
 
 		Assert.That( ScopeAttributes( Logs.Single() ).Keys.Count( static k => k.StartsWith( "crash." ) ), Is.EqualTo( 6 ) );
 	}
 
-	[Test]
-	public void ReplayPreviousSessions_ReemitsAndDeletesReports_ThenBeginsSession()
+	[Test] public void ReplayPreviousSessions_ReemitsAndDeletesReports_ThenBeginsSession()
 	{
 		CrashReport report = new(Guid.NewGuid(), DateTimeOffset.UtcNow.AddHours( -1 ), "old-session", "appdomain", true, "System.Exception", "old crash", "stack", null);
 		_store.Setup( static x => x.LoadAll() ).Returns( [ report ] );
@@ -199,20 +191,19 @@ public sealed class JakarCrashReporterTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( record.Level,                                     Is.EqualTo( LogLevel.Critical ) );
-							 Assert.That( record.Id.Id,                                     Is.EqualTo( 9002 ) );
-							 Assert.That( record.Message,                                   Does.Contain( "Crash in previous session" ).And.Contain( "old crash" ) );
+							 Assert.That( record.Level,                                        Is.EqualTo( LogLevel.Critical ) );
+							 Assert.That( record.Id.Id,                                        Is.EqualTo( 9002 ) );
+							 Assert.That( record.Message,                                      Does.Contain( "Crash in previous session" ).And.Contain( "old crash" ) );
 							 Assert.That( ScopeAttributes( record )["crash.previous_session"], Is.EqualTo( true ) );
-							 Assert.That( began!.SessionID,                                 Is.EqualTo( reporter.SessionID ) );
-							 Assert.That( began.ProcessID,                                  Is.EqualTo( Environment.ProcessId ) );
-							 Assert.That( began.ServiceVersion,                             Is.EqualTo( _options.ServiceVersion ) );
+							 Assert.That( began!.SessionID,                                    Is.EqualTo( reporter.SessionID ) );
+							 Assert.That( began.ProcessID,                                     Is.EqualTo( Environment.ProcessId ) );
+							 Assert.That( began.ServiceVersion,                                Is.EqualTo( _options.ServiceVersion ) );
 						 } );
 
 		_store.Verify( x => x.Delete( report.ID ), Times.Once );
 	}
 
-	[Test]
-	public void ReplayPreviousSessions_UncleanSessionWithoutReport_LogsAbnormalTermination()
+	[Test] public void ReplayPreviousSessions_UncleanSessionWithoutReport_LogsAbnormalTermination()
 	{
 		_store.Setup( static x => x.ReadUncleanSession() ).Returns( new SessionMarker( "lost-session", DateTimeOffset.UtcNow, 1, "0.9" ) );
 
@@ -228,8 +219,7 @@ public sealed class JakarCrashReporterTests
 						 } );
 	}
 
-	[Test]
-	public void ReplayPreviousSessions_DetectionDisabled_DoesNotReportAbnormalTermination()
+	[Test] public void ReplayPreviousSessions_DetectionDisabled_DoesNotReportAbnormalTermination()
 	{
 		_options.DetectAbnormalTermination = false;
 		_store.Setup( static x => x.ReadUncleanSession() ).Returns( new SessionMarker( "lost-session", DateTimeOffset.UtcNow, 1, null ) );
@@ -239,8 +229,7 @@ public sealed class JakarCrashReporterTests
 		Assert.That( Logs, Is.Empty );
 	}
 
-	[Test]
-	public void ReplayPreviousSessions_CleanPreviousSession_LogsNothing()
+	[Test] public void ReplayPreviousSessions_CleanPreviousSession_LogsNothing()
 	{
 		Create().ReplayPreviousSessions();
 

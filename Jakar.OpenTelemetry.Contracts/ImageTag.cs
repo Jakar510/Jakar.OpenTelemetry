@@ -1,6 +1,3 @@
-using System.Diagnostics.CodeAnalysis;
-using System.Text.RegularExpressions;
-
 namespace Jakar.OpenTelemetry.Contracts;
 
 /// <summary>
@@ -10,13 +7,11 @@ namespace Jakar.OpenTelemetry.Contracts;
 public readonly partial record struct ImageTag( Guid   ID,
 												string FileName )
 {
-	public const string PREFIX = "image:";
+	public const string PREFIX               = "image:";
+	public const int    MAX_FILE_NAME_LENGTH = 255;
 
-	public const int MAX_FILE_NAME_LENGTH = 255;
-
-	public static ImageTag Create( string? fileName ) => new(Guid.CreateVersion7(), SanitizeFileName( fileName ));
-
-	public override string ToString() => $"{PREFIX}{FileName}:{ID:D}";
+	public static   ImageTag Create( string? fileName ) => new(Guid.CreateVersion7(), SanitizeFileName( fileName ));
+	public override string   ToString()                 => $"{PREFIX}{FileName}:{ID:D}";
 
 	/// <summary> Parses a single <c>image:{file-name}:{id}</c> token. </summary>
 	public static bool TryParse( [NotNullWhen( true )] string? value, out ImageTag tag )
@@ -25,7 +20,7 @@ public readonly partial record struct ImageTag( Guid   ID,
 		if ( string.IsNullOrWhiteSpace( value ) ) { return false; }
 
 		string token = value.Trim();
-		Match  match = TagPattern().Match( token );
+		Match  match = TagPattern.Match( token );
 		if ( !match.Success    ||
 			 match.Index  != 0 ||
 			 match.Length != token.Length ) { return false; }
@@ -36,16 +31,13 @@ public readonly partial record struct ImageTag( Guid   ID,
 		return true;
 	}
 
-	/// <summary>
-	///     Extracts every image tag from a <c>log.tags</c> attribute value, whatever its container:
-	///     a single string, a delimited string, or a JSON array. File names may themselves contain <c>:</c>.
-	/// </summary>
+	/// <summary> Extracts every image tag from a <c>log.tags</c> attribute value, whatever its container: a single string, a delimited string, or a JSON array. File names may themselves contain <c>:</c>. </summary>
 	public static List<ImageTag> ParseAll( string? value )
 	{
 		List<ImageTag> tags = [ ];
 		if ( string.IsNullOrWhiteSpace( value ) ) { return tags; }
 
-		foreach ( Match match in TagPattern().Matches( value ) )
+		foreach ( Match match in TagPattern.Matches( value ) )
 		{
 			if ( !Guid.TryParse( match.Groups["id"].ValueSpan, out Guid id ) ) { continue; }
 
@@ -85,7 +77,7 @@ public readonly partial record struct ImageTag( Guid   ID,
 
 	// name: anything that is not a container delimiter (non-greedy, so it may contain ':'); id: a GUID with or without dashes.
 	[GeneratedRegex( """image:(?<name>[^"',;\[\]\r\n]+?):(?<id>[0-9a-fA-F]{8}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{4}-?[0-9a-fA-F]{12})(?![0-9a-fA-F])""", RegexOptions.CultureInvariant )]
-	private static partial Regex TagPattern();
+	private static partial Regex TagPattern { get; }
 }
 
 /// <summary> Well-known log attribute keys. </summary>

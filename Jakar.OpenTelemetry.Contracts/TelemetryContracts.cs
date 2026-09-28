@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-
 namespace Jakar.OpenTelemetry.Contracts;
 
 public sealed record ApiIngestEndpointsDto( string Grpc,

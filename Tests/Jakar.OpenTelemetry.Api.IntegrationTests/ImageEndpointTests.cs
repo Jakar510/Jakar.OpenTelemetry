@@ -29,8 +29,7 @@ public sealed class ImageEndpointTests : ApiFixture
 	}
 
 
-	[Test]
-	public async Task Put_CreatesThenIsIdempotent_ThenConflicts()
+	[Test] public async Task Put_CreatesThenIsIdempotent_ThenConflicts()
 	{
 		Guid id = Guid.CreateVersion7();
 
@@ -39,18 +38,17 @@ public sealed class ImageEndpointTests : ApiFixture
 		using HttpResponseMessage conflict = await PutAsync( id, TestImages.Jpeg, "image/jpeg" );
 
 		await Assert.MultipleAsync( async () =>
-						 {
-							 Assert.That( created.StatusCode,        Is.EqualTo( HttpStatusCode.Created ) );
-							 Assert.That( created.Headers.Location,  Is.EqualTo( new Uri( LogTags.ImagePath( id ), UriKind.Relative ) ) );
-							 Assert.That( again.StatusCode,          Is.EqualTo( HttpStatusCode.OK ) );
-							 Assert.That( conflict.StatusCode,       Is.EqualTo( HttpStatusCode.Conflict ) );
-							 Assert.That( await ScalarAsync<string>( """SELECT "FileName" FROM "Images" WHERE "ID" = @id""", ( "id", id ) ), Is.EqualTo( "shot one.png" ) );
-						 } );
+									{
+										Assert.That( created.StatusCode,                                                                                Is.EqualTo( HttpStatusCode.Created ) );
+										Assert.That( created.Headers.Location,                                                                          Is.EqualTo( new Uri( LogTags.ImagePath( id ), UriKind.Relative ) ) );
+										Assert.That( again.StatusCode,                                                                                  Is.EqualTo( HttpStatusCode.OK ) );
+										Assert.That( conflict.StatusCode,                                                                               Is.EqualTo( HttpStatusCode.Conflict ) );
+										Assert.That( await ScalarAsync<string>( """SELECT "FileName" FROM "Images" WHERE "ID" = @id""", ( "id", id ) ), Is.EqualTo( "shot one.png" ) );
+									} );
 		await Task.CompletedTask;
 	}
 
-	[Test]
-	public async Task Put_UnsafeFileName_IsSanitized()
+	[Test] public async Task Put_UnsafeFileName_IsSanitized()
 	{
 		Guid id = Guid.CreateVersion7();
 
@@ -59,8 +57,7 @@ public sealed class ImageEndpointTests : ApiFixture
 		Assert.That( await ScalarAsync<string>( """SELECT "FileName" FROM "Images" WHERE "ID" = @id""", ( "id", id ) ), Is.EqualTo( "bob_s_shot.png" ) );
 	}
 
-	[Test]
-	public async Task Put_WithoutFileName_UsesDefault()
+	[Test] public async Task Put_WithoutFileName_UsesDefault()
 	{
 		Guid id = Guid.CreateVersion7();
 
@@ -69,24 +66,21 @@ public sealed class ImageEndpointTests : ApiFixture
 		Assert.That( await ScalarAsync<string>( """SELECT "FileName" FROM "Images" WHERE "ID" = @id""", ( "id", id ) ), Is.EqualTo( "image" ) );
 	}
 
-	[Test]
-	public async Task Put_OverImageLimit_Returns413()
+	[Test] public async Task Put_OverImageLimit_Returns413()
 	{
 		using HttpResponseMessage response = await PutAsync( Guid.CreateVersion7(), TestImages.PngOfLength( 10 * 1024 * 1024 + 1 ) );
 
 		Assert.That( response.StatusCode, Is.EqualTo( HttpStatusCode.RequestEntityTooLarge ) );
 	}
 
-	[Test]
-	public async Task Put_NonGuidId_IsNotRouted()
+	[Test] public async Task Put_NonGuidId_IsNotRouted()
 	{
 		using HttpResponseMessage response = await Client.PutAsync( "/v1/images/not-a-guid", new ByteArrayContent( TestImages.Png ) );
 
 		Assert.That( response.StatusCode, Is.EqualTo( HttpStatusCode.NotFound ).Or.EqualTo( HttpStatusCode.MethodNotAllowed ) );
 	}
 
-	[Test]
-	public async Task Head_ReportsExistence()
+	[Test] public async Task Head_ReportsExistence()
 	{
 		Guid id = Guid.CreateVersion7();
 		using ( await PutAsync( id, TestImages.Png ) ) { }
@@ -103,8 +97,7 @@ public sealed class ImageEndpointTests : ApiFixture
 						 } );
 	}
 
-	[Test]
-	public async Task DashboardImage_RequiresLogin_AndIsServedInertly()
+	[Test] public async Task DashboardImage_RequiresLogin_AndIsServedInertly()
 	{
 		Guid id = Guid.CreateVersion7();
 		using ( await PutAsync( id, TestImages.Png ) ) { }
@@ -116,17 +109,17 @@ public sealed class ImageEndpointTests : ApiFixture
 		using HttpResponseMessage missing   = await dashboard.GetAsync( $"/telemetry/images/{Guid.CreateVersion7():D}" );
 
 		await Assert.MultipleAsync( async () =>
-						 {
-							 Assert.That( anonymous.StatusCode,                   Is.EqualTo( HttpStatusCode.Redirect ) );
-							 Assert.That( anonymous.Headers.Location!.ToString(), Does.Contain( "/login" ) );
-							 Assert.That( image.StatusCode,                       Is.EqualTo( HttpStatusCode.OK ) );
-							 Assert.That( image.Content.Headers.ContentType?.MediaType, Is.EqualTo( "image/png" ) );
-							 Assert.That( await image.Content.ReadAsByteArrayAsync(),  Is.EqualTo( TestImages.Png ) );
-							 Assert.That( image.Headers.GetValues( "X-Content-Type-Options" ).Single(),  Is.EqualTo( "nosniff" ) );
-							 Assert.That( image.Headers.GetValues( "Content-Security-Policy" ).Single(), Is.EqualTo( "default-src 'none'; sandbox" ) );
-							 Assert.That( image.Headers.CacheControl!.ToString(),  Does.Contain( "immutable" ) );
-							 Assert.That( missing.StatusCode,                      Is.EqualTo( HttpStatusCode.NotFound ) );
-						 } );
+									{
+										Assert.That( anonymous.StatusCode,                                          Is.EqualTo( HttpStatusCode.Redirect ) );
+										Assert.That( anonymous.Headers.Location!.ToString(),                        Does.Contain( "/login" ) );
+										Assert.That( image.StatusCode,                                              Is.EqualTo( HttpStatusCode.OK ) );
+										Assert.That( image.Content.Headers.ContentType?.MediaType,                  Is.EqualTo( "image/png" ) );
+										Assert.That( await image.Content.ReadAsByteArrayAsync(),                    Is.EqualTo( TestImages.Png ) );
+										Assert.That( image.Headers.GetValues( "X-Content-Type-Options" ).Single(),  Is.EqualTo( "nosniff" ) );
+										Assert.That( image.Headers.GetValues( "Content-Security-Policy" ).Single(), Is.EqualTo( "default-src 'none'; sandbox" ) );
+										Assert.That( image.Headers.CacheControl!.ToString(),                        Does.Contain( "immutable" ) );
+										Assert.That( missing.StatusCode,                                            Is.EqualTo( HttpStatusCode.NotFound ) );
+									} );
 		await Task.CompletedTask;
 	}
 }

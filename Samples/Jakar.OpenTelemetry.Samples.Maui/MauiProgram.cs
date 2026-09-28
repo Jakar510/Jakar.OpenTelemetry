@@ -32,9 +32,9 @@ public static class MauiProgram
 										   options.ActivitySources.Add( MainPage.ACTIVITY_SOURCE_NAME );
 									   } );
 
-#if DEBUG
+		#if DEBUG
 		builder.Logging.AddDebug();
-#endif
+		#endif
 
 		return builder.Build();
 	}

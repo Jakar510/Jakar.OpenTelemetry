@@ -43,21 +43,13 @@ public interface ICrashReportStore
 }
 
 /// <summary> Stores crash reports and the session marker as small JSON files under <c>{StorageDirectory}/crashes</c>, written through to disk. </summary>
-public sealed class FileSystemCrashReportStore : ICrashReportStore
+public sealed class FileSystemCrashReportStore( IOptions<JakarTelemetryOptions>     options,
+												ILogger<FileSystemCrashReportStore> logger ) : ICrashReportStore
 {
-	private readonly string                              _directory;
-	private readonly string                              _sessionPath;
-	private readonly ILogger<FileSystemCrashReportStore> _logger;
-	private readonly Lock                                _lock = new();
-	private          SessionMarker?                      _current;
-
-
-	public FileSystemCrashReportStore( IOptions<JakarTelemetryOptions> options, ILogger<FileSystemCrashReportStore> logger )
-	{
-		_logger      = logger;
-		_directory   = Path.Combine( options.Value.ResolveStorageDirectory(), "crashes" );
-		_sessionPath = Path.Combine( options.Value.ResolveStorageDirectory(), "session.json" );
-	}
+	private readonly string         _directory   = Path.Combine( options.Value.ResolveStorageDirectory(), "crashes" );
+	private readonly string         _sessionPath = Path.Combine( options.Value.ResolveStorageDirectory(), "session.json" );
+	private readonly Lock           _lock        = new();
+	private          SessionMarker? _current;
 
 
 	public void Save( CrashReport report )
@@ -85,7 +77,7 @@ public sealed class FileSystemCrashReportStore : ICrashReportStore
 				}
 				catch ( Exception e ) when ( e is JsonException or IOException )
 				{
-					_logger.LogWarning( e, "Discarding unreadable crash report {Path}", path );
+					logger.LogWarning( e, "Discarding unreadable crash report {Path}", path );
 					TryDelete( path );
 				}
 			}
@@ -111,7 +103,7 @@ public sealed class FileSystemCrashReportStore : ICrashReportStore
 			}
 			catch ( Exception e ) when ( e is JsonException or IOException )
 			{
-				_logger.LogDebug( e, "Unreadable session marker" );
+				logger.LogDebug( e, "Unreadable session marker" );
 				return null;
 			}
 		}
@@ -153,7 +145,7 @@ public sealed class FileSystemCrashReportStore : ICrashReportStore
 	private void TryDelete( string path )
 	{
 		try { File.Delete( path ); }
-		catch ( Exception e ) when ( e is IOException or UnauthorizedAccessException ) { _logger.LogDebug( e, "Could not delete {Path}", path ); }
+		catch ( Exception e ) when ( e is IOException or UnauthorizedAccessException ) { logger.LogDebug( e, "Could not delete {Path}", path ); }
 	}
 }
 

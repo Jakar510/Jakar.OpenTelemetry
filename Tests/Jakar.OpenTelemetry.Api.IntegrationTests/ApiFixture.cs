@@ -17,17 +17,16 @@ public sealed class AssemblySetup
 /// <summary> One API host and database per fixture; every test starts with empty telemetry tables. </summary>
 public abstract class ApiFixture
 {
-	protected TestApi          Api        { get; private set; } = null!;
-	protected HttpClient       Client     { get; private set; } = null!;
-	protected NpgsqlDataSource Database   { get; private set; } = null!;
+	protected TestApi          Api      { get; private set; } = null!;
+	protected HttpClient       Client   { get; private set; } = null!;
+	protected NpgsqlDataSource Database { get; private set; } = null!;
 
 
 	/// <summary> Extra settings for the host of this fixture. </summary>
 	protected virtual void Configure( TestApi api ) { }
 
 
-	[OneTimeSetUp]
-	public async Task StartApiAsync()
+	[OneTimeSetUp] public async Task StartApiAsync()
 	{
 		string connectionString = await TestDatabase.CreateDatabaseAsync();
 		Api = new TestApi( connectionString );
@@ -36,16 +35,14 @@ public abstract class ApiFixture
 		Database = NpgsqlDataSource.Create( connectionString );
 	}
 
-	[OneTimeTearDown]
-	public async Task StopApiAsync()
+	[OneTimeTearDown] public async Task StopApiAsync()
 	{
 		Client.Dispose();
 		await Api.DisposeAsync();
 		await Database.DisposeAsync();
 	}
 
-	[SetUp]
-	public async Task ResetAsync()
+	[SetUp] public async Task ResetAsync()
 	{
 		await ExecuteAsync( """TRUNCATE "Logs", "Spans", "Metrics", "Images" """ );
 		await Api.Services.GetRequiredService<ZiggyCreatures.Caching.Fusion.IFusionCache>().RemoveByTagAsync( TelemetryCacheKeys.SNAPSHOT_TAG );
@@ -76,13 +73,18 @@ public abstract class ApiFixture
 		await using NpgsqlCommand command = Database.CreateCommand( sql );
 		foreach ( ( string name, object value ) in parameters ) { command.Parameters.AddWithValue( name, value ); }
 
-		await using NpgsqlDataReader        reader = await command.ExecuteReaderAsync();
+		await using NpgsqlDataReader      reader = await command.ExecuteReaderAsync();
 		List<Dictionary<string, object?>> rows   = [ ];
 
 		while ( await reader.ReadAsync() )
 		{
 			Dictionary<string, object?> row = new(StringComparer.Ordinal);
-			for ( int i = 0; i < reader.FieldCount; i++ ) { row[reader.GetName( i )] = reader.IsDBNull( i ) ? null : reader.GetValue( i ); }
+			for ( int i = 0; i < reader.FieldCount; i++ )
+			{
+				row[reader.GetName( i )] = reader.IsDBNull( i )
+											   ? null
+											   : reader.GetValue( i );
+			}
 
 			rows.Add( row );
 		}

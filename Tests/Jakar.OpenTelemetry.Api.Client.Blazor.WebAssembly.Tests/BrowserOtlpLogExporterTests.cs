@@ -9,25 +9,23 @@ public sealed class BrowserOtlpLogExporterTests
 {
 	private const string STORAGE_KEY = "jakar-otel:pending-logs";
 
-	private FakeJsRuntime          _runtime = null!;
-	private FakeHttpMessageHandler _http    = null!;
-	private FakeHttpClientFactory  _factory = null!;
-	private JakarTelemetryOptions  _options = null!;
+	private FakeJsRuntime           _runtime = null!;
+	private FakeHttpMessageHandler  _http    = null!;
+	private FakeHttpClientFactory   _factory = null!;
+	private JakarTelemetryOptions   _options = null!;
 	private BrowserOtlpLogExporter? _exporter;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
-		_runtime = new FakeJsRuntime();
-		_http    = new FakeHttpMessageHandler();
-		_factory = new FakeHttpClientFactory( _http );
+		_runtime  = new FakeJsRuntime();
+		_http     = new FakeHttpMessageHandler();
+		_factory  = new FakeHttpClientFactory( _http );
 		_options  = ClientTestOptions.Create( Path.GetTempPath(), static o => o.ExportInterval = TimeSpan.FromHours( 1 ) );
 		_exporter = null;
 	}
 
-	[TearDown]
-	public async Task TearDown()
+	[TearDown] public async Task TearDown()
 	{
 		if ( _exporter is not null ) { await _exporter.DisposeAsync(); }
 
@@ -43,18 +41,10 @@ public sealed class BrowserOtlpLogExporterTests
 												   ? JsonSerializer.Deserialize<List<string>>( json )!
 												   : [ ];
 
-	private static IEnumerable<string> Bodies( CapturedRequest request ) => JsonDocument.Parse( request.Body )
-																						 .RootElement.GetProperty( "resourceLogs" )[0]
-																						 .GetProperty( "scopeLogs" )
-																						 .EnumerateArray()
-																						 .SelectMany( static scope => scope.GetProperty( "logRecords" ).EnumerateArray() )
-																						 .Select( static record => record.GetProperty( "body" ).GetProperty( "stringValue" ).GetString()! );
+	private static IEnumerable<string> Bodies( CapturedRequest request ) => JsonDocument.Parse( request.Body ).RootElement.GetProperty( "resourceLogs" )[0].GetProperty( "scopeLogs" ).EnumerateArray().SelectMany( static scope => scope.GetProperty( "logRecords" ).EnumerateArray() ).Select( static record => record.GetProperty( "body" ).GetProperty( "stringValue" ).GetString()! );
 
 
-	[TestCase( "https://telemetry.test",            "https://telemetry.test/v1/logs" )]
-	[TestCase( "https://telemetry.test/",           "https://telemetry.test/v1/logs" )]
-	[TestCase( "https://telemetry.test/collector",  "https://telemetry.test/collector/v1/logs" )]
-	[TestCase( "https://telemetry.test/collector/", "https://telemetry.test/collector/v1/logs" )]
+	[TestCase( "https://telemetry.test", "https://telemetry.test/v1/logs" )] [TestCase( "https://telemetry.test/", "https://telemetry.test/v1/logs" )] [TestCase( "https://telemetry.test/collector", "https://telemetry.test/collector/v1/logs" )] [TestCase( "https://telemetry.test/collector/", "https://telemetry.test/collector/v1/logs" )]
 	public async Task Flush_PostsJsonToLogsEndpointWithApiKey( string endpoint, string expected )
 	{
 		_options.Endpoint = new Uri( endpoint );
@@ -67,19 +57,22 @@ public sealed class BrowserOtlpLogExporterTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( flushed,                      Is.True );
-							 Assert.That( request.Method,               Is.EqualTo( HttpMethod.Post ) );
-							 Assert.That( request.Uri,                  Is.EqualTo( new Uri( expected ) ) );
-							 Assert.That( request.ContentType,          Is.EqualTo( "application/json" ) );
+							 Assert.That( flushed,                       Is.True );
+							 Assert.That( request.Method,                Is.EqualTo( HttpMethod.Post ) );
+							 Assert.That( request.Uri,                   Is.EqualTo( new Uri( expected ) ) );
+							 Assert.That( request.ContentType,           Is.EqualTo( "application/json" ) );
 							 Assert.That( request.Header( "x-api-key" ), Is.EqualTo( ClientTestOptions.API_KEY ) );
-							 Assert.That( Bodies( request ),            Is.EqualTo( new[] { "hello" } ) );
-							 Assert.That( _factory.Names,               Is.All.EqualTo( BrowserOtlpLogExporter.HTTP_CLIENT_NAME ) );
-							 Assert.That( _runtime.Module.Storage,      Does.Not.ContainKey( STORAGE_KEY ), "acknowledged batches are removed from localStorage" );
+							 Assert.That( Bodies( request ),
+										  Is.EqualTo( new[]
+														  {
+															  "hello"
+														  } ) );
+							 Assert.That( _factory.Names,          Is.All.EqualTo( BrowserOtlpLogExporter.HTTP_CLIENT_NAME ) );
+							 Assert.That( _runtime.Module.Storage, Does.Not.ContainKey( STORAGE_KEY ), "acknowledged batches are removed from localStorage" );
 						 } );
 	}
 
-	[Test]
-	public async Task Flush_WithoutApiKey_SendsNoKeyHeader()
+	[Test] public async Task Flush_WithoutApiKey_SendsNoKeyHeader()
 	{
 		_options.ApiKey = null;
 		BrowserOtlpLogExporter exporter = Create();
@@ -90,18 +83,15 @@ public sealed class BrowserOtlpLogExporterTests
 		Assert.That( _http.Requests.Single().Header( "x-api-key" ), Is.Null );
 	}
 
-	[Test]
-	public async Task Flush_NothingPending_ReturnsTrueWithoutRequest()
+	[Test] public async Task Flush_NothingPending_ReturnsTrueWithoutRequest()
 	{
 		Assert.That( await Create().FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True );
-		Assert.That( _http.Requests, Is.Empty );
+		Assert.That( _http.Requests,                                         Is.Empty );
 	}
 
-	[Test]
-	public void Flush_Synchronous_IsUnsupported() => Assert.That( Create().Flush( TimeSpan.FromSeconds( 1 ) ), Is.False );
+	[Test] public void Flush_Synchronous_IsUnsupported() => Assert.That( Create().Flush( TimeSpan.FromSeconds( 1 ) ), Is.False );
 
-	[TestCase( HttpStatusCode.BadRequest )]
-	[TestCase( HttpStatusCode.RequestEntityTooLarge )]
+	[TestCase( HttpStatusCode.BadRequest )] [TestCase( HttpStatusCode.RequestEntityTooLarge )]
 	public async Task Flush_PermanentRejection_DropsBatchAndContinues( HttpStatusCode status )
 	{
 		BrowserOtlpLogExporter exporter = Create();
@@ -112,15 +102,17 @@ public sealed class BrowserOtlpLogExporterTests
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True );
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( _http.Requests,            Has.Count.EqualTo( 2 ), "batches of 500 records" );
-							 Assert.That( Bodies( _http.Requests[1] ), Is.EqualTo( new[] { "r500" } ) );
-							 Assert.That( PersistedBatches(),        Is.Empty );
+							 Assert.That( _http.Requests, Has.Count.EqualTo( 2 ), "batches of 500 records" );
+							 Assert.That( Bodies( _http.Requests[1] ),
+										  Is.EqualTo( new[]
+														  {
+															  "r500"
+														  } ) );
+							 Assert.That( PersistedBatches(), Is.Empty );
 						 } );
 	}
 
-	[TestCase( HttpStatusCode.TooManyRequests )]
-	[TestCase( HttpStatusCode.ServiceUnavailable )]
-	[TestCase( HttpStatusCode.InternalServerError )]
+	[TestCase( HttpStatusCode.TooManyRequests )] [TestCase( HttpStatusCode.ServiceUnavailable )] [TestCase( HttpStatusCode.InternalServerError )]
 	public async Task Flush_RetryableFailure_KeepsBatchPersisted( HttpStatusCode status )
 	{
 		BrowserOtlpLogExporter exporter = Create();
@@ -128,7 +120,7 @@ public sealed class BrowserOtlpLogExporterTests
 		_http.Respond( status, static response => response.Headers.RetryAfter = new RetryConditionHeaderValue( TimeSpan.FromHours( 1 ) ) );
 
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.False );
-		Assert.That( PersistedBatches(), Has.Count.EqualTo( 1 ) );
+		Assert.That( PersistedBatches(),                                     Has.Count.EqualTo( 1 ) );
 
 		// A forced flush ignores the backoff and delivers the kept batch.
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True );
@@ -139,19 +131,17 @@ public sealed class BrowserOtlpLogExporterTests
 						 } );
 	}
 
-	[Test]
-	public async Task Flush_NetworkError_KeepsBatch()
+	[Test] public async Task Flush_NetworkError_KeepsBatch()
 	{
 		BrowserOtlpLogExporter exporter = Create();
 		exporter.Enqueue( Record() );
 		_http.Throw( new HttpRequestException( "offline" ) );
 
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.False );
-		Assert.That( PersistedBatches(), Has.Count.EqualTo( 1 ) );
+		Assert.That( PersistedBatches(),                                     Has.Count.EqualTo( 1 ) );
 	}
 
-	[Test]
-	public async Task Flush_Timeout_ReturnsFalse()
+	[Test] public async Task Flush_Timeout_ReturnsFalse()
 	{
 		BrowserOtlpLogExporter exporter = Create();
 		exporter.Enqueue( Record() );
@@ -164,8 +154,7 @@ public sealed class BrowserOtlpLogExporterTests
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromMilliseconds( 50 ) ), Is.False );
 	}
 
-	[Test]
-	public async Task Enqueue_BeyondBufferLimit_DropsOldestRecords()
+	[Test] public async Task Enqueue_BeyondBufferLimit_DropsOldestRecords()
 	{
 		BrowserOtlpLogExporter exporter = Create();
 		for ( int i = 0; i < 2_005; i++ ) { exporter.Enqueue( Record( $"r{i}" ) ); }
@@ -176,14 +165,13 @@ public sealed class BrowserOtlpLogExporterTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( bodies,    Has.Length.EqualTo( 2_000 ) );
-							 Assert.That( bodies[0], Is.EqualTo( "r5" ) );
+							 Assert.That( bodies,     Has.Length.EqualTo( 2_000 ) );
+							 Assert.That( bodies[0],  Is.EqualTo( "r5" ) );
 							 Assert.That( bodies[^1], Is.EqualTo( "r2004" ) );
 						 } );
 	}
 
-	[Test]
-	public async Task Start_RestoresPersistedBatchesAndExportsThemFirst()
+	[Test] public async Task Start_RestoresPersistedBatchesAndExportsThemFirst()
 	{
 		BrowserOtlpLogExporter previous = new(new BrowserTelemetryModule( _runtime ), _factory, ClientTestOptions.Wrap( _options ));
 		previous.Enqueue( Record( "from last page load" ) );
@@ -197,11 +185,15 @@ public sealed class BrowserOtlpLogExporterTests
 		exporter.Enqueue( Record( "new" ) );
 
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True );
-		Assert.That( _http.Requests.Skip( 1 ).SelectMany( Bodies ), Is.EqualTo( new[] { "from last page load", "new" } ) );
+		Assert.That( _http.Requests.Skip( 1 ).SelectMany( Bodies ),
+					 Is.EqualTo( new[]
+									 {
+										 "from last page load",
+										 "new"
+									 } ) );
 	}
 
-	[Test]
-	public async Task Start_TooManyPersistedBatches_KeepsNewest()
+	[Test] public async Task Start_TooManyPersistedBatches_KeepsNewest()
 	{
 		List<string> batches = Enumerable.Range( 0, 45 ).Select( i => OtlpJsonLogSerializer.Serialize( [ Record( $"batch{i}" ) ], _options ) ).ToList();
 		_runtime.Module.Storage[STORAGE_KEY] = JsonSerializer.Serialize( batches );
@@ -222,8 +214,7 @@ public sealed class BrowserOtlpLogExporterTests
 						 } );
 	}
 
-	[Test]
-	public async Task Start_UnreadableStorage_IsDiscarded()
+	[Test] public async Task Start_UnreadableStorage_IsDiscarded()
 	{
 		_runtime.Module.Storage[STORAGE_KEY] = "{not a list";
 
@@ -231,11 +222,10 @@ public sealed class BrowserOtlpLogExporterTests
 
 		Assert.DoesNotThrowAsync( exporter.StartAsync );
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True );
-		Assert.That( _http.Requests, Is.Empty );
+		Assert.That( _http.Requests,                                         Is.Empty );
 	}
 
-	[Test]
-	public async Task Start_StorageUnavailable_IsIgnored()
+	[Test] public async Task Start_StorageUnavailable_IsIgnored()
 	{
 		_runtime.Module.Fail( "storageGet" );
 		_runtime.Module.Fail( "storageSet" );
@@ -247,8 +237,7 @@ public sealed class BrowserOtlpLogExporterTests
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True, "persistence failures do not block delivery" );
 	}
 
-	[Test]
-	public async Task Start_EmptyStorage_RestoresNothing()
+	[Test] public async Task Start_EmptyStorage_RestoresNothing()
 	{
 		_runtime.Module.Storage[STORAGE_KEY] = "null";
 
@@ -258,8 +247,7 @@ public sealed class BrowserOtlpLogExporterTests
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True );
 	}
 
-	[Test]
-	public async Task BackgroundLoop_ExportsOnInterval_AndHonorsBackoff()
+	[Test] public async Task BackgroundLoop_ExportsOnInterval_AndHonorsBackoff()
 	{
 		_options.ExportInterval = TimeSpan.FromMilliseconds( 20 );
 		_http.Respond( HttpStatusCode.ServiceUnavailable, static response => response.Headers.RetryAfter = new RetryConditionHeaderValue( TimeSpan.FromHours( 1 ) ) );
@@ -274,8 +262,7 @@ public sealed class BrowserOtlpLogExporterTests
 		Assert.That( _http.Requests, Has.Count.EqualTo( 1 ), "no further attempts while backing off" );
 	}
 
-	[Test]
-	public async Task BackgroundLoop_SurvivesUnexpectedErrors()
+	[Test] public async Task BackgroundLoop_SurvivesUnexpectedErrors()
 	{
 		_options.ExportInterval = TimeSpan.FromMilliseconds( 20 );
 		_http.Throw( new InvalidOperationException( "bug" ) );
@@ -288,8 +275,7 @@ public sealed class BrowserOtlpLogExporterTests
 		Assert.That( PersistedBatches(), Is.Empty );
 	}
 
-	[Test]
-	public async Task BackgroundLoop_ExponentialBackoffAfterNetworkErrors()
+	[Test] public async Task BackgroundLoop_ExponentialBackoffAfterNetworkErrors()
 	{
 		_options.ExportInterval = TimeSpan.FromMilliseconds( 20 );
 		_http.Fallback          = static ( _, _ ) => throw new HttpRequestException( "offline" );
@@ -304,8 +290,7 @@ public sealed class BrowserOtlpLogExporterTests
 		Assert.That( _http.Requests, Has.Count.EqualTo( 1 ), "the first backoff is about 2 seconds" );
 	}
 
-	[Test]
-	public async Task Dispose_BeforeStart_IsSafe()
+	[Test] public async Task Dispose_BeforeStart_IsSafe()
 	{
 		BrowserOtlpLogExporter exporter = new(new BrowserTelemetryModule( _runtime ), _factory, ClientTestOptions.Wrap( _options ));
 

@@ -4,11 +4,11 @@ using System.Net;
 namespace Jakar.OpenTelemetry.Testing;
 
 /// <summary> A request as it was sent, with the body already read (the original content is disposed with the request). </summary>
-public sealed record CapturedRequest( HttpMethod                                   Method,
-									  Uri?                                         Uri,
-									  Dictionary<string, string>                   Headers,
-									  string?                                      ContentType,
-									  byte[]                                       Body )
+public sealed record CapturedRequest( HttpMethod                 Method,
+									  Uri?                       Uri,
+									  Dictionary<string, string> Headers,
+									  string?                    ContentType,
+									  byte[]                     Body )
 {
 	public string BodyText => System.Text.Encoding.UTF8.GetString( Body );
 
@@ -23,7 +23,7 @@ public sealed record CapturedRequest( HttpMethod                                
 public sealed class FakeHttpMessageHandler : HttpMessageHandler
 {
 	private readonly ConcurrentQueue<Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>>> _responders = new();
-	private readonly ConcurrentQueue<CapturedRequest>                                                      _requests   = new();
+	private readonly ConcurrentQueue<CapturedRequest>                                                        _requests   = new();
 
 
 	public Func<HttpRequestMessage, CancellationToken, Task<HttpResponseMessage>> Fallback { get; set; } = static ( _, _ ) => Task.FromResult( new HttpResponseMessage( HttpStatusCode.OK ) );

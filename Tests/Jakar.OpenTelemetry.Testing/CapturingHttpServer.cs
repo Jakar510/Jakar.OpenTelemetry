@@ -16,7 +16,7 @@ namespace Jakar.OpenTelemetry.Testing;
 /// </summary>
 public sealed class CapturingHttpServer : IAsyncDisposable
 {
-	private readonly WebApplication                    _app;
+	private readonly WebApplication                   _app;
 	private readonly ConcurrentQueue<CapturedRequest> _requests = new();
 	private readonly SemaphoreSlim                    _arrived  = new(0);
 

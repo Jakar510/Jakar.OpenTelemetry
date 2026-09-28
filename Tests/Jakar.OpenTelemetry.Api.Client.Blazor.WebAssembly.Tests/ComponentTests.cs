@@ -14,8 +14,7 @@ public sealed class JakarTelemetryComponentTests
 	private Mock<IJakarTelemetry> _telemetry = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_context   = new BunitContext();
 		_runtime   = new FakeJsRuntime();
@@ -29,8 +28,7 @@ public sealed class JakarTelemetryComponentTests
 	[TearDown] public async Task TearDown() => await _context.DisposeAsync();
 
 
-	[Test]
-	public void Render_InstallsBridgeWithOptions()
+	[Test] public void Render_InstallsBridgeWithOptions()
 	{
 		_context.Render<JakarTelemetry>( parameters => parameters.Add( static x => x.MaxEventsPerMinute, 5 ).Add( static x => x.ReportWebVitals, false ) );
 
@@ -38,13 +36,12 @@ public sealed class JakarTelemetryComponentTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( install[0],              Is.TypeOf<DotNetObjectReference<BrowserTelemetryBridge>>() );
-							 Assert.That( install[1]!.ToString(),  Is.EqualTo( "{ maxEventsPerMinute = 5, reportWebVitals = False }" ) );
+							 Assert.That( install[0],             Is.TypeOf<DotNetObjectReference<BrowserTelemetryBridge>>() );
+							 Assert.That( install[1]!.ToString(), Is.EqualTo( "{ maxEventsPerMinute = 5, reportWebVitals = False }" ) );
 						 } );
 	}
 
-	[Test]
-	public void Render_TwiceIsInstalledOnce()
+	[Test] public void Render_TwiceIsInstalledOnce()
 	{
 		IRenderedComponent<JakarTelemetry> component = _context.Render<JakarTelemetry>();
 
@@ -53,8 +50,7 @@ public sealed class JakarTelemetryComponentTests
 		Assert.That( _runtime.Module.CallsTo( "install" ).Count(), Is.EqualTo( 1 ) );
 	}
 
-	[Test]
-	public void Navigation_IsLoggedWithoutQueryString()
+	[Test] public void Navigation_IsLoggedWithoutQueryString()
 	{
 		_context.Render<JakarTelemetry>();
 
@@ -69,8 +65,7 @@ public sealed class JakarTelemetryComponentTests
 						 } );
 	}
 
-	[Test]
-	public void Navigation_NotLoggedWhenDisabled()
+	[Test] public void Navigation_NotLoggedWhenDisabled()
 	{
 		_context.Render<JakarTelemetry>( static parameters => parameters.Add( static x => x.LogNavigation, false ) );
 
@@ -79,8 +74,7 @@ public sealed class JakarTelemetryComponentTests
 		Assert.That( _logs.GetSnapshot().Any( static x => x.Id.Id == 9106 ), Is.False );
 	}
 
-	[Test]
-	public void InstallFailure_IsLoggedAsWarning()
+	[Test] public void InstallFailure_IsLoggedAsWarning()
 	{
 		_runtime.Module.Fail( "install" );
 
@@ -89,8 +83,7 @@ public sealed class JakarTelemetryComponentTests
 		Assert.That( _logs.GetSnapshot().Single( static x => x.Level == LogLevel.Warning ).Message, Is.EqualTo( "Browser telemetry could not be installed" ) );
 	}
 
-	[Test]
-	public async Task Dispose_UninstallsAndDisposesModule()
+	[Test] public async Task Dispose_UninstallsAndDisposesModule()
 	{
 		_context.Render<JakarTelemetry>();
 
@@ -99,14 +92,13 @@ public sealed class JakarTelemetryComponentTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( _runtime.Module.CallsTo( "uninstall" ).Count(), Is.EqualTo( 1 ) );
-							 Assert.That( _runtime.Module.Disposed,                      Is.True );
+							 Assert.That( _runtime.Module.CallsTo( "uninstall" ).Count(),                                Is.EqualTo( 1 ) );
+							 Assert.That( _runtime.Module.Disposed,                                                      Is.True );
 							 Assert.That( _logs.GetSnapshot().Any( static x => x.Message.Contains( "/after-dispose" ) ), Is.False );
 						 } );
 	}
 
-	[Test]
-	public async Task Dispose_UninstallFailure_IsIgnored()
+	[Test] public async Task Dispose_UninstallFailure_IsIgnored()
 	{
 		_runtime.Module.Fail( "uninstall" );
 		_context.Render<JakarTelemetry>();
@@ -115,8 +107,7 @@ public sealed class JakarTelemetryComponentTests
 		await Task.CompletedTask;
 	}
 
-	[Test]
-	public async Task Dispose_ImportNeverSucceeded_IsSafe()
+	[Test] public async Task Dispose_ImportNeverSucceeded_IsSafe()
 	{
 		_runtime.ImportFailure = new JSException( "no module" );
 		_context.Render<JakarTelemetry>();
@@ -134,14 +125,12 @@ public sealed class TelemetryErrorBoundaryTests
 	private Mock<IJakarTelemetry> _telemetry = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_context   = new BunitContext();
 		_runtime   = new FakeJsRuntime();
 		_telemetry = new Mock<IJakarTelemetry>();
-		_telemetry.Setup( static x => x.AttachImageAsync( It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>() ) )
-				  .Returns<ReadOnlyMemory<byte>, string, string, CancellationToken>( static ( _, name, _, _ ) => ValueTask.FromResult( ImageTag.Create( name ) ) );
+		_telemetry.Setup( static x => x.AttachImageAsync( It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>() ) ).Returns<ReadOnlyMemory<byte>, string, string, CancellationToken>( static ( _, name, _, _ ) => ValueTask.FromResult( ImageTag.Create( name ) ) );
 		_context.Services.AddSingleton<IJSRuntime>( _runtime );
 		_context.Services.AddLogging( static builder => builder.AddFakeLogging().SetMinimumLevel( LogLevel.Trace ) );
 	}
@@ -150,10 +139,10 @@ public sealed class TelemetryErrorBoundaryTests
 
 
 	private IRenderedComponent<TelemetryErrorBoundary> RenderThrowing( Action<ComponentParameterCollectionBuilder<TelemetryErrorBoundary>>? configure = null ) => _context.Render<TelemetryErrorBoundary>( parameters =>
-																																																	  {
-																																																		  parameters.AddChildContent<Thrower>();
-																																																		  configure?.Invoke( parameters );
-																																																	  } );
+																																																		   {
+																																																			   parameters.AddChildContent<Thrower>();
+																																																			   configure?.Invoke( parameters );
+																																																		   } );
 
 	// Resolved lazily: bUnit forbids registering services after the first one has been resolved.
 	private FakeLogCollector _logs => _context.Services.GetFakeLogCollector();
@@ -163,8 +152,7 @@ public sealed class TelemetryErrorBoundaryTests
 	private static string[]? Tags( FakeLogRecord record ) => record.Scopes.OfType<IEnumerable<KeyValuePair<string, object?>>>().SelectMany( static x => x ).Where( static x => x.Key == LogTags.ATTRIBUTE_KEY ).Select( static x => (string[]?)x.Value ).SingleOrDefault();
 
 
-	[Test]
-	public void ComponentException_IsLoggedWithScreenshot()
+	[Test] public void ComponentException_IsLoggedWithScreenshot()
 	{
 		_context.Services.AddSingleton( _telemetry.Object );
 		_runtime.Module.Screenshot = TestImages.Png;
@@ -180,28 +168,25 @@ public sealed class TelemetryErrorBoundaryTests
 						 } );
 	}
 
-	[Test]
-	public void ComponentException_WithoutName_UsesDefault()
+	[Test] public void ComponentException_WithoutName_UsesDefault()
 	{
 		RenderThrowing();
 
 		Assert.That( ComponentError.Message, Is.EqualTo( "Unhandled component exception in error boundary" ) );
 	}
 
-	[Test]
-	public void ScreenshotDisabled_OrNoClient_LogsWithoutImage()
+	[Test] public void ScreenshotDisabled_OrNoClient_LogsWithoutImage()
 	{
 		_context.Services.AddSingleton( _telemetry.Object );
 		_runtime.Module.Screenshot = TestImages.Png;
 
 		RenderThrowing( static parameters => parameters.Add( static x => x.CaptureScreenshot, false ) );
 
-		Assert.That( Tags( ComponentError ), Is.Null );
+		Assert.That( Tags( ComponentError ),                         Is.Null );
 		Assert.That( _runtime.Module.CallsTo( "captureScreenshot" ), Is.Empty );
 	}
 
-	[Test]
-	public void BrowserRefusesScreenshot_LogsWithoutImage()
+	[Test] public void BrowserRefusesScreenshot_LogsWithoutImage()
 	{
 		_context.Services.AddSingleton( _telemetry.Object );
 
@@ -210,8 +195,7 @@ public sealed class TelemetryErrorBoundaryTests
 		Assert.That( Tags( ComponentError ), Is.Null );
 	}
 
-	[Test]
-	public void ScreenshotFails_LogsDebugThenError()
+	[Test] public void ScreenshotFails_LogsDebugThenError()
 	{
 		_context.Services.AddSingleton( _telemetry.Object );
 		_runtime.Module.Fail( "captureScreenshot" );
@@ -221,12 +205,11 @@ public sealed class TelemetryErrorBoundaryTests
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( _logs.GetSnapshot().Any( static x => x.Level == LogLevel.Debug && x.Message == "Error boundary screenshot capture failed" ), Is.True );
-							 Assert.That( ComponentError, Is.Not.Null );
+							 Assert.That( ComponentError,                                                                                                              Is.Not.Null );
 						 } );
 	}
 
-	[Test]
-	public async Task Dispose_DisposesModuleWhenUsed()
+	[Test] public async Task Dispose_DisposesModuleWhenUsed()
 	{
 		_context.Services.AddSingleton( _telemetry.Object );
 		RenderThrowing();
@@ -236,8 +219,7 @@ public sealed class TelemetryErrorBoundaryTests
 		Assert.That( _runtime.Module.Disposed, Is.True );
 	}
 
-	[Test]
-	public async Task Dispose_WithoutError_IsSafe()
+	[Test] public async Task Dispose_WithoutError_IsSafe()
 	{
 		_context.Render<TelemetryErrorBoundary>( static parameters => parameters.AddChildContent( "<p>fine</p>" ) );
 

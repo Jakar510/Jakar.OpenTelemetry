@@ -11,19 +11,18 @@ public sealed class TelemetryImageUploaderTests
 {
 	private static readonly DateTimeOffset Now = new(2026, 9, 26, 12, 0, 0, TimeSpan.Zero);
 
-	private Mock<ITelemetryImageQueue>        _queue   = null!;
-	private FakeHttpMessageHandler            _http    = null!;
-	private FakeHttpClientFactory             _factory = null!;
-	private FakeTimeProvider                  _time    = null!;
-	private FakeLogger<TelemetryImageUploader> _logger  = null!;
-	private JakarTelemetryOptions             _options = null!;
-	private List<PendingImage>                _pending = null!;
+	private Mock<ITelemetryImageQueue>                          _queue       = null!;
+	private FakeHttpMessageHandler                              _http        = null!;
+	private FakeHttpClientFactory                               _factory     = null!;
+	private FakeTimeProvider                                    _time        = null!;
+	private FakeLogger<TelemetryImageUploader>                  _logger      = null!;
+	private JakarTelemetryOptions                               _options     = null!;
+	private List<PendingImage>                                  _pending     = null!;
 	private List<(Guid Id, DateTimeOffset Next, string? Error)> _rescheduled = null!;
-	private List<Guid>                        _completed = null!;
+	private List<Guid>                                          _completed   = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_http        = new FakeHttpMessageHandler();
 		_factory     = new FakeHttpClientFactory( _http );
@@ -38,9 +37,9 @@ public sealed class TelemetryImageUploaderTests
 		// A minimal in-memory queue so passes terminate naturally.
 		_queue.Setup( static x => x.GetDueAsync( It.IsAny<DateTimeOffset>(), It.IsAny<int>(), It.IsAny<CancellationToken>() ) )
 			  .Returns<DateTimeOffset, int, CancellationToken>( ( now, max, _ ) =>
-																 {
-																	 lock ( _pending ) { return ValueTask.FromResult<IReadOnlyList<PendingImage>>( _pending.Where( x => x.NextAttemptUtc <= now ).Take( max ).ToArray() ); }
-																 } );
+																{
+																	lock ( _pending ) { return ValueTask.FromResult<IReadOnlyList<PendingImage>>( _pending.Where( x => x.NextAttemptUtc <= now ).Take( max ).ToArray() ); }
+																} );
 		_queue.Setup( static x => x.ReadAsync( It.IsAny<PendingImage>(), It.IsAny<CancellationToken>() ) ).Returns( ValueTask.FromResult<byte[]?>( TestImages.Png ) );
 		_queue.Setup( static x => x.CompleteAsync( It.IsAny<Guid>(), It.IsAny<CancellationToken>() ) )
 			  .Returns<Guid, CancellationToken>( ( id, _ ) =>
@@ -55,17 +54,17 @@ public sealed class TelemetryImageUploaderTests
 												 } );
 		_queue.Setup( static x => x.RescheduleAsync( It.IsAny<PendingImage>(), It.IsAny<DateTimeOffset>(), It.IsAny<string?>(), It.IsAny<CancellationToken>() ) )
 			  .Returns<PendingImage, DateTimeOffset, string?, CancellationToken>( ( image, next, error, _ ) =>
-																				   {
-																					   lock ( _pending )
-																					   {
-																						   int index = _pending.FindIndex( x => x.ID == image.ID );
-																						   if ( index >= 0 ) { _pending[index] = image with { Attempts = image.Attempts + 1, NextAttemptUtc = next, LastError = error }; }
+																				  {
+																					  lock ( _pending )
+																					  {
+																						  int index = _pending.FindIndex( x => x.ID == image.ID );
+																						  if ( index >= 0 ) { _pending[index] = image with { Attempts = image.Attempts + 1, NextAttemptUtc = next, LastError = error }; }
 
-																						   _rescheduled.Add( ( image.ID, next, error ) );
-																					   }
+																						  _rescheduled.Add( ( image.ID, next, error ) );
+																					  }
 
-																					   return ValueTask.CompletedTask;
-																				   } );
+																					  return ValueTask.CompletedTask;
+																				  } );
 		_queue.Setup( static x => x.CountAsync( It.IsAny<CancellationToken>() ) ).Returns( () => ValueTask.FromResult( _pending.Count ) );
 	}
 
@@ -86,8 +85,7 @@ public sealed class TelemetryImageUploaderTests
 	private IReadOnlyList<FakeLogRecord> Logs => _logger.Collector.GetSnapshot();
 
 
-	[Test]
-	public async Task UploadNow_Success_PutsImageWithHeadersAndCompletes()
+	[Test] public async Task UploadNow_Success_PutsImageWithHeadersAndCompletes()
 	{
 		PendingImage image = Add();
 		_http.Respond( HttpStatusCode.Created );
@@ -98,21 +96,24 @@ public sealed class TelemetryImageUploaderTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( remaining,                                Is.Zero );
-							 Assert.That( request.Method,                           Is.EqualTo( HttpMethod.Put ) );
-							 Assert.That( request.Uri,                              Is.EqualTo( new Uri( $"https://telemetry.test/v1/images/{image.ID:D}" ) ) );
-							 Assert.That( request.ContentType,                      Is.EqualTo( ImageContentTypes.PNG ) );
-							 Assert.That( request.Body,                             Is.EqualTo( TestImages.Png ) );
-							 Assert.That( request.Header( "x-api-key" ),            Is.EqualTo( ClientTestOptions.API_KEY ) );
+							 Assert.That( remaining,                                  Is.Zero );
+							 Assert.That( request.Method,                             Is.EqualTo( HttpMethod.Put ) );
+							 Assert.That( request.Uri,                                Is.EqualTo( new Uri( $"https://telemetry.test/v1/images/{image.ID:D}" ) ) );
+							 Assert.That( request.ContentType,                        Is.EqualTo( ImageContentTypes.PNG ) );
+							 Assert.That( request.Body,                               Is.EqualTo( TestImages.Png ) );
+							 Assert.That( request.Header( "x-api-key" ),              Is.EqualTo( ClientTestOptions.API_KEY ) );
 							 Assert.That( request.Header( LogTags.FILE_NAME_HEADER ), Is.EqualTo( "shot%20one.png" ) );
-							 Assert.That( request.Header( LogTags.SHA256_HEADER ),  Is.EqualTo( "c2hhMjU2" ) );
-							 Assert.That( _factory.Names,                           Is.All.EqualTo( TelemetryImageUploader.HTTP_CLIENT_NAME ) );
-							 Assert.That( _completed,                               Is.EqualTo( new[] { image.ID } ) );
+							 Assert.That( request.Header( LogTags.SHA256_HEADER ),    Is.EqualTo( "c2hhMjU2" ) );
+							 Assert.That( _factory.Names,                             Is.All.EqualTo( TelemetryImageUploader.HTTP_CLIENT_NAME ) );
+							 Assert.That( _completed,
+										  Is.EqualTo( new[]
+														  {
+															  image.ID
+														  } ) );
 						 } );
 	}
 
-	[TestCase( HttpStatusCode.OK )]
-	[TestCase( HttpStatusCode.NoContent )]
+	[TestCase( HttpStatusCode.OK )] [TestCase( HttpStatusCode.NoContent )]
 	public async Task UploadNow_OtherSuccessCodes_Complete( HttpStatusCode status )
 	{
 		Add();
@@ -121,8 +122,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( await Create().UploadNowAsync(), Is.Zero );
 	}
 
-	[Test]
-	public async Task UploadNow_UsesImageEndpointWhenConfigured()
+	[Test] public async Task UploadNow_UsesImageEndpointWhenConfigured()
 	{
 		_options.ImageEndpoint = new Uri( "https://images.test/base/" );
 		PendingImage image = Add();
@@ -132,8 +132,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _http.Requests.Single().Uri, Is.EqualTo( new Uri( $"https://images.test/v1/images/{image.ID:D}" ) ) );
 	}
 
-	[Test]
-	public async Task UploadNow_WithoutApiKey_SendsEmptyHeaderValue()
+	[Test] public async Task UploadNow_WithoutApiKey_SendsEmptyHeaderValue()
 	{
 		_options.ApiKey = null;
 		Add();
@@ -143,8 +142,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _http.Requests.Single().Header( "x-api-key" ), Is.Empty );
 	}
 
-	[Test]
-	public async Task UploadNow_MissingImageData_DropsWithoutRequest()
+	[Test] public async Task UploadNow_MissingImageData_DropsWithoutRequest()
 	{
 		PendingImage image = Add();
 		_queue.Setup( static x => x.ReadAsync( It.IsAny<PendingImage>(), It.IsAny<CancellationToken>() ) ).Returns( ValueTask.FromResult<byte[]?>( null ) );
@@ -154,12 +152,15 @@ public sealed class TelemetryImageUploaderTests
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( _http.Requests, Is.Empty );
-							 Assert.That( _completed,     Is.EqualTo( new[] { image.ID } ) );
+							 Assert.That( _completed,
+										  Is.EqualTo( new[]
+														  {
+															  image.ID
+														  } ) );
 						 } );
 	}
 
-	[TestCase( HttpStatusCode.TooManyRequests )]
-	[TestCase( HttpStatusCode.ServiceUnavailable )]
+	[TestCase( HttpStatusCode.TooManyRequests )] [TestCase( HttpStatusCode.ServiceUnavailable )]
 	public async Task UploadNow_ServerBusyWithRetryAfterDelta_PausesAllUploadsUntilThen( HttpStatusCode status )
 	{
 		_options.Images.MaxConcurrentUploads = 1;
@@ -172,9 +173,9 @@ public sealed class TelemetryImageUploaderTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( pending,          Is.EqualTo( 2 ) );
-							 Assert.That( _http.Requests,   Has.Count.EqualTo( 1 ), "the second image is not attempted once the server said it is busy" );
-							 Assert.That( _rescheduled,     Has.Count.EqualTo( 1 ) );
+							 Assert.That( pending,               Is.EqualTo( 2 ) );
+							 Assert.That( _http.Requests,        Has.Count.EqualTo( 1 ), "the second image is not attempted once the server said it is busy" );
+							 Assert.That( _rescheduled,          Has.Count.EqualTo( 1 ) );
 							 Assert.That( _rescheduled[0].Id,    Is.EqualTo( first.ID ) );
 							 Assert.That( _rescheduled[0].Next,  Is.EqualTo( Now.AddSeconds( 90 ) ) );
 							 Assert.That( _rescheduled[0].Error, Is.EqualTo( $"server busy ({(int)status})" ) );
@@ -187,11 +188,10 @@ public sealed class TelemetryImageUploaderTests
 
 		_time.Advance( TimeSpan.FromSeconds( 2 ) );
 		Assert.That( await uploader.UploadNowAsync(), Is.Zero );
-		Assert.That( _http.Requests, Has.Count.EqualTo( 3 ) );
+		Assert.That( _http.Requests,                  Has.Count.EqualTo( 3 ) );
 	}
 
-	[Test]
-	public async Task UploadNow_ServerBusyWithRetryAfterDate_UsesDate()
+	[Test] public async Task UploadNow_ServerBusyWithRetryAfterDate_UsesDate()
 	{
 		Add();
 		_http.Respond( HttpStatusCode.ServiceUnavailable, static response => response.Headers.RetryAfter = new RetryConditionHeaderValue( Now.AddMinutes( 10 ) ) );
@@ -201,8 +201,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _rescheduled.Single().Next, Is.EqualTo( Now.AddMinutes( 10 ) ) );
 	}
 
-	[Test]
-	public async Task UploadNow_ServerBusyWithPastRetryAfterDate_UsesInitialRetryDelay()
+	[Test] public async Task UploadNow_ServerBusyWithPastRetryAfterDate_UsesInitialRetryDelay()
 	{
 		Add();
 		_http.Respond( HttpStatusCode.ServiceUnavailable, static response => response.Headers.RetryAfter = new RetryConditionHeaderValue( Now.AddMinutes( -1 ) ) );
@@ -212,8 +211,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _rescheduled.Single().Next, Is.EqualTo( Now + _options.Images.InitialRetryDelay ) );
 	}
 
-	[Test]
-	public async Task UploadNow_ServerBusyWithoutRetryAfter_UsesInitialRetryDelay()
+	[Test] public async Task UploadNow_ServerBusyWithoutRetryAfter_UsesInitialRetryDelay()
 	{
 		Add();
 		_http.Respond( HttpStatusCode.TooManyRequests );
@@ -222,13 +220,12 @@ public sealed class TelemetryImageUploaderTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( _rescheduled.Single().Next, Is.EqualTo( Now + _options.Images.InitialRetryDelay ) );
+							 Assert.That( _rescheduled.Single().Next,                                                                                    Is.EqualTo( Now + _options.Images.InitialRetryDelay ) );
 							 Assert.That( Logs.Any( static x => x.Level == LogLevel.Information && x.Message.StartsWith( "Image server at capacity" ) ), Is.True );
 						 } );
 	}
 
-	[TestCase( HttpStatusCode.Unauthorized )]
-	[TestCase( HttpStatusCode.Forbidden )]
+	[TestCase( HttpStatusCode.Unauthorized )] [TestCase( HttpStatusCode.Forbidden )]
 	public async Task UploadNow_RejectedCredentials_KeepsImageForMaxRetryDelay( HttpStatusCode status )
 	{
 		PendingImage image = Add();
@@ -238,18 +235,15 @@ public sealed class TelemetryImageUploaderTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( _completed,                 Is.Empty );
-							 Assert.That( _rescheduled.Single().Id,   Is.EqualTo( image.ID ) );
-							 Assert.That( _rescheduled.Single().Next, Is.EqualTo( Now + _options.Images.MaxRetryDelay ) );
-							 Assert.That( _rescheduled.Single().Error, Is.EqualTo( $"rejected credentials ({(int)status})" ) );
+							 Assert.That( _completed,                                                                                   Is.Empty );
+							 Assert.That( _rescheduled.Single().Id,                                                                     Is.EqualTo( image.ID ) );
+							 Assert.That( _rescheduled.Single().Next,                                                                   Is.EqualTo( Now + _options.Images.MaxRetryDelay ) );
+							 Assert.That( _rescheduled.Single().Error,                                                                  Is.EqualTo( $"rejected credentials ({(int)status})" ) );
 							 Assert.That( Logs.Any( static x => x.Level == LogLevel.Error && x.Message.Contains( "check x-api-key" ) ), Is.True );
 						 } );
 	}
 
-	[TestCase( HttpStatusCode.BadRequest )]
-	[TestCase( HttpStatusCode.Conflict )]
-	[TestCase( HttpStatusCode.RequestEntityTooLarge )]
-	[TestCase( HttpStatusCode.UnsupportedMediaType )]
+	[TestCase( HttpStatusCode.BadRequest )] [TestCase( HttpStatusCode.Conflict )] [TestCase( HttpStatusCode.RequestEntityTooLarge )] [TestCase( HttpStatusCode.UnsupportedMediaType )]
 	public async Task UploadNow_PermanentRejection_DropsImageAndLogsReason( HttpStatusCode status )
 	{
 		PendingImage image = Add();
@@ -261,15 +255,17 @@ public sealed class TelemetryImageUploaderTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( _completed,    Is.EqualTo( new[] { image.ID } ) );
+							 Assert.That( _completed,
+										  Is.EqualTo( new[]
+														  {
+															  image.ID
+														  } ) );
 							 Assert.That( _rescheduled,  Is.Empty );
 							 Assert.That( error.Message, Does.Contain( "permanently rejected" ).And.Contain( new string( 'r', 512 ) ).And.Not.Contain( new string( 'r', 513 ) ) );
 						 } );
 	}
 
-	[TestCase( HttpStatusCode.InternalServerError )]
-	[TestCase( HttpStatusCode.BadGateway )]
-	[TestCase( HttpStatusCode.NotFound )]
+	[TestCase( HttpStatusCode.InternalServerError )] [TestCase( HttpStatusCode.BadGateway )] [TestCase( HttpStatusCode.NotFound )]
 	public async Task UploadNow_OtherFailures_RetryWithJitteredExponentialBackoff( HttpStatusCode status )
 	{
 		PendingImage image = Add( attempts: 3 );
@@ -281,14 +277,13 @@ public sealed class TelemetryImageUploaderTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( _rescheduled.Single().Id,    Is.EqualTo( image.ID ) );
-							 Assert.That( _rescheduled.Single().Error, Is.EqualTo( $"HTTP {(int)status}" ) );
+							 Assert.That( _rescheduled.Single().Id,                          Is.EqualTo( image.ID ) );
+							 Assert.That( _rescheduled.Single().Error,                       Is.EqualTo( $"HTTP {(int)status}" ) );
 							 Assert.That( ( _rescheduled.Single().Next - Now ).TotalSeconds, Is.InRange( expected * 0.8, expected * 1.2 ) );
 						 } );
 	}
 
-	[Test]
-	public async Task UploadNow_ManyAttempts_BackoffIsCappedAtMaxRetryDelay()
+	[Test] public async Task UploadNow_ManyAttempts_BackoffIsCappedAtMaxRetryDelay()
 	{
 		Add( attempts: 1000 );
 		_http.Respond( HttpStatusCode.InternalServerError );
@@ -299,8 +294,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( ( _rescheduled.Single().Next - Now ).TotalSeconds, Is.InRange( max * 0.8, max * 1.2 ) );
 	}
 
-	[Test]
-	public async Task UploadNow_NetworkError_RetriesLater()
+	[Test] public async Task UploadNow_NetworkError_RetriesLater()
 	{
 		Add();
 		_http.Throw( new HttpRequestException( "connection refused" ) );
@@ -310,8 +304,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _rescheduled.Single().Error, Is.EqualTo( "connection refused" ) );
 	}
 
-	[Test]
-	public async Task UploadNow_RequestTimeout_RetriesLater()
+	[Test] public async Task UploadNow_RequestTimeout_RetriesLater()
 	{
 		_options.Images.RequestTimeout = TimeSpan.FromMilliseconds( 50 );
 		Add();
@@ -326,8 +319,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _rescheduled, Has.Count.EqualTo( 1 ) );
 	}
 
-	[Test]
-	public void UploadNow_CallerCancels_Throws()
+	[Test] public void UploadNow_CallerCancels_Throws()
 	{
 		Add();
 		using CancellationTokenSource cancel = new();
@@ -342,8 +334,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _rescheduled, Is.Empty, "a cancelled upload is neither retried nor dropped" );
 	}
 
-	[Test]
-	public async Task UploadNow_GateClosed_DoesNothing()
+	[Test] public async Task UploadNow_GateClosed_DoesNothing()
 	{
 		Add();
 		Mock<ITelemetryUploadGate> open   = new();
@@ -360,28 +351,25 @@ public sealed class TelemetryImageUploaderTests
 						 } );
 	}
 
-	[Test]
-	public async Task UploadNow_Disabled_DoesNothing()
+	[Test] public async Task UploadNow_Disabled_DoesNothing()
 	{
 		_options.Images.Enabled = false;
 		Add();
 
 		Assert.That( await Create().UploadNowAsync(), Is.EqualTo( 1 ) );
-		Assert.That( _http.Requests, Is.Empty );
+		Assert.That( _http.Requests,                  Is.Empty );
 	}
 
-	[Test]
-	public async Task UploadNow_UploadsInBatchesUntilNothingIsDue()
+	[Test] public async Task UploadNow_UploadsInBatchesUntilNothingIsDue()
 	{
 		_options.Images.MaxConcurrentUploads = 1; // batches of 4
 		for ( int i = 0; i < 10; i++ ) { Add( $"{i}.png" ); }
 
 		Assert.That( await Create().UploadNowAsync(), Is.Zero );
-		Assert.That( _http.Requests, Has.Count.EqualTo( 10 ) );
+		Assert.That( _http.Requests,                  Has.Count.EqualTo( 10 ) );
 	}
 
-	[Test]
-	public async Task Start_UploadsInBackground_AndSignalWakesTheLoop()
+	[Test] public async Task Start_UploadsInBackground_AndSignalWakesTheLoop()
 	{
 		_options.Images.PollInterval = TimeSpan.FromHours( 1 );
 		await using TelemetryImageUploader uploader = Create();
@@ -397,8 +385,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _http.Requests, Has.Count.EqualTo( 1 ) );
 	}
 
-	[Test]
-	public async Task Start_LoopSurvivesFailedPasses()
+	[Test] public async Task Start_LoopSurvivesFailedPasses()
 	{
 		int calls = 0;
 		_queue.Setup( static x => x.GetDueAsync( It.IsAny<DateTimeOffset>(), It.IsAny<int>(), It.IsAny<CancellationToken>() ) )
@@ -414,8 +401,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( Logs.Any( static x => x.Level == LogLevel.Warning && x.Message.StartsWith( "Image upload pass failed" ) ), Is.True );
 	}
 
-	[Test]
-	public async Task Start_Disabled_DoesNotRun()
+	[Test] public async Task Start_Disabled_DoesNotRun()
 	{
 		_options.Images.Enabled = false;
 		await using TelemetryImageUploader uploader = Create();
@@ -428,8 +414,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.That( _http.Requests, Is.Empty );
 	}
 
-	[Test]
-	public async Task Stop_BeforeStart_AndTwice_IsSafe()
+	[Test] public async Task Stop_BeforeStart_AndTwice_IsSafe()
 	{
 		TelemetryImageUploader uploader = Create();
 		await uploader.StopAsync();
@@ -442,8 +427,7 @@ public sealed class TelemetryImageUploaderTests
 		Assert.DoesNotThrow( uploader.Signal, "signalling a disposed uploader is ignored" );
 	}
 
-	[Test]
-	public async Task Stop_WhileUploading_CancelsTheLoop()
+	[Test] public async Task Stop_WhileUploading_CancelsTheLoop()
 	{
 		TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		_http.Fallback = async ( _, token ) =>
@@ -462,12 +446,11 @@ public sealed class TelemetryImageUploaderTests
 		await uploader.DisposeAsync();
 	}
 
-	[Test]
-	public void Constructor_WithoutTimeProvider_UsesSystemClock() => Assert.DoesNotThrowAsync( async () =>
-																								 {
-																									 await using TelemetryImageUploader uploader = new(_queue.Object, _factory, [ ], ClientTestOptions.Wrap( _options ), _logger);
-																									 await uploader.UploadNowAsync();
-																								 } );
+	[Test] public void Constructor_WithoutTimeProvider_UsesSystemClock() => Assert.DoesNotThrowAsync( async () =>
+																									  {
+																										  await using TelemetryImageUploader uploader = new(_queue.Object, _factory, [ ], ClientTestOptions.Wrap( _options ), _logger);
+																										  await uploader.UploadNowAsync();
+																									  } );
 
 
 	private static async Task WaitUntilAsync( Func<bool> condition )

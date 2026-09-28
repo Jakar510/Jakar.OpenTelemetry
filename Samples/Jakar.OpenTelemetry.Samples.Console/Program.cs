@@ -8,14 +8,14 @@ using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
 // Sample for Jakar.OpenTelemetry.Api.Client (any .NET host). Configuration comes from the "JakarTelemetry" section of appsettings.json.
-//
+// 
 //   dotnet run                 logs, a traced operation and an error with a screenshot, then flushes on demand and exits cleanly
 //   dotnet run -- crash        dies from an unhandled exception on a background thread; the crash report is persisted and replayed on the next run
 //   dotnet run -- hang         keeps running so it can be killed; the next run reports the abnormal termination
 
-const string ACTIVITY_SOURCE_NAME = "Jakar.OpenTelemetry.Samples.Console";
-ActivitySource activitySource = new(ACTIVITY_SOURCE_NAME);
-string         mode           = args.FirstOrDefault() ?? "run";
+const string   ACTIVITY_SOURCE_NAME = "Jakar.OpenTelemetry.Samples.Console";
+ActivitySource activitySource       = new(ACTIVITY_SOURCE_NAME);
+string         mode                 = args.FirstOrDefault() ?? "run";
 
 HostApplicationBuilder builder = Host.CreateApplicationBuilder( args );
 builder.AddJakarOpenTelemetry( options => options.ActivitySources.Add( ACTIVITY_SOURCE_NAME ) );
@@ -56,6 +56,8 @@ switch ( mode )
 }
 
 bool flushed = await telemetry.FlushAsync();
-Console.WriteLine( flushed ? "Telemetry flushed" : "Flush timed out; telemetry stays queued on disk and is retried on the next run" );
+Console.WriteLine( flushed
+					   ? "Telemetry flushed"
+					   : "Flush timed out; telemetry stays queued on disk and is retried on the next run" );
 
 await host.StopAsync();

@@ -11,25 +11,21 @@ public sealed class TelemetryHttpMessageHandlerTests
 	private HttpClient                              _client = null!;
 
 
-	[SetUp]
-	public void SetUp()
+	[SetUp] public void SetUp()
 	{
 		_inner  = new FakeHttpMessageHandler();
 		_logger = new FakeLogger<TelemetryHttpMessageHandler>();
 		_client = new HttpClient( new TelemetryHttpMessageHandler( _logger ) { InnerHandler = _inner } );
 	}
 
-	[TearDown]
-	public void TearDown()
+	[TearDown] public void TearDown()
 	{
 		_client.Dispose();
 		_inner.Dispose();
 	}
 
 
-	[TestCase( HttpStatusCode.OK )]
-	[TestCase( HttpStatusCode.NotFound )]
-	[TestCase( HttpStatusCode.TooManyRequests )]
+	[TestCase( HttpStatusCode.OK )] [TestCase( HttpStatusCode.NotFound )] [TestCase( HttpStatusCode.TooManyRequests )]
 	public async Task Send_NonServerError_IsNotLogged( HttpStatusCode status )
 	{
 		_inner.Respond( status );
@@ -39,8 +35,7 @@ public sealed class TelemetryHttpMessageHandlerTests
 		Assert.That( _logger.Collector.Count, Is.Zero );
 	}
 
-	[Test]
-	public async Task Send_ServerError_LogsWarningWithoutQueryString()
+	[Test] public async Task Send_ServerError_LogsWarningWithoutQueryString()
 	{
 		_inner.Respond( HttpStatusCode.BadGateway );
 
@@ -57,8 +52,7 @@ public sealed class TelemetryHttpMessageHandlerTests
 						 } );
 	}
 
-	[Test]
-	public void Send_TransportError_LogsErrorAndRethrows()
+	[Test] public void Send_TransportError_LogsErrorAndRethrows()
 	{
 		HttpRequestException failure = new("refused");
 		_inner.Throw( failure );
@@ -73,8 +67,7 @@ public sealed class TelemetryHttpMessageHandlerTests
 						 } );
 	}
 
-	[Test]
-	public void Send_CallerCancelled_IsNotLogged()
+	[Test] public void Send_CallerCancelled_IsNotLogged()
 	{
 		using CancellationTokenSource cancel = new();
 		_inner.Respond( async ( _, token ) =>
@@ -88,8 +81,7 @@ public sealed class TelemetryHttpMessageHandlerTests
 		Assert.That( _logger.Collector.Count, Is.Zero );
 	}
 
-	[Test]
-	public async Task Send_RelativeUri_LogsPathWithoutQuery()
+	[Test] public async Task Send_RelativeUri_LogsPathWithoutQuery()
 	{
 		using HttpMessageInvoker invoker = new(new TelemetryHttpMessageHandler( _logger ) { InnerHandler = _inner });
 		_inner.Respond( HttpStatusCode.InternalServerError );
@@ -99,8 +91,7 @@ public sealed class TelemetryHttpMessageHandlerTests
 		Assert.That( _logger.LatestRecord.Message, Does.StartWith( "HTTP GET relative/path returned 500" ) );
 	}
 
-	[Test]
-	public async Task Send_NoUri_LogsDash()
+	[Test] public async Task Send_NoUri_LogsDash()
 	{
 		using HttpMessageInvoker invoker = new(new TelemetryHttpMessageHandler( _logger ) { InnerHandler = _inner });
 		_inner.Respond( HttpStatusCode.InternalServerError );

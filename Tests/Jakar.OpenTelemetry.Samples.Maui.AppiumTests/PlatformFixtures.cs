@@ -75,7 +75,7 @@ public sealed class WindowsSampleTests : MauiSampleTests
 	{
 		IWebElement element = Find( automationId );
 		Driver.ExecuteScript( "windows: setFocus", element );
-		Driver.ExecuteScript( "windows: click", new Dictionary<string, object> { ["elementId"] = ElementId( element ) } );
+		Driver.ExecuteScript( "windows: click",    new Dictionary<string, object> { ["elementId"] = ElementId( element ) } );
 	}
 
 	/// <summary> The driver's id for <paramref name="element"/> (the Selenium property is not public). </summary>
@@ -153,7 +153,11 @@ public sealed class AndroidSampleTests : MauiSampleTests
 	private protected override string Platform => "android";
 	private protected override string OsName   => "Android";
 
-	private static string Adb => Path.Combine( AppiumSettings.AndroidHome, "platform-tools", OperatingSystem.IsWindows() ? "adb.exe" : "adb" );
+	private static string Adb => Path.Combine( AppiumSettings.AndroidHome,
+											   "platform-tools",
+											   OperatingSystem.IsWindows()
+												   ? "adb.exe"
+												   : "adb" );
 
 
 	private protected override async Task<string> BuildAsync()
@@ -171,10 +175,18 @@ public sealed class AndroidSampleTests : MauiSampleTests
 
 		if ( !devices.Split( '\n' ).Skip( 1 ).Any( static line => line.TrimEnd().EndsWith( "device", StringComparison.Ordinal ) ) )
 		{
-			string avd      = Environment.GetEnvironmentVariable( AppiumSettings.AVD_VARIABLE ) is { Length: > 0 } name ? name : "jakar-otel-api36";
-			string emulator = Path.Combine( AppiumSettings.AndroidHome, "emulator", OperatingSystem.IsWindows() ? "emulator.exe" : "emulator" );
+			string avd = Environment.GetEnvironmentVariable( AppiumSettings.AVD_VARIABLE ) is { Length: > 0 } name
+							 ? name
+							 : "jakar-otel-api36";
+			string emulator = Path.Combine( AppiumSettings.AndroidHome,
+											"emulator",
+											OperatingSystem.IsWindows()
+												? "emulator.exe"
+												: "emulator" );
 			// Software rendering by default: host GPU mode can hang the boot indefinitely on some drivers.
-			string gpu = Environment.GetEnvironmentVariable( "JAKAR_OTEL_ANDROID_GPU" ) is { Length: > 0 } mode ? mode : "swiftshader_indirect";
+			string gpu = Environment.GetEnvironmentVariable( "JAKAR_OTEL_ANDROID_GPU" ) is { Length: > 0 } mode
+							 ? mode
+							 : "swiftshader_indirect";
 			_emulator = ChildProcess.Start( emulator, [ "-avd", avd, "-no-snapshot-save", "-no-audio", "-no-boot-anim", "-gpu", gpu ] );
 
 			using CancellationTokenSource timeout = new(TimeSpan.FromMinutes( 5 ));
@@ -193,8 +205,7 @@ public sealed class AndroidSampleTests : MauiSampleTests
 		await ChildProcess.RunAsync( Adb, [ "shell", "settings", "put", "global", "hide_error_dialogs", "1" ], TimeSpan.FromSeconds( 30 ) );
 	}
 
-	[OneTimeTearDown]
-	public async Task StopEmulatorAsync()
+	[OneTimeTearDown] public async Task StopEmulatorAsync()
 	{
 		if ( _emulator is null ) { return; }
 
@@ -205,13 +216,13 @@ public sealed class AndroidSampleTests : MauiSampleTests
 	private protected override AppiumDriver StartSession()
 	{
 		AppiumOptions options = new() { PlatformName = "Android", AutomationName = "UiAutomator2", App = App };
-		options.AddAdditionalAppiumOption( "appium:appWaitActivity",      "*" );
-		options.AddAdditionalAppiumOption( "appium:noReset",              false ); // clears app data: no crash reports or session markers from earlier tests
-		options.AddAdditionalAppiumOption( "appium:autoGrantPermissions", true );
-		options.AddAdditionalAppiumOption( "appium:newCommandTimeout",    300 );
+		options.AddAdditionalAppiumOption( "appium:appWaitActivity",                  "*" );
+		options.AddAdditionalAppiumOption( "appium:noReset",                          false ); // clears app data: no crash reports or session markers from earlier tests
+		options.AddAdditionalAppiumOption( "appium:autoGrantPermissions",             true );
+		options.AddAdditionalAppiumOption( "appium:newCommandTimeout",                300 );
 		options.AddAdditionalAppiumOption( "appium:uiautomator2ServerInstallTimeout", 120_000 );
-		options.AddAdditionalAppiumOption( "appium:adbExecTimeout",       120_000 );
-		options.AddAdditionalAppiumOption( "appium:ignoreHiddenApiPolicyError", true ); // not needed by the app, and refused by recent emulator images
+		options.AddAdditionalAppiumOption( "appium:adbExecTimeout",                   120_000 );
+		options.AddAdditionalAppiumOption( "appium:ignoreHiddenApiPolicyError",       true ); // not needed by the app, and refused by recent emulator images
 		return new AndroidDriver( Server, options, TimeSpan.FromMinutes( 5 ) );
 	}
 
@@ -231,7 +242,11 @@ public sealed class AndroidSampleTests : MauiSampleTests
 	/// <summary> MAUI maps AutomationId to the content description or the resource id depending on the control; buttons below the fold are scrolled into view. </summary>
 	private protected override IWebElement Find( string automationId )
 	{
-		foreach ( By locator in new[] { MobileBy.AccessibilityId( automationId ), By.Id( $"{AppiumSettings.APP_ID}:id/{automationId}" ) } )
+		foreach ( By locator in new[]
+									{
+										MobileBy.AccessibilityId( automationId ),
+										By.Id( $"{AppiumSettings.APP_ID}:id/{automationId}" )
+									} )
 		{
 			if ( Driver.FindElements( locator ) is [ { } element, .. ] ) { return element; }
 		}
@@ -240,8 +255,7 @@ public sealed class AndroidSampleTests : MauiSampleTests
 	}
 
 
-	[Test]
-	public async Task JavaCrash_ReachesTheApi()
+	[Test] public async Task JavaCrash_ReachesTheApi()
 	{
 		TapExpectingCrash( "CrashNativeButton" );
 		await Task.Delay( 3000 );
@@ -255,8 +269,7 @@ public sealed class AndroidSampleTests : MauiSampleTests
 		await Telemetry.WaitForAsync( "Logs", """ "ResourceAttributesJson"->>'os.name' = 'Android' AND "SeverityNumber" = 21 AND "AttributesJson"->>'crash.source' IN ('android.java_uncaught_exception', 'android.unhandled_exception_raiser') AND lower("AttributesJson"->>'exception.type') = 'java.lang.illegalstateexception'""" );
 	}
 
-	[Test]
-	public async Task BackgroundedThenKilled_IsNotAnAbnormalTermination()
+	[Test] public async Task BackgroundedThenKilled_IsNotAnAbnormalTermination()
 	{
 		Driver.BackgroundApp( TimeSpan.FromSeconds( -1 ) ); // stays in the background: OnStop flushes and parks the session
 		await Task.Delay( 3000 );
@@ -312,8 +325,7 @@ public sealed class IosSampleTests : MauiSampleTests
 	}
 
 
-	[Test]
-	public async Task ObjectiveCCrash_ReachesTheApi()
+	[Test] public async Task ObjectiveCCrash_ReachesTheApi()
 	{
 		TapExpectingCrash( "CrashNativeButton" );
 		await Task.Delay( 3000 );
@@ -367,8 +379,7 @@ public sealed class MacCatalystSampleTests : MauiSampleTests
 		return Task.CompletedTask;
 	}
 
-	[Test]
-	public async Task ObjectiveCCrash_ReachesTheApi()
+	[Test] public async Task ObjectiveCCrash_ReachesTheApi()
 	{
 		TapExpectingCrash( "CrashNativeButton" );
 		await Task.Delay( 3000 );

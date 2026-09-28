@@ -14,8 +14,7 @@ public sealed class AutomationSetup
 {
 	[OneTimeSetUp] public void SetUp() => Assertions.SetDefaultExpectTimeout( 20_000 );
 
-	[OneTimeTearDown]
-	public async Task TearDown()
+	[OneTimeTearDown] public async Task TearDown()
 	{
 		await Browsers.DisposeAsync();
 		await TestDatabase.DisposeAsync();
@@ -59,29 +58,29 @@ internal static class Ports
 /// <summary> A sample (or <c>dotnet</c> tool) running as a child process; output is captured for assertions and failure diagnostics. </summary>
 internal sealed class SampleProcess : IAsyncDisposable
 {
-	private readonly Process                  _process;
+	private readonly Process                 _process;
 	private readonly ConcurrentQueue<string> _output = new();
 
 
 	private SampleProcess( Process process ) => _process = process;
 
 
-	public string Output   => string.Join( Environment.NewLine, _output );
+	public string Output    => string.Join( Environment.NewLine, _output );
 	public bool   HasExited => _process.HasExited;
-	public int    ExitCode => _process.ExitCode;
+	public int    ExitCode  => _process.ExitCode;
 
 
 	public static SampleProcess Start( string fileName, IEnumerable<string> arguments, IDictionary<string, string?> environment, string? workingDirectory = null )
 	{
 		ProcessStartInfo info = new(fileName)
-								{
-									RedirectStandardOutput = true,
-									RedirectStandardError  = true,
-									UseShellExecute        = false,
-									WorkingDirectory       = workingDirectory ?? Environment.CurrentDirectory,
-									StandardOutputEncoding = Encoding.UTF8,
-									StandardErrorEncoding  = Encoding.UTF8
-								};
+									{
+										RedirectStandardOutput = true,
+										RedirectStandardError  = true,
+										UseShellExecute        = false,
+										WorkingDirectory       = workingDirectory ?? Environment.CurrentDirectory,
+										StandardOutputEncoding = Encoding.UTF8,
+										StandardErrorEncoding  = Encoding.UTF8
+									};
 
 		foreach ( string argument in arguments ) { info.ArgumentList.Add( argument ); }
 
@@ -237,10 +236,17 @@ internal static class Browsers
 			if ( s_browser is not null ) { return s_browser; }
 
 			s_playwright ??= await Playwright.CreateAsync();
-			bool   headless   = Environment.GetEnvironmentVariable( HEADED_VARIABLE ) is not ( "1" or "true" );
+			bool    headless  = Environment.GetEnvironmentVariable( HEADED_VARIABLE ) is not ("1" or "true");
 			string? requested = Environment.GetEnvironmentVariable( CHANNEL_VARIABLE );
 
-			foreach ( string? channel in requested is { Length: > 0 } ? [ requested ] : new[] { null, "msedge", "chrome" } )
+			foreach ( string? channel in requested is { Length: > 0 }
+											 ? [ requested ]
+											 : new[]
+												   {
+													   null,
+													   "msedge",
+													   "chrome"
+												   } )
 			{
 				try { return s_browser = await s_playwright.Chromium.LaunchAsync( new BrowserTypeLaunchOptions { Headless = headless, Channel = channel } ); }
 				catch ( PlaywrightException ) when ( requested is null && channel != "chrome" ) { }

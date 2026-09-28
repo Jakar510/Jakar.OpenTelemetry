@@ -39,27 +39,26 @@ public sealed class JakarTelemetryAspNetExtensionsTests
 	private static Dictionary<string, object?> RequestScope( FakeLogRecord record ) => record.Scopes.OfType<IReadOnlyList<KeyValuePair<string, object?>>>().Single( static x => x.Any( static p => p.Key == "http.route" ) ).ToDictionary( static x => x.Key, static x => x.Value );
 
 
-	[Test]
-	public async Task AddJakarOpenTelemetryAspNet_RegistersSdkProvidersAndStartupFilterOnce()
+	[Test] public async Task AddJakarOpenTelemetryAspNet_RegistersSdkProvidersAndStartupFilterOnce()
 	{
 		await using WebApplication app = await StartAppAsync( static _ => { } );
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( app.Services.GetService<TracerProvider>(), Is.Not.Null );
-							 Assert.That( app.Services.GetService<MeterProvider>(),  Is.Not.Null );
+							 Assert.That( app.Services.GetService<TracerProvider>(),                                                       Is.Not.Null );
+							 Assert.That( app.Services.GetService<MeterProvider>(),                                                        Is.Not.Null );
 							 Assert.That( app.Services.GetServices<IStartupFilter>().OfType<TelemetryRequestScopeStartupFilter>().Count(), Is.EqualTo( 1 ) );
 						 } );
 
 		await app.StopAsync();
 	}
 
-	[Test]
-	public async Task AddJakarOpenTelemetryAspNet_InvokesCallerCallbacks()
+	[Test] public async Task AddJakarOpenTelemetryAspNet_InvokesCallerCallbacks()
 	{
 		WebApplicationBuilder builder = WebApplication.CreateBuilder();
 		builder.WebHost.UseTestServer();
-		bool options = false, sdk = false;
+		bool options = false,
+			 sdk     = false;
 
 		builder.AddJakarOpenTelemetryAspNet( o =>
 											 {
@@ -78,21 +77,20 @@ public sealed class JakarTelemetryAspNetExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( options, Is.True );
-							 Assert.That( sdk,     Is.True );
+							 Assert.That( options,                                                                                         Is.True );
+							 Assert.That( sdk,                                                                                             Is.True );
 							 Assert.That( app.Services.GetServices<IStartupFilter>().OfType<TelemetryRequestScopeStartupFilter>().Count(), Is.EqualTo( 1 ), "registering twice adds the filter once" );
 						 } );
 	}
 
-	[Test]
-	public async Task Request_LogsCarryMethodAndMatchedRouteTemplate()
+	[Test] public async Task Request_LogsCarryMethodAndMatchedRouteTemplate()
 	{
 		await using WebApplication app = await StartAppAsync( static app => app.MapGet( "/orders/{id:int}",
-																						 static ( int id, ILogger<JakarTelemetryAspNetExtensionsTests> logger ) =>
-																						 {
-																							 logger.LogInformation( "Loading order {OrderId}", id );
-																							 return id;
-																						 } ) );
+																						static ( int id, ILogger<JakarTelemetryAspNetExtensionsTests> logger ) =>
+																						{
+																							logger.LogInformation( "Loading order {OrderId}", id );
+																							return id;
+																						} ) );
 
 		using HttpResponseMessage response = await app.GetTestClient().GetAsync( "/orders/42?secret=1" );
 
@@ -101,16 +99,15 @@ public sealed class JakarTelemetryAspNetExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( response.IsSuccessStatusCode,     Is.True );
-							 Assert.That( scope["http.request.method"],     Is.EqualTo( "GET" ) );
-							 Assert.That( scope["http.route"],              Is.EqualTo( "/orders/{id:int}" ) );
+							 Assert.That( response.IsSuccessStatusCode, Is.True );
+							 Assert.That( scope["http.request.method"], Is.EqualTo( "GET" ) );
+							 Assert.That( scope["http.route"],          Is.EqualTo( "/orders/{id:int}" ) );
 						 } );
 
 		await app.StopAsync();
 	}
 
-	[Test]
-	public async Task Request_LogsBeforeRoutingCarryRawPath()
+	[Test] public async Task Request_LogsBeforeRoutingCarryRawPath()
 	{
 		await using WebApplication app = await StartAppAsync( static app =>
 															  {
@@ -135,8 +132,7 @@ public sealed class JakarTelemetryAspNetExtensionsTests
 		await app.StopAsync();
 	}
 
-	[Test]
-	public async Task Request_UnhandledException_IsLoggedByFrameworkWithEnrichment()
+	[Test] public async Task Request_UnhandledException_IsLoggedByFrameworkWithEnrichment()
 	{
 		await using WebApplication app = await StartAppAsync( static app => app.MapGet( "/boom/{id}", static IResult ( string id ) => throw new InvalidOperationException( "kaboom" ) ), withExceptionHandler: true );
 
@@ -146,15 +142,14 @@ public sealed class JakarTelemetryAspNetExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( errors,                            Has.Length.EqualTo( 1 ), "the client does not log the exception a second time" );
+							 Assert.That( errors,                                  Has.Length.EqualTo( 1 ), "the client does not log the exception a second time" );
 							 Assert.That( RequestScope( errors[0] )["http.route"], Is.EqualTo( "/boom/{id}" ) );
 						 } );
 
 		await app.StopAsync();
 	}
 
-	[Test]
-	public async Task RequestScope_IsFrozenWhenTheRequestCompletes()
+	[Test] public async Task RequestScope_IsFrozenWhenTheRequestCompletes()
 	{
 		await using WebApplication app = await StartAppAsync( static app => app.MapGet( "/frozen/{id}", static ( ILogger<JakarTelemetryAspNetExtensionsTests> logger ) => logger.LogInformation( "inside" ) ) );
 
@@ -165,22 +160,21 @@ public sealed class JakarTelemetryAspNetExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( scope.Count,                             Is.EqualTo( 2 ) );
-							 Assert.That( scope[1].Value,                          Is.EqualTo( "/frozen/{id}" ) );
-							 Assert.That( scope.ToString(),                        Is.EqualTo( "GET /frozen/{id}" ) );
+							 Assert.That( scope.Count,                                   Is.EqualTo( 2 ) );
+							 Assert.That( scope[1].Value,                                Is.EqualTo( "/frozen/{id}" ) );
+							 Assert.That( scope.ToString(),                              Is.EqualTo( "GET /frozen/{id}" ) );
 							 Assert.That( ( (IEnumerable)scope ).Cast<object>().Count(), Is.EqualTo( 2 ) );
-							 Assert.That( () => scope[2],                          Throws.TypeOf<ArgumentOutOfRangeException>() );
+							 Assert.That( () => scope[2],                                Throws.TypeOf<ArgumentOutOfRangeException>() );
 						 } );
 
 		await app.StopAsync();
 	}
 
-	[Test]
-	public async Task Middleware_ContextDisposedMidRequest_KeepsLastKnownRoute()
+	[Test] public async Task Middleware_ContextDisposedMidRequest_KeepsLastKnownRoute()
 	{
-		FakeLoggerProvider provider = new();
-		using ILoggerFactory factory = LoggerFactory.Create( builder => builder.AddProvider( provider ) );
-		ILogger              logger  = factory.CreateLogger( "test" );
+		FakeLoggerProvider   provider = new();
+		using ILoggerFactory factory  = LoggerFactory.Create( builder => builder.AddProvider( provider ) );
+		ILogger              logger   = factory.CreateLogger( "test" );
 
 		DefaultHttpContext context = new();
 		context.Request.Method = "PUT";

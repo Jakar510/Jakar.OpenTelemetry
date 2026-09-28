@@ -13,16 +13,16 @@ public sealed class FakeJsModule : IJSObjectReference
 	private readonly ConcurrentDictionary<string, int> _failures = new();
 
 
-	public ConcurrentDictionary<string, string>                          Storage     { get; } = new();
-	public ConcurrentDictionary<string, (string Meta, byte[] Data)>      Images      { get; } = new();
-	public ConcurrentQueue<(string Identifier, object?[] Arguments)>     Calls       { get; } = new();
+	public ConcurrentDictionary<string, string>                      Storage    { get; } = new();
+	public ConcurrentDictionary<string, (string Meta, byte[] Data)>  Images     { get; } = new();
+	public ConcurrentQueue<(string Identifier, object?[] Arguments)> Calls      { get; } = new();
 	/// <summary> PNG returned by <c>captureScreenshot</c>; <see langword="null"/> means the browser refused (the module then returns an empty array). </summary>
-	public byte[]?                                                       Screenshot  { get; set; }
+	public byte[]?                                                   Screenshot { get; set; }
 
 	/// <summary> When set, <c>captureScreenshot</c> never completes (until the caller's token is cancelled). </summary>
-	public bool                                                          HangCapture { get; set; }
-	public bool                                                          StorageFull { get; set; }
-	public bool                                                          Disposed    { get; private set; }
+	public bool HangCapture { get; set; }
+	public bool StorageFull { get; set; }
+	public bool Disposed    { get; private set; }
 
 
 	public IEnumerable<object?[]> CallsTo( string identifier ) => Calls.Where( x => x.Identifier == identifier ).Select( static x => x.Arguments );
@@ -37,7 +37,8 @@ public sealed class FakeJsModule : IJSObjectReference
 		args ??= [ ];
 		Calls.Enqueue( ( identifier, args ) );
 
-		if ( _failures.TryGetValue( identifier, out int remaining ) && remaining > 0 )
+		if ( _failures.TryGetValue( identifier, out int remaining ) &&
+			 remaining > 0 )
 		{
 			_failures[identifier] = remaining - 1;
 			return ValueTask.FromException<TValue>( new JSException( $"{identifier} failed" ) );
@@ -52,16 +53,22 @@ public sealed class FakeJsModule : IJSObjectReference
 		}
 
 		object? result = identifier switch
-						 {
-							 "storageGet"        => Storage.TryGetValue( (string)args[0]!, out string? value ) ? value : null,
-							 "storageSet"        => SetStorage( (string)args[0]!, (string?)args[1] ),
-							 "imagePut"          => Images[(string)args[0]!] = ( (string)args[1]!, (byte[])args[2]! ),
-							 "imageUpdate"       => Images.TryGetValue( (string)args[0]!, out var existing ) ? Images[(string)args[0]!] = ( (string)args[1]!, existing.Data ) : null,
-							 "imageMetas"        => Images.Values.Select( static x => x.Meta ).ToArray(),
-							 "imageGet"          => Images.TryGetValue( (string)args[0]!, out var image ) ? image.Data : null,
-							 "imageDelete"       => Images.TryRemove( (string)args[0]!, out _ ),
-							 _                   => null
-						 };
+							 {
+								 "storageGet" => Storage.TryGetValue( (string)args[0]!, out string? value )
+													 ? value
+													 : null,
+								 "storageSet" => SetStorage( (string)args[0]!, (string?)args[1] ),
+								 "imagePut"   => Images[(string)args[0]!] = ( (string)args[1]!, (byte[])args[2]! ),
+								 "imageUpdate" => Images.TryGetValue( (string)args[0]!, out var existing )
+													  ? Images[(string)args[0]!] = ( (string)args[1]!, existing.Data )
+													  : null,
+								 "imageMetas" => Images.Values.Select( static x => x.Meta ).ToArray(),
+								 "imageGet" => Images.TryGetValue( (string)args[0]!, out var image )
+												   ? image.Data
+												   : null,
+								 "imageDelete" => Images.TryRemove( (string)args[0]!, out _ ),
+								 _             => null
+							 };
 
 		return ValueTask.FromResult( result is TValue typed
 										 ? typed

@@ -21,24 +21,22 @@ public sealed class JakarTelemetryWebAssemblyExtensionsTests
 	}
 
 
-	[Test]
-	public async Task Registers_BrowserReplacements()
+	[Test] public async Task Registers_BrowserReplacements()
 	{
 		await using ServiceProvider services = Build();
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( services.GetRequiredService<ITelemetryImageQueue>(), Is.TypeOf<BrowserTelemetryImageQueue>() );
-							 Assert.That( services.GetRequiredService<ICrashReportStore>(),    Is.TypeOf<NullCrashReportStore>() );
-							 Assert.That( services.GetRequiredService<ITelemetryFlusher>(),    Is.SameAs( services.GetRequiredService<BrowserOtlpLogExporter>() ) );
+							 Assert.That( services.GetRequiredService<ITelemetryImageQueue>(),                                                              Is.TypeOf<BrowserTelemetryImageQueue>() );
+							 Assert.That( services.GetRequiredService<ICrashReportStore>(),                                                                 Is.TypeOf<NullCrashReportStore>() );
+							 Assert.That( services.GetRequiredService<ITelemetryFlusher>(),                                                                 Is.SameAs( services.GetRequiredService<BrowserOtlpLogExporter>() ) );
 							 Assert.That( services.GetServices<Microsoft.Extensions.Logging.ILoggerProvider>().OfType<BrowserOtlpLoggerProvider>().Count(), Is.EqualTo( 1 ) );
-							 Assert.That( services.GetRequiredService<BrowserTelemetryModule>(), Is.SameAs( services.GetRequiredService<BrowserTelemetryModule>() ) );
-							 Assert.That( services.GetRequiredService<IJakarTelemetry>(),      Is.Not.Null );
+							 Assert.That( services.GetRequiredService<BrowserTelemetryModule>(),                                                            Is.SameAs( services.GetRequiredService<BrowserTelemetryModule>() ) );
+							 Assert.That( services.GetRequiredService<IJakarTelemetry>(),                                                                   Is.Not.Null );
 						 } );
 	}
 
-	[Test]
-	public async Task Options_DefaultToTheAppOriginAndBrowserSettings()
+	[Test] public async Task Options_DefaultToTheAppOriginAndBrowserSettings()
 	{
 		await using ServiceProvider services = Build();
 
@@ -46,23 +44,22 @@ public sealed class JakarTelemetryWebAssemblyExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( options.Endpoint,                              Is.EqualTo( new Uri( "https://app.test/" ) ) );
-							 Assert.That( options.PersistFailedExports,                  Is.False );
-							 Assert.That( options.DetectAbnormalTermination,             Is.False );
-							 Assert.That( options.EnableTraces,                          Is.False );
-							 Assert.That( options.EnableMetrics,                         Is.False );
-							 Assert.That( options.DeploymentEnvironment,                 Is.EqualTo( "Staging" ) );
+							 Assert.That( options.Endpoint,                               Is.EqualTo( new Uri( "https://app.test/" ) ) );
+							 Assert.That( options.PersistFailedExports,                   Is.False );
+							 Assert.That( options.DetectAbnormalTermination,              Is.False );
+							 Assert.That( options.EnableTraces,                           Is.False );
+							 Assert.That( options.EnableMetrics,                          Is.False );
+							 Assert.That( options.DeploymentEnvironment,                  Is.EqualTo( "Staging" ) );
 							 Assert.That( options.ResourceAttributes["os.type"],          Is.EqualTo( "browser" ) );
 							 Assert.That( options.ResourceAttributes["browser.language"], Is.EqualTo( CultureInfo.CurrentUICulture.Name ) );
 						 } );
 	}
 
-	[Test]
-	public async Task Options_ConfigurationAndCallbackWin()
+	[Test] public async Task Options_ConfigurationAndCallbackWin()
 	{
 		await using ServiceProvider services = Build( static o =>
 													  {
-														  o.EnableTraces = true;
+														  o.EnableTraces                  = true;
 														  o.ResourceAttributes["os.type"] = "custom";
 													  },
 													  ( "JakarTelemetry:Endpoint", "https://telemetry.test/" ),
@@ -72,15 +69,14 @@ public sealed class JakarTelemetryWebAssemblyExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( options.Endpoint,                     Is.EqualTo( new Uri( "https://telemetry.test/" ) ) );
-							 Assert.That( options.DeploymentEnvironment,        Is.EqualTo( "Production" ) );
-							 Assert.That( options.EnableTraces,                 Is.True );
+							 Assert.That( options.Endpoint,                      Is.EqualTo( new Uri( "https://telemetry.test/" ) ) );
+							 Assert.That( options.DeploymentEnvironment,         Is.EqualTo( "Production" ) );
+							 Assert.That( options.EnableTraces,                  Is.True );
 							 Assert.That( options.ResourceAttributes["os.type"], Is.EqualTo( "custom" ) );
 						 } );
 	}
 
-	[Test]
-	public async Task Start_RestoresExporterAndStartsRuntime()
+	[Test] public async Task Start_RestoresExporterAndStartsRuntime()
 	{
 		await using ServiceProvider services = Build();
 
@@ -88,7 +84,7 @@ public sealed class JakarTelemetryWebAssemblyExtensionsTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( services.GetRequiredService<JakarTelemetryRuntime>().IsStarted,                                        Is.True );
+							 Assert.That( services.GetRequiredService<JakarTelemetryRuntime>().IsStarted,                              Is.True );
 							 Assert.That( ( (FakeJsRuntime)services.GetRequiredService<IJSRuntime>() ).Module.CallsTo( "storageGet" ), Is.Not.Empty );
 						 } );
 

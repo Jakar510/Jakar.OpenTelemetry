@@ -17,27 +17,16 @@ namespace Jakar.OpenTelemetry.Api.Endpoints;
 ///         server sheds load with <c>503 + Retry-After</c> instead of buffering, so clients upload "when the server can accept them".
 ///     </para>
 /// </summary>
-public sealed class TelemetryImageReceiver : IDisposable
+public sealed class TelemetryImageReceiver( TelemetryImageStore             store,
+											OtlpIngestAuthorizer            authorizer,
+											TelemetryChangeNotifier         notifier,
+											IOptions<OtlpIngestOptions>     options,
+											ILogger<TelemetryImageReceiver> logger ) : IDisposable
 {
-	private readonly TelemetryImageStore             _store;
-	private readonly OtlpIngestAuthorizer            _authorizer;
-	private readonly TelemetryChangeNotifier         _notifier;
-	private readonly ILogger<TelemetryImageReceiver> _logger;
-	private readonly SemaphoreSlim                   _slots;
-	private readonly int                             _maxBytes;
-	private readonly string                          _retryAfter;
+	private readonly SemaphoreSlim _slots      = new(options.Value.MaxConcurrentImageUploads, options.Value.MaxConcurrentImageUploads);
+	private readonly int           _maxBytes   = options.Value.MaxImageBytes;
+	private readonly string        _retryAfter = options.Value.RetryAfterSeconds.ToString( System.Globalization.CultureInfo.InvariantCulture );
 
-
-	public TelemetryImageReceiver( TelemetryImageStore store, OtlpIngestAuthorizer authorizer, TelemetryChangeNotifier notifier, IOptions<OtlpIngestOptions> options, ILogger<TelemetryImageReceiver> logger )
-	{
-		_store      = store;
-		_authorizer = authorizer;
-		_notifier   = notifier;
-		_logger     = logger;
-		_slots      = new SemaphoreSlim( options.Value.MaxConcurrentImageUploads, options.Value.MaxConcurrentImageUploads );
-		_maxBytes   = options.Value.MaxImageBytes;
-		_retryAfter = options.Value.RetryAfterSeconds.ToString( System.Globalization.CultureInfo.InvariantCulture );
-	}
 
 	public void Dispose() => _slots.Dispose();
 
@@ -47,7 +36,7 @@ public sealed class TelemetryImageReceiver : IDisposable
 		CancellationToken token   = context.RequestAborted;
 		HttpRequest       request = context.Request;
 
-		if ( !_authorizer.IsAuthorized( request.Headers ) ) { return TypedResults.Problem( _authorizer.FailureMessage, statusCode: StatusCodes.Status401Unauthorized ); }
+		if ( !authorizer.IsAuthorized( request.Headers ) ) { return TypedResults.Problem( authorizer.FailureMessage, statusCode: StatusCodes.Status401Unauthorized ); }
 
 		if ( id == Guid.Empty ) { return TypedResults.Problem( "Image id must not be empty", statusCode: StatusCodes.Status400BadRequest ); }
 
@@ -75,10 +64,10 @@ public sealed class TelemetryImageReceiver : IDisposable
 
 			string fileName = ImageTag.SanitizeFileName( Uri.UnescapeDataString( request.Headers[LogTags.FILE_NAME_HEADER].ToString() ) );
 
-			switch ( await _store.SaveAsync( id, fileName, contentType, data, sha256, token ) )
+			switch ( await store.SaveAsync( id, fileName, contentType, data, sha256, token ) )
 			{
 				case ImageSaveResult.Created:
-					_notifier.AddImages( 1 );
+					notifier.AddImages( 1 );
 					return TypedResults.Created( $"{LogTags.IMAGE_ROUTE}/{id:D}" );
 
 				case ImageSaveResult.AlreadyExists:
@@ -93,7 +82,7 @@ public sealed class TelemetryImageReceiver : IDisposable
 		catch ( OperationCanceledException ) when ( token.IsCancellationRequested ) { return TypedResults.StatusCode( StatusCodes.Status499ClientClosedRequest ); }
 		catch ( Exception e ) when ( OtlpFailure.IsRetryable( e ) )
 		{
-			_logger.LogWarning( e, "Transient failure storing image {ImageId}, client asked to retry", id );
+			logger.LogWarning( e, "Transient failure storing image {ImageId}, client asked to retry", id );
 			return RetryLater( context, OtlpFailure.RETRYABLE_MESSAGE );
 		}
 		finally
@@ -105,9 +94,9 @@ public sealed class TelemetryImageReceiver : IDisposable
 
 	public async Task<IResult> HeadAsync( Guid id, HttpContext context )
 	{
-		if ( !_authorizer.IsAuthorized( context.Request.Headers ) ) { return TypedResults.StatusCode( StatusCodes.Status401Unauthorized ); }
+		if ( !authorizer.IsAuthorized( context.Request.Headers ) ) { return TypedResults.StatusCode( StatusCodes.Status401Unauthorized ); }
 
-		return await _store.ExistsAsync( id, context.RequestAborted )
+		return await store.ExistsAsync( id, context.RequestAborted )
 				   ? TypedResults.Ok()
 				   : TypedResults.NotFound();
 	}
@@ -115,7 +104,7 @@ public sealed class TelemetryImageReceiver : IDisposable
 	/// <summary> Serves a stored image to the dashboard. Hardened so the response can only ever be rendered as an inert image. </summary>
 	public async Task<IResult> GetAsync( Guid id, HttpContext context )
 	{
-		if ( await _store.GetAsync( id, context.RequestAborted ) is not { } image ) { return TypedResults.NotFound(); }
+		if ( await store.GetAsync( id, context.RequestAborted ) is not { } image ) { return TypedResults.NotFound(); }
 
 		IHeaderDictionary headers = context.Response.Headers;
 		headers.CacheControl          = "private, max-age=31536000, immutable"; // ids are immutable

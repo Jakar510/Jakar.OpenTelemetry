@@ -12,8 +12,7 @@ public abstract class LiveApiFixture
 	protected virtual void ConfigureApi( TestApi api ) { }
 
 
-	[OneTimeSetUp]
-	public async Task StartApiAsync()
+	[OneTimeSetUp] public async Task StartApiAsync()
 	{
 		Api = new TestApi( await TestDatabase.CreateDatabaseAsync() );
 		ConfigureApi( Api );
@@ -21,8 +20,7 @@ public abstract class LiveApiFixture
 		Telemetry = new TelemetryDatabase( Api.ConnectionString );
 	}
 
-	[OneTimeTearDown]
-	public async Task StopApiAsync()
+	[OneTimeTearDown] public async Task StopApiAsync()
 	{
 		await Telemetry.DisposeAsync();
 		await Api.DisposeAsync();
@@ -34,16 +32,16 @@ public abstract class LiveApiFixture
 
 	/// <summary> Environment for a sample using the generic <c>JakarTelemetry</c> configuration section. </summary>
 	private protected Dictionary<string, string?> ClientEnvironment( string serviceName, Uri? endpoint = null ) => new()
-																												  {
-																													  ["JakarTelemetry__Endpoint"]         = ( endpoint ?? Api.HttpAddress ).ToString(),
-																													  ["JakarTelemetry__ImageEndpoint"]    = Api.HttpAddress.ToString(),
-																													  ["JakarTelemetry__ApiKey"]           = TestApi.API_KEY,
-																													  ["JakarTelemetry__ServiceName"]      = serviceName,
-																													  ["JakarTelemetry__StorageDirectory"] = Storage.Path,
-																													  ["JakarTelemetry__ExportInterval"]   = "00:00:00.500",
-																													  ["JakarTelemetry__FlushTimeout"]     = "00:00:05",
-																													  ["DOTNET_ENVIRONMENT"]               = "Development",
-																													  ["ASPNETCORE_ENVIRONMENT"]           = "Development",
-																													  ["Logging__LogLevel__Default"]       = "Information"
-																												  };
+																													   {
+																														   ["JakarTelemetry__Endpoint"]         = ( endpoint ?? Api.HttpAddress ).ToString(),
+																														   ["JakarTelemetry__ImageEndpoint"]    = Api.HttpAddress.ToString(),
+																														   ["JakarTelemetry__ApiKey"]           = TestApi.API_KEY,
+																														   ["JakarTelemetry__ServiceName"]      = serviceName,
+																														   ["JakarTelemetry__StorageDirectory"] = Storage.Path,
+																														   ["JakarTelemetry__ExportInterval"]   = "00:00:00.500",
+																														   ["JakarTelemetry__FlushTimeout"]     = "00:00:05",
+																														   ["DOTNET_ENVIRONMENT"]               = "Development",
+																														   ["ASPNETCORE_ENVIRONMENT"]           = "Development",
+																														   ["Logging__LogLevel__Default"]       = "Information"
+																													   };
 }
