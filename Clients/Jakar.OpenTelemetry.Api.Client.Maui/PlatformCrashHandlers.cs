@@ -73,7 +73,7 @@ internal static partial class PlatformCrashHandlers
 		Runtime.MarshalManagedException += ( _, args ) => reporter.ReportException( args.Exception, "apple.marshal_managed_exception", isTerminating: true );
 
 		// An Objective-C exception about to be converted into a managed ObjCException: usually recoverable, so recorded as an error.
-		Runtime.MarshalObjectiveCException += ( _, args ) => ReportNSException( args.Exception, "apple.marshal_objective_c_exception", isTerminating: false );
+		Runtime.MarshalObjectiveCException += ( _, args ) => ReportNsException( args.Exception, "apple.marshal_objective_c_exception", isTerminating: false );
 
 		// Uncaught Objective-C exceptions (UIKit/AppKit assertions, NSInvalidArgumentException, ...). Chain to any previously installed handler.
 		s_previousHandler = NSGetUncaughtExceptionHandler();
@@ -85,7 +85,7 @@ internal static partial class PlatformCrashHandlers
 	{
 		try
 		{
-			if ( Runtime.GetNSObject<NSException>( exceptionHandle ) is { } exception ) { ReportNSException( exception, "apple.uncaught_objective_c_exception", isTerminating: true ); }
+			if ( Runtime.GetNSObject<NSException>( exceptionHandle ) is { } exception ) { ReportNsException( exception, "apple.uncaught_objective_c_exception", isTerminating: true ); }
 		}
 		catch ( Exception ) { } // never interfere with the crash itself
 		finally
@@ -94,29 +94,34 @@ internal static partial class PlatformCrashHandlers
 		}
 	}
 
-	private static void ReportNSException( NSException exception, string source, bool isTerminating ) => s_reporter?.ReportNative( source, exception.Name?.ToString() ?? "NSException", exception.Reason, string.Join( '\n', exception.CallStackSymbols ), isTerminating );
+	private static void ReportNsException( NSException exception, string source, bool isTerminating ) => s_reporter?.ReportNative( source, exception.Name?.ToString() ?? "NSException", exception.Reason, string.Join( '\n', exception.CallStackSymbols ), isTerminating );
 
 	#elif WINDOWS
-    private static void InstallPlatform( JakarCrashReporter reporter, ILogger logger )
-    {
-        // WinUI's Application.UnhandledException is attached in OnLaunched (see AttachWinUI); AppDomain handling comes from the core runtime.
-        logger.LogDebug( "Windows crash handlers will attach when the WinUI application launches" );
-    }
+	private static void InstallPlatform( JakarCrashReporter reporter, ILogger logger )
+	{
+		// WinUI's Application.UnhandledException is attached in OnLaunched (see AttachWinUI); AppDomain handling comes from the core runtime.
+		logger.LogDebug( "Windows crash handlers will attach when the WinUI application launches" );
+	}
 
-    /// <summary> Unhandled exceptions on the WinUI dispatcher. The WinRT message often carries details the managed exception lacks. </summary>
-    public static void AttachWinUI( Microsoft.UI.Xaml.Application application ) =>
-        application.UnhandledException += ( _, args ) =>
-                                          {
-                                              if ( s_reporter is not { } reporter ) { return; }
+	/// <summary> Unhandled exceptions on the WinUI dispatcher. Safe to call more than once: the handler is attached a single time. </summary>
+	public static void AttachWinUI( Microsoft.UI.Xaml.Application application )
+	{
+		application.UnhandledException -= OnWinUIUnhandledException; // a second launch/attach must not double-report
+		application.UnhandledException += OnWinUIUnhandledException;
+	}
 
-                                              if ( args.Exception is { } exception )
-                                              {
-                                                  reporter.ReportException( exception, "winui.unhandled_exception", isTerminating: !args.Handled, new Dictionary<string, string> { ["winrt.message"] = args.Message ?? string.Empty } );
-                                              }
-                                              else { reporter.ReportNative( "winui.unhandled_exception", "WinRTException", args.Message, null, isTerminating: !args.Handled ); }
-                                          };
+	private static void OnWinUIUnhandledException( object _, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args ) => ReportWinUIException( s_reporter, args.Exception, args.Message, args.Handled );
 
 	#else
     private static void InstallPlatform( JakarCrashReporter reporter, ILogger logger ) { }
 	#endif
+
+	/// <summary> Reports a WinUI <c>Application.UnhandledException</c>. Platform-neutral so it can be tested; the WinRT message often carries details the managed exception lacks. </summary>
+	internal static void ReportWinUIException( JakarCrashReporter? reporter, Exception? exception, string? message, bool handled )
+	{
+		if ( reporter is null ) { return; }
+
+		if ( exception is not null ) { reporter.ReportException( exception, "winui.unhandled_exception", isTerminating: !handled, new Dictionary<string, string> { ["winrt.message"] = message ?? string.Empty } ); }
+		else { reporter.ReportNative( "winui.unhandled_exception", "WinRTException", message, null, isTerminating: !handled ); }
+	}
 }
