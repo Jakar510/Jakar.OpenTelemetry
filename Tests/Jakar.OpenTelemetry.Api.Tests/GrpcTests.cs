@@ -89,28 +89,28 @@ public sealed class OtlpExceptionInterceptorTests
 
 	[Test] public async Task Success_PassesThrough() => Assert.That( await Invoke( static () => Task.FromResult( "ok" ) ), Is.EqualTo( "ok" ) );
 
-	[Test] public void RpcException_IsRethrownUnchanged()
+	[Test] public async Task RpcException_IsRethrownUnchanged()
 	{
 		RpcException original = new(new Status( StatusCode.Unauthenticated, "no key" ));
 
-		Assert.That( Assert.ThrowsAsync<RpcException>( () => Invoke( () => throw original ) ), Is.SameAs( original ) );
+		await Assert.ThatAsync( () => Assert.ThrowsAsync<RpcException>( () => Invoke( () => throw original ) ), Is.SameAs( original ) );
 	}
 
-	[Test] public void ClientCancellation_BecomesCancelled()
+	[Test] public async Task ClientCancellation_BecomesCancelled()
 	{
 		using CancellationTokenSource cancelled = new();
 		cancelled.Cancel();
 
-		RpcException? exception = Assert.ThrowsAsync<RpcException>( () => Invoke( static () => throw new OperationCanceledException(), cancelled.Token ) );
+		RpcException? exception = await Assert.ThrowsAsync<RpcException>( () => Invoke( static () => throw new OperationCanceledException(), cancelled.Token ) );
 
 		Assert.That( exception!.StatusCode, Is.EqualTo( StatusCode.Cancelled ) );
 	}
 
-	[Test] public void CancellationWithoutClientCancel_IsInternal() => Assert.That( Assert.ThrowsAsync<RpcException>( () => Invoke( static () => throw new OperationCanceledException() ) )!.StatusCode, Is.EqualTo( StatusCode.Internal ) );
+	[Test] public async Task CancellationWithoutClientCancel_IsInternal() => await Assert.ThatAsync( async () => ( ( await Assert.ThrowsAsync<RpcException>( () => Invoke( static () => throw new OperationCanceledException() ) ) )! ).StatusCode, Is.EqualTo( StatusCode.Internal ) );
 
-	[Test] public void TransientStorageFailure_BecomesUnavailableWithRetryInfo()
+	[Test] public async Task TransientStorageFailure_BecomesUnavailableWithRetryInfo()
 	{
-		RpcException? exception = Assert.ThrowsAsync<RpcException>( () => Invoke( static () => throw new TimeoutException( "db" ) ) );
+		RpcException? exception = await Assert.ThrowsAsync<RpcException>( () => Invoke( static () => throw new TimeoutException( "db" ) ) );
 
 		Assert.Multiple( () =>
 						 {
@@ -121,9 +121,9 @@ public sealed class OtlpExceptionInterceptorTests
 						 } );
 	}
 
-	[Test] public void OtherFailure_BecomesInternalWithoutDetails()
+	[Test] public async Task OtherFailure_BecomesInternalWithoutDetails()
 	{
-		RpcException? exception = Assert.ThrowsAsync<RpcException>( () => Invoke( static () => throw new InvalidOperationException( "secret internal detail" ) ) );
+		RpcException? exception = await Assert.ThrowsAsync<RpcException>( () => Invoke( static () => throw new InvalidOperationException( "secret internal detail" ) ) );
 
 		Assert.Multiple( () =>
 						 {
@@ -138,8 +138,8 @@ public sealed class OtlpExceptionInterceptorTests
 public sealed class OtlpGrpcServicesTests
 {
 	// Never contacted: the requests below are rejected or empty before any storage access.
-	private static readonly TelemetryIngestService Ingest     = new(NpgsqlDataSource.Create( "Host=127.0.0.1;Port=1" ), new TelemetryChangeNotifier());
-	private static readonly OtlpIngestAuthorizer   Authorizer = new(Options.Create( new OtlpIngestOptions { ApiKey = "k" } ));
+	private static readonly TelemetryIngestService _s_ingest     = new(NpgsqlDataSource.Create( "Host=127.0.0.1;Port=1" ), new TelemetryChangeNotifier());
+	private static readonly OtlpIngestAuthorizer   _s_authorizer = new(Options.Create( new OtlpIngestOptions { ApiKey = "k" } ));
 
 	private static TestServerCallContext Context( string? key ) => new(key is null
 																		   ? [ ]
@@ -150,9 +150,9 @@ public sealed class OtlpGrpcServicesTests
 	{
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( Assert.Throws<RpcException>( () => new OtlpLogsService( Ingest, Authorizer ).Export( new ExportLogsServiceRequest(), Context( null ) ) )!.StatusCode,       Is.EqualTo( StatusCode.Unauthenticated ) );
-							 Assert.That( Assert.Throws<RpcException>( () => new OtlpTraceService( Ingest, Authorizer ).Export( new ExportTraceServiceRequest(), Context( "bad" ) ) )!.StatusCode,    Is.EqualTo( StatusCode.Unauthenticated ) );
-							 Assert.That( Assert.Throws<RpcException>( () => new OtlpMetricsService( Ingest, Authorizer ).Export( new ExportMetricsServiceRequest(), Context( null ) ) )!.StatusCode, Is.EqualTo( StatusCode.Unauthenticated ) );
+							 Assert.That( Assert.Throws<RpcException>( () => new OtlpLogsService( _s_ingest, _s_authorizer ).Export( new ExportLogsServiceRequest(), Context( null ) ) )!.StatusCode,       Is.EqualTo( StatusCode.Unauthenticated ) );
+							 Assert.That( Assert.Throws<RpcException>( () => new OtlpTraceService( _s_ingest, _s_authorizer ).Export( new ExportTraceServiceRequest(), Context( "bad" ) ) )!.StatusCode,    Is.EqualTo( StatusCode.Unauthenticated ) );
+							 Assert.That( Assert.Throws<RpcException>( () => new OtlpMetricsService( _s_ingest, _s_authorizer ).Export( new ExportMetricsServiceRequest(), Context( null ) ) )!.StatusCode, Is.EqualTo( StatusCode.Unauthenticated ) );
 						 } );
 	}
 
@@ -160,9 +160,9 @@ public sealed class OtlpGrpcServicesTests
 	{
 		await Assert.MultipleAsync( async () =>
 									{
-										Assert.That( await new OtlpLogsService( Ingest, Authorizer ).Export( new ExportLogsServiceRequest(), Context( "k" ) ),       Is.EqualTo( new ExportLogsServiceResponse() ) );
-										Assert.That( await new OtlpTraceService( Ingest, Authorizer ).Export( new ExportTraceServiceRequest(), Context( "k" ) ),     Is.EqualTo( new ExportTraceServiceResponse() ) );
-										Assert.That( await new OtlpMetricsService( Ingest, Authorizer ).Export( new ExportMetricsServiceRequest(), Context( "k" ) ), Is.EqualTo( new ExportMetricsServiceResponse() ) );
+										Assert.That( await new OtlpLogsService( _s_ingest, _s_authorizer ).Export( new ExportLogsServiceRequest(), Context( "k" ) ),       Is.EqualTo( new ExportLogsServiceResponse() ) );
+										Assert.That( await new OtlpTraceService( _s_ingest, _s_authorizer ).Export( new ExportTraceServiceRequest(), Context( "k" ) ),     Is.EqualTo( new ExportTraceServiceResponse() ) );
+										Assert.That( await new OtlpMetricsService( _s_ingest, _s_authorizer ).Export( new ExportMetricsServiceRequest(), Context( "k" ) ), Is.EqualTo( new ExportMetricsServiceResponse() ) );
 									} );
 		await Task.CompletedTask;
 	}

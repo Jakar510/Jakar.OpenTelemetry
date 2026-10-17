@@ -1,3 +1,4 @@
+using Jakar.Extensions;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -5,7 +6,8 @@ using Microsoft.Extensions.Options;
 namespace Jakar.OpenTelemetry.Api.Client.Crashes;
 
 /// <summary> A crash captured at the moment it happened and persisted synchronously, so it can be reported on the next launch even if the export never got out. </summary>
-public sealed record CrashReport( Guid                        ID,
+[JsonModel]
+public sealed partial record CrashReport( Guid                        ID,
 								  DateTimeOffset              TimestampUtc,
 								  string                      SessionID,
 								  string                      Source,
@@ -16,7 +18,8 @@ public sealed record CrashReport( Guid                        ID,
 								  Dictionary<string, string>? Details );
 
 /// <summary> Session bookkeeping used to detect a previous session that ended without a clean shutdown and without a crash report. </summary>
-public sealed record SessionMarker( string         SessionID,
+[JsonModel]
+public sealed partial record SessionMarker( string         SessionID,
 									DateTimeOffset StartedUtc,
 									int            ProcessID,
 									string?        ServiceVersion );
@@ -57,7 +60,7 @@ public sealed class FileSystemCrashReportStore( IOptions<JakarTelemetryOptions> 
 		lock ( _lock )
 		{
 			Directory.CreateDirectory( _directory );
-			WriteThrough( Path.Combine( _directory, report.ID.ToString( "N" ) + ".json" ), JsonSerializer.SerializeToUtf8Bytes( report, ClientJsonContext.Default.CrashReport ) );
+			WriteThrough( Path.Combine( _directory, report.ID.ToString( "N" ) + ".json" ), report.ToJsonUtf8() );
 		}
 	}
 
@@ -73,7 +76,7 @@ public sealed class FileSystemCrashReportStore( IOptions<JakarTelemetryOptions> 
 			{
 				try
 				{
-					if ( JsonSerializer.Deserialize( File.ReadAllBytes( path ), ClientJsonContext.Default.CrashReport ) is { } report ) { reports.Add( report ); }
+					if ( CrashReport.FromJson( File.ReadAllBytes( path ) ) is { } report ) { reports.Add( report ); }
 				}
 				catch ( Exception e ) when ( e is JsonException or IOException )
 				{
@@ -98,7 +101,7 @@ public sealed class FileSystemCrashReportStore( IOptions<JakarTelemetryOptions> 
 			try
 			{
 				return File.Exists( _sessionPath )
-						   ? JsonSerializer.Deserialize( File.ReadAllBytes( _sessionPath ), ClientJsonContext.Default.SessionMarker )
+						   ? SessionMarker.FromJson( File.ReadAllBytes( _sessionPath ) )
 						   : null;
 			}
 			catch ( Exception e ) when ( e is JsonException or IOException )
@@ -115,7 +118,7 @@ public sealed class FileSystemCrashReportStore( IOptions<JakarTelemetryOptions> 
 		{
 			_current = marker;
 			Directory.CreateDirectory( Path.GetDirectoryName( _sessionPath )! );
-			WriteThrough( _sessionPath, JsonSerializer.SerializeToUtf8Bytes( marker, ClientJsonContext.Default.SessionMarker ) );
+			WriteThrough( _sessionPath, marker.ToJsonUtf8() );
 		}
 	}
 

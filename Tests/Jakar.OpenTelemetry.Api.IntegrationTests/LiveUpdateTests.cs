@@ -26,7 +26,6 @@ public sealed class LiveUpdateTests : ApiFixture
 																							   options.HttpMessageHandlerFactory = _ => Api.Server.CreateHandler();
 																							   if ( cookie is not null ) { options.Headers["Cookie"] = cookie; }
 																						   } )
-																				 .AddNewtonsoftJsonProtocol()
 																				 .Build();
 
 
@@ -51,11 +50,11 @@ public sealed class LiveUpdateTests : ApiFixture
 						 } );
 	}
 
-	[Test] public void Hub_RequiresDashboardLogin()
+	[Test] public async Task Hub_RequiresDashboardLogin()
 	{
 		HubConnection connection = Connect( null );
 
-		HttpRequestException? exception = Assert.ThrowsAsync<HttpRequestException>( () => connection.StartAsync() );
+		HttpRequestException? exception = await Assert.ThrowsAsync<HttpRequestException>( () => connection.StartAsync() );
 
 		Assert.That( exception!.StatusCode, Is.EqualTo( HttpStatusCode.Unauthorized ) );
 	}
@@ -65,6 +64,6 @@ public sealed class LiveUpdateTests : ApiFixture
 		await using HubConnection connection = Connect( await LoginCookieAsync() );
 		await connection.StartAsync();
 
-		Assert.ThrowsAsync<HubException>( () => connection.InvokeAsync( nameof(ITelemetryHub.TelemetryUpdated), new TelemetryRealtimeEventDto( DateTimeOffset.UtcNow, 1, 1, 1, "forged" ) ) );
+		await Assert.ThrowsAsync<HubException>( () => connection.InvokeAsync( nameof(ITelemetryHub.TelemetryUpdated), new TelemetryRealtimeEventDto( DateTimeOffset.UtcNow, 1, 1, 1, "forged" ) ) );
 	}
 }

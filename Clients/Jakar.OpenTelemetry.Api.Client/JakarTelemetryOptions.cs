@@ -1,4 +1,10 @@
+using System.Collections.Concurrent;
+using System.ComponentModel;
+using System.Diagnostics.Metrics;
+using System.Globalization;
 using System.Reflection;
+using Jakar.Extensions;
+using Microsoft.Extensions.Options;
 
 namespace Jakar.OpenTelemetry.Api.Client;
 
@@ -12,7 +18,7 @@ public enum OtlpTransport
 }
 
 /// <summary> Configuration for the Jakar.OpenTelemetry client. Bound from the <see cref="SECTION_NAME"/> configuration section, then the code callback. </summary>
-public sealed class JakarTelemetryOptions
+public sealed class JakarTelemetryOptions : IOptions<JakarTelemetryOptions>
 {
 	public const string SECTION_NAME = "JakarTelemetry";
 
@@ -47,8 +53,8 @@ public sealed class JakarTelemetryOptions
 	/// <summary> Additional <see cref="System.Diagnostics.ActivitySource"/> names to export. </summary>
 	public List<string> ActivitySources { get; set; } = [ ];
 
-	/// <summary> Additional <see cref="System.Diagnostics.Metrics.Meter"/> names to export. </summary>
-	public List<string> Meters { get; set; } = [ ];
+	/// <summary> Additional <see cref="System.Diagnostics.Metrics.Meter"/>s to export. <c>{AppName}</c> and <c>{AppName}.*</c> are always exported. </summary>
+	public List<TelemetryMeterOptions> Meters { get; set; } = [ ];
 
 	/// <summary> Batch interval for logs and traces, and the export interval for metrics. </summary>
 	public TimeSpan ExportInterval { get; set; } = TimeSpan.FromSeconds( 5 );
@@ -72,8 +78,39 @@ public sealed class JakarTelemetryOptions
 
 	public ImageUploadOptions Images { get; set; } = new();
 
+	/// <summary>
+	///     Exported as <c>service.version</c>; the entry assembly's version when not set. A string, not <see cref="AppVersion"/>: the configuration binding
+	///     generator ignores <see cref="TypeConverterAttribute"/> and would bind <see cref="AppVersion"/> member by member.
+	/// </summary>
+	public string? Version     { get; set; }
+	public Guid    AppID       { get; set; }
+	public string  AppName     { get; set; } = string.Empty;
+	public string? PackageName { get; set; }
+	// Methods, not properties: the configuration binding generator also walks internal properties.
+	internal AppInformation GetAppInfo() => new(Version is null
+													? GetAssemblyVersion()
+													: AppVersion.Parse( Version, CultureInfo.InvariantCulture ),
+												AppID,
+												AppName,
+												PackageName);
 
+	/// <summary> The entry assembly's version. Not <c>GetCallingAssembly()</c>: that is this library, whose version the app would report as its own. </summary>
+	internal static AppVersion GetAssemblyVersion() => Assembly.GetEntryAssembly()?.GetName() is { Version: not null } entry
+														   ? AppVersion.FromAssembly( entry )
+														   : AppVersion.Default;
 	internal Uri ImageBaseAddress => ImageEndpoint ?? Endpoint ?? throw new InvalidOperationException( $"{SECTION_NAME}:{nameof(Endpoint)} is required" );
+
+	JakarTelemetryOptions IOptions<JakarTelemetryOptions>.Value => this;
+
+	private readonly ConcurrentDictionary<string, string> _categories = new(StringComparer.Ordinal); // instance: the names depend on AppName
+
+	public string GetName( string name ) => _categories.GetOrAdd( name,
+																  static ( x, app ) => x == app || x.StartsWith( $"{app}.", StringComparison.Ordinal )
+																						   ? x
+																						   : $"{app}.{x}",
+																  AppName );
+	public string GetName( Type type ) => GetName( type.FullName              ?? type.Name );
+	public string GetName<TCategory>() => GetName( typeof(TCategory).FullName ?? typeof(TCategory).Name );
 
 	internal string ResolveStorageDirectory() => StorageDirectory ??= Path.Combine( Environment.GetFolderPath( Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create ), "Jakar.OpenTelemetry", SanitizePathSegment( ServiceName ) );
 
@@ -93,6 +130,20 @@ public sealed class JakarTelemetryOptions
 
 		if ( string.IsNullOrWhiteSpace( ServiceName ) ) { errors.Add( $"{nameof(ServiceName)} is required" ); }
 
+		if ( string.IsNullOrWhiteSpace( AppName ) ) { errors.Add( $"{nameof(AppName)} is required" ); }
+
+		if ( Version is not null &&
+			 !AppVersion.TryParse( Version, CultureInfo.InvariantCulture, out _ ) ) { errors.Add( $"{nameof(Version)} '{Version}' is not a valid version" ); }
+
+		HashSet<string> meters = new(StringComparer.Ordinal);
+
+		foreach ( TelemetryMeterOptions meter in Meters )
+		{
+			if ( string.IsNullOrWhiteSpace( meter.Name ) ) { errors.Add( $"{nameof(Meters)} entries need a {nameof(TelemetryMeterOptions.Name)}" ); }
+			else if ( meter.Name == AppName ) { errors.Add( $"{nameof(Meters)} must not list {nameof(AppName)}, it is always exported" ); }
+			else if ( !meters.Add( meter.Name ) ) { errors.Add( $"{nameof(Meters)} lists '{meter.Name}' more than once" ); }
+		}
+
 		if ( ExportInterval <= TimeSpan.Zero ||
 			 ExportTimeout  <= TimeSpan.Zero ||
 			 FlushTimeout   <= TimeSpan.Zero ) { errors.Add( "Export interval and timeouts must be positive" ); }
@@ -108,6 +159,32 @@ public sealed class JakarTelemetryOptions
 		return string.Concat( value.Select( c => Array.IndexOf( invalid, c ) >= 0
 													 ? '_'
 													 : c ) );
+	}
+}
+
+/// <summary> Configuration-bindable description of a <see cref="Meter"/>; see <see cref="MeterOptions"/>, which the binder cannot create. </summary>
+public sealed class TelemetryMeterOptions
+{
+	public  string                     Name               { get; set; } = string.Empty;
+	public  string?                    Version            { get; set; }
+	public  Dictionary<string, string> Tags               { get; set; } = new(StringComparer.Ordinal);
+	public  string?                    TelemetrySchemaUrl { get; set; }
+	private MeterOptions?              _options;
+
+
+	/// <summary> Lets code keep writing <c>options.Meters.Add( "Payments" )</c>. </summary>
+	public static implicit operator TelemetryMeterOptions( string       name ) => new() { Name = name };
+	public static implicit operator MeterOptions( TelemetryMeterOptions x )    => x.ToMeterOptions();
+
+	public MeterOptions ToMeterOptions()
+	{
+		_options                    ??= new MeterOptions( Name );
+		_options.Version            =   Version;
+		_options.TelemetrySchemaUrl =   TelemetrySchemaUrl;
+		_options.Tags = Tags.Count == 0
+							? null
+							: Tags.Select( static x => new KeyValuePair<string, object?>( x.Key, x.Value ) ).ToArray();
+		return _options;
 	}
 }
 

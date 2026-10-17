@@ -34,7 +34,7 @@ public sealed class TelemetryJsonTests
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( TelemetryJson.FromUnixNano( 0 ),                          Is.Null );
-							 Assert.That( TelemetryJson.FromUnixNano( Otlp.UnixNano( Otlp.Time ) ), Is.EqualTo( Otlp.Time ) );
+							 Assert.That( TelemetryJson.FromUnixNano( Otlp.UnixNano( Otlp.s_Time ) ), Is.EqualTo( Otlp.s_Time ) );
 							 Assert.That( TelemetryJson.FromUnixNano( 1_000_000_199 ),              Is.EqualTo( DateTimeOffset.UnixEpoch.AddTicks( 10_000_001 ) ), "sub-tick nanoseconds are truncated" );
 							 Assert.That( TelemetryJson.FromUnixNano( ulong.MaxValue ),             Is.Not.Null,                                                   "the largest OTLP timestamp is still representable" );
 						 } );
@@ -138,9 +138,9 @@ public sealed class TelemetryJsonTests
 										   {
 											   writer.WriteStartObject();
 											   TelemetryJson.WriteTimestamp( writer, "zero", 0 );
-											   TelemetryJson.WriteTimestamp( writer, "time", Otlp.UnixNano( Otlp.Time ) );
+											   TelemetryJson.WriteTimestamp( writer, "time", Otlp.UnixNano( Otlp.s_Time ) );
 											   TelemetryJson.WriteHex( writer, "empty", ByteString.Empty );
-											   TelemetryJson.WriteHex( writer, "id",    ByteString.CopyFrom( Otlp.SpanId ) );
+											   TelemetryJson.WriteHex( writer, "id",    ByteString.CopyFrom( Otlp.s_SpanId ) );
 											   TelemetryJson.WriteHex( writer, "huge",  ByteString.CopyFrom( new byte[200] ) );
 											   writer.WriteEndObject();
 										   } );
@@ -151,7 +151,7 @@ public sealed class TelemetryJsonTests
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( root.GetProperty( "zero" ).ValueKind,           Is.EqualTo( JsonValueKind.Null ) );
-							 Assert.That( root.GetProperty( "time" ).GetDateTimeOffset(), Is.EqualTo( Otlp.Time ) );
+							 Assert.That( root.GetProperty( "time" ).GetDateTimeOffset(), Is.EqualTo( Otlp.s_Time ) );
 							 Assert.That( root.GetProperty( "empty" ).ValueKind,          Is.EqualTo( JsonValueKind.Null ) );
 							 Assert.That( root.GetProperty( "id" ).GetString(),           Is.EqualTo( "a1a2a3a4a5a6a7a8" ) );
 							 Assert.That( root.GetProperty( "huge" ).GetString(),         Has.Length.EqualTo( 400 ), "ids longer than the stack buffer are still written" );
@@ -206,7 +206,7 @@ public sealed class TelemetryJsonTests
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( events!,                              Has.Length.EqualTo( 3 ) );
-							 Assert.That( events[0].TimeUtc,                    Is.EqualTo( Otlp.Time ) );
+							 Assert.That( events[0].TimeUtc,                    Is.EqualTo( Otlp.s_Time ) );
 							 Assert.That( events[0].Name,                       Is.EqualTo( "exception" ) );
 							 Assert.That( events[0].Attributes["k"],            Is.EqualTo( "v" ) );
 							 Assert.That( events[0].DroppedAttributesCount,     Is.EqualTo( 3 ) );
@@ -248,57 +248,57 @@ public sealed class TelemetryJsonTests
 	[Test] public void StringDictionaryConverter_RoundTrips()
 	{
 		ReadOnlyDictionary<string, string?> map  = Map( ( "a", "1" ), ( "b", null ) );
-		string                              json = (string)TelemetryJson.StringDictionaryConverter.ConvertToProvider( map )!;
+		string                              json = (string)TelemetryJson.s_StringDictionaryConverter.ConvertToProvider( map )!;
 
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( json,                                                                             Is.EqualTo( """{"a":"1","b":null}""" ) );
-							 Assert.That( TelemetryJson.StringDictionaryConverter.ConvertFromProvider( json ),              Is.EquivalentTo( map ) );
-							 Assert.That( TelemetryJson.StringDictionaryConverter.ConvertToProvider( TelemetryJson.Empty ), Is.EqualTo( "{}" ) );
+							 Assert.That( TelemetryJson.s_StringDictionaryConverter.ConvertFromProvider( json ),              Is.EquivalentTo( map ) );
+							 Assert.That( TelemetryJson.s_StringDictionaryConverter.ConvertToProvider( TelemetryJson.s_Empty ), Is.EqualTo( "{}" ) );
 						 } );
 	}
 
 	[Test] public void DoubleDictionaryConverter_RoundTripsAndHandlesNull()
 	{
 		ReadOnlyDictionary<double, double> quantiles = new(new Dictionary<double, double> { [0.5] = 1, [0.99] = double.NaN });
-		string                             json      = (string)TelemetryJson.DoubleDictionaryConverter.ConvertToProvider( quantiles )!;
+		string                             json      = (string)TelemetryJson.s_DoubleDictionaryConverter.ConvertToProvider( quantiles )!;
 
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( json,                                                                                                              Is.EqualTo( """{"0.5":1,"0.99":"NaN"}""" ) );
-							 Assert.That( ( (ReadOnlyDictionary<double, double>)TelemetryJson.DoubleDictionaryConverter.ConvertFromProvider( json )! )[0.5], Is.EqualTo( 1 ) );
-							 Assert.That( TelemetryJson.DoubleDictionaryConverter.ConvertToProvider( null ),                                                 Is.Null );
-							 Assert.That( TelemetryJson.WriteQuantiles( TelemetryJson.EmptyQuantiles ),                                                      Is.EqualTo( "{}" ) );
+							 Assert.That( ( (ReadOnlyDictionary<double, double>)TelemetryJson.s_DoubleDictionaryConverter.ConvertFromProvider( json )! )[0.5], Is.EqualTo( 1 ) );
+							 Assert.That( TelemetryJson.s_DoubleDictionaryConverter.ConvertToProvider( null ),                                                 Is.Null );
+							 Assert.That( TelemetryJson.WriteQuantiles( TelemetryJson.s_EmptyQuantiles ),                                                      Is.EqualTo( "{}" ) );
 						 } );
 	}
 
 	[Test] public void SpanEventAndLinkConverters_RoundTrip()
 	{
-		SpanEvent[] events = [ new(Otlp.Time, "e", Map( ( "k", "v" ) ), 1), new(null, "no-time", TelemetryJson.Empty) ];
+		SpanEvent[] events = [ new(Otlp.s_Time, "e", Map( ( "k", "v" ) ), 1), new(null, "no-time", TelemetryJson.s_Empty) ];
 		SpanLink[]  links  = [ new("t", "s", "a=b", Map( ( "k", null ) ), 1, 2) ];
 
-		string eventsJson = (string)TelemetryJson.SpanEventArrayConverter.ConvertToProvider( events )!;
-		string linksJson  = (string)TelemetryJson.SpanLinkArrayConverter.ConvertToProvider( links )!;
+		string eventsJson = (string)TelemetryJson.s_SpanEventArrayConverter.ConvertToProvider( events )!;
+		string linksJson  = (string)TelemetryJson.s_SpanLinkArrayConverter.ConvertToProvider( links )!;
 
-		SpanEvent[] eventsBack = (SpanEvent[])TelemetryJson.SpanEventArrayConverter.ConvertFromProvider( eventsJson )!;
-		SpanLink[]  linksBack  = (SpanLink[])TelemetryJson.SpanLinkArrayConverter.ConvertFromProvider( linksJson )!;
+		SpanEvent[] eventsBack = (SpanEvent[])TelemetryJson.s_SpanEventArrayConverter.ConvertFromProvider( eventsJson )!;
+		SpanLink[]  linksBack  = (SpanLink[])TelemetryJson.s_SpanLinkArrayConverter.ConvertFromProvider( linksJson )!;
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( eventsBack[0].TimeUtc,                                           Is.EqualTo( Otlp.Time ) );
+							 Assert.That( eventsBack[0].TimeUtc,                                           Is.EqualTo( Otlp.s_Time ) );
 							 Assert.That( eventsBack[0].Attributes["k"],                                   Is.EqualTo( "v" ) );
 							 Assert.That( eventsBack[1].TimeUtc,                                           Is.Null );
 							 Assert.That( linksBack[0].TraceState,                                         Is.EqualTo( "a=b" ) );
 							 Assert.That( linksBack[0].Flags,                                              Is.EqualTo( 1 ) );
 							 Assert.That( linksBack[0].DroppedAttributesCount,                             Is.EqualTo( 2 ) );
-							 Assert.That( TelemetryJson.SpanEventArrayConverter.ConvertToProvider( null ), Is.Null );
-							 Assert.That( TelemetryJson.SpanLinkArrayConverter.ConvertToProvider( null ),  Is.Null );
+							 Assert.That( TelemetryJson.s_SpanEventArrayConverter.ConvertToProvider( null ), Is.Null );
+							 Assert.That( TelemetryJson.s_SpanLinkArrayConverter.ConvertToProvider( null ),  Is.Null );
 						 } );
 	}
 
 	[Test] public void StringDictionaryComparer_ComparesByContent()
 	{
-		var                                 comparer = TelemetryJson.StringDictionaryComparer;
+		var                                 comparer = TelemetryJson.s_StringDictionaryComparer;
 		ReadOnlyDictionary<string, string?> a        = Map( ( "x", "1" ),  ( "y", null ) );
 		ReadOnlyDictionary<string, string?> b        = Map( ( "y", null ), ( "x", "1" ) );
 
@@ -319,7 +319,7 @@ public sealed class TelemetryJsonTests
 
 	[Test] public void DoubleDictionaryComparer_ComparesByContent()
 	{
-		var                                comparer = TelemetryJson.DoubleDictionaryComparer;
+		var                                comparer = TelemetryJson.s_DoubleDictionaryComparer;
 		ReadOnlyDictionary<double, double> a        = new(new Dictionary<double, double> { [0.5] = 1 });
 		ReadOnlyDictionary<double, double> b        = new(new Dictionary<double, double> { [0.5] = 1 });
 
@@ -329,7 +329,7 @@ public sealed class TelemetryJsonTests
 							 Assert.That( comparer.GetHashCode( a ),                                                                                       Is.EqualTo( comparer.GetHashCode( b ) ) );
 							 Assert.That( comparer.Equals( a,    new ReadOnlyDictionary<double, double>( new Dictionary<double, double> { [0.5] = 2 } ) ), Is.False );
 							 Assert.That( comparer.Equals( a,    new ReadOnlyDictionary<double, double>( new Dictionary<double, double> { [0.9] = 1 } ) ), Is.False );
-							 Assert.That( comparer.Equals( a,    TelemetryJson.EmptyQuantiles ),                                                           Is.False );
+							 Assert.That( comparer.Equals( a,    TelemetryJson.s_EmptyQuantiles ),                                                           Is.False );
 							 Assert.That( comparer.Equals( a,    null ),                                                                                   Is.False );
 							 Assert.That( comparer.Equals( null, null ),                                                                                   Is.True );
 							 Assert.That( comparer.GetHashCode( null! ),                                                                                   Is.Zero );
@@ -339,20 +339,20 @@ public sealed class TelemetryJsonTests
 	[Test] public void SpanArrayComparers_UseReferenceEquality()
 	{
 		SpanEvent[] events = [ ];
-		SpanLink[]  links  = [ new("t", "s", "", TelemetryJson.Empty) ];
+		SpanLink[]  links  = [ new("t", "s", "", TelemetryJson.s_Empty) ];
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( TelemetryJson.SpanEventArrayComparer.Equals( events, events ),                   Is.True );
-							 Assert.That( TelemetryJson.SpanEventArrayComparer.Equals( events, new SpanEvent[0] ),         Is.False );
-							 Assert.That( TelemetryJson.SpanEventArrayComparer.GetHashCode( events ),                      Is.Zero );
-							 Assert.That( TelemetryJson.SpanEventArrayComparer.GetHashCode( null! ),                       Is.Zero );
-							 Assert.That( TelemetryJson.SpanLinkArrayComparer.Equals( links, links ),                      Is.True );
-							 Assert.That( TelemetryJson.SpanLinkArrayComparer.GetHashCode( links ),                        Is.EqualTo( 1 ) );
-							 Assert.That( TelemetryJson.SpanLinkArrayComparer.GetHashCode( null! ),                        Is.Zero );
-							 Assert.That( TelemetryJson.SpanEventArrayComparer.Snapshot( events ),                         Is.SameAs( events ) );
-							 Assert.That( TelemetryJson.SpanLinkArrayComparer.Snapshot( links ),                           Is.SameAs( links ) );
-							 Assert.That( TelemetryJson.DoubleDictionaryComparer.Snapshot( TelemetryJson.EmptyQuantiles ), Is.SameAs( TelemetryJson.EmptyQuantiles ) );
+							 Assert.That( TelemetryJson.s_SpanEventArrayComparer.Equals( events, events ),                   Is.True );
+							 Assert.That( TelemetryJson.s_SpanEventArrayComparer.Equals( events, new SpanEvent[0] ),         Is.False );
+							 Assert.That( TelemetryJson.s_SpanEventArrayComparer.GetHashCode( events ),                      Is.Zero );
+							 Assert.That( TelemetryJson.s_SpanEventArrayComparer.GetHashCode( null! ),                       Is.Zero );
+							 Assert.That( TelemetryJson.s_SpanLinkArrayComparer.Equals( links, links ),                      Is.True );
+							 Assert.That( TelemetryJson.s_SpanLinkArrayComparer.GetHashCode( links ),                        Is.EqualTo( 1 ) );
+							 Assert.That( TelemetryJson.s_SpanLinkArrayComparer.GetHashCode( null! ),                        Is.Zero );
+							 Assert.That( TelemetryJson.s_SpanEventArrayComparer.Snapshot( events ),                         Is.SameAs( events ) );
+							 Assert.That( TelemetryJson.s_SpanLinkArrayComparer.Snapshot( links ),                           Is.SameAs( links ) );
+							 Assert.That( TelemetryJson.s_DoubleDictionaryComparer.Snapshot( TelemetryJson.s_EmptyQuantiles ), Is.SameAs( TelemetryJson.s_EmptyQuantiles ) );
 						 } );
 	}
 

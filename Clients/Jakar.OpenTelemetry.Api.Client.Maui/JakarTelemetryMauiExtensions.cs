@@ -76,13 +76,13 @@ internal static class MauiLifecycle
 		#elif IOS || MACCATALYST
 		events.AddiOS( apple => apple.DidEnterBackground( _ => Runtime?.OnBackground() ).WillEnterForeground( _ => Runtime?.OnForeground() ).WillTerminate( _ => Runtime?.StopAsync().Wait( TimeSpan.FromSeconds( 3 ) ) ) );
 		#elif WINDOWS
-        events.AddWindows( windows => windows.OnLaunched( ( application, _ ) => PlatformCrashHandlers.AttachWinUI( application ) )
-                                             .OnVisibilityChanged( ( _, args ) =>
-                                                                   {
-                                                                       if ( args.Visible ) { Runtime?.OnForeground(); }
-                                                                       else { Runtime?.OnBackground(); }
-                                                                   } )
-                                             .OnClosed( ( _, _ ) => Runtime?.StopAsync().Wait( TimeSpan.FromSeconds( 3 ) ) ) );
+		events.AddWindows( windows => windows.OnLaunched( ( application, _ ) => PlatformCrashHandlers.AttachWinUI( application ) )
+											 .OnVisibilityChanged( ( _, args ) =>
+																   {
+																	   if ( args.Visible ) { Runtime?.OnForeground(); }
+																	   else { Runtime?.OnBackground(); }
+																   } )
+											 .OnClosed( ( _, _ ) => Runtime?.StopAsync().Wait( TimeSpan.FromSeconds( 3 ) ) ) );
 		#endif
 	}
 }
@@ -90,18 +90,18 @@ internal static class MauiLifecycle
 /// <summary> Resource attributes describing the device and app (OpenTelemetry semantic conventions). </summary>
 internal static class MauiDeviceResource
 {
-	private static readonly string  DefaultServiceName    = new JakarTelemetryOptions().ServiceName;
-	private static readonly string? DefaultServiceVersion = new JakarTelemetryOptions().ServiceVersion;
+	private static readonly string  _s_defaultServiceName    = new JakarTelemetryOptions().ServiceName;
+	private static readonly string? _s_defaultServiceVersion = new JakarTelemetryOptions().ServiceVersion;
 
 	public static void Apply( JakarTelemetryOptions options )
 	{
 		try
 		{
 			// Only replace the defaults; values bound from configuration win.
-			if ( options.ServiceName == DefaultServiceName &&
+			if ( options.ServiceName == _s_defaultServiceName &&
 				 !string.IsNullOrWhiteSpace( AppInfo.Current.PackageName ) ) { options.ServiceName = AppInfo.Current.PackageName; }
 
-			if ( options.ServiceVersion == DefaultServiceVersion ) { options.ServiceVersion = $"{AppInfo.Current.VersionString}+{AppInfo.Current.BuildString}"; }
+			if ( options.ServiceVersion == _s_defaultServiceVersion ) { options.ServiceVersion = $"{AppInfo.Current.VersionString}+{AppInfo.Current.BuildString}"; }
 
 			options.ResourceAttributes.TryAdd( "app.name",                AppInfo.Current.Name );
 			options.ResourceAttributes.TryAdd( "device.manufacturer",     DeviceInfo.Current.Manufacturer );
@@ -126,7 +126,9 @@ internal sealed class MauiScreenshotProvider : IScreenshotProvider
 
 		return await MainThread.InvokeOnMainThreadAsync( async () =>
 														 {
-															 IScreenshotResult? result = await Screenshot.Default.CaptureAsync();
+															 IScreenshotResult? result = Screenshot.Default.IsCaptureSupported
+																							 ? await Screenshot.Default.CaptureAsync()
+																							 : null;
 															 if ( result is null ) { return null; }
 
 															 await using Stream stream = await result.OpenReadAsync( ScreenshotFormat.Png );

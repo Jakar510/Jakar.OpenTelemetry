@@ -10,9 +10,9 @@ public partial class MainPage : ContentPage
 {
 	public const string ACTIVITY_SOURCE_NAME = "Jakar.OpenTelemetry.Samples.Maui";
 
-	private static readonly ActivitySource ActivitySource = new(ACTIVITY_SOURCE_NAME);
+	private static readonly ActivitySource _s_activitySource = new(ACTIVITY_SOURCE_NAME);
 
-	private readonly IJakarTelemetry   _telemetry;
+	private readonly ITelemetryClient   _telemetry;
 	private readonly ILogger<MainPage> _logger;
 
 	public MainPage()
@@ -21,7 +21,7 @@ public partial class MainPage : ContentPage
 
 		// Shell creates pages through a DataTemplate, so resolve services from the app container.
 		IServiceProvider services = IPlatformApplication.Current!.Services;
-		_telemetry = services.GetRequiredService<IJakarTelemetry>();
+		_telemetry = services.GetRequiredService<ITelemetryClient>();
 		_logger    = services.GetRequiredService<ILogger<MainPage>>();
 
 		NativeCrashButton.IsVisible = DeviceInfo.Platform == DevicePlatform.Android || DeviceInfo.Platform == DevicePlatform.iOS || DeviceInfo.Platform == DevicePlatform.MacCatalyst;
@@ -41,7 +41,7 @@ public partial class MainPage : ContentPage
 
 	private async void OnTracedOperation( object? sender, EventArgs e )
 	{
-		using Activity? activity = ActivitySource.StartActivity( "sample.operation" );
+		using Activity? activity = _s_activitySource.StartActivity( "sample.operation" );
 		activity?.SetTag( "sample.platform", DeviceInfo.Platform.ToString() );
 
 		await Task.Delay( Random.Shared.Next( 50, 250 ) );

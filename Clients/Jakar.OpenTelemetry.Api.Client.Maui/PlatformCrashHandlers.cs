@@ -18,11 +18,11 @@ namespace Jakar.OpenTelemetry.Api.Client.Maui;
 /// </summary>
 internal static partial class PlatformCrashHandlers
 {
-	private static JakarCrashReporter? s_reporter;
+	private static JakarCrashReporter? _s_sReporter;
 
 	public static void Install( JakarCrashReporter reporter, ILogger logger )
 	{
-		if ( Interlocked.Exchange( ref s_reporter, reporter ) is not null ) { return; }
+		if ( Interlocked.Exchange( ref _s_sReporter, reporter ) is not null ) { return; }
 
 		InstallPlatform( reporter, logger );
 	}
@@ -61,7 +61,7 @@ internal static partial class PlatformCrashHandlers
     }
 
 	#elif IOS || MACCATALYST
-	private static unsafe delegate* unmanaged<IntPtr, void> s_previousHandler;
+	private static unsafe delegate* unmanaged<IntPtr, void> _s_sPreviousHandler;
 
 	[LibraryImport( Constants.FoundationLibrary )] private static unsafe partial delegate* unmanaged<IntPtr, void> NSGetUncaughtExceptionHandler();
 
@@ -76,7 +76,7 @@ internal static partial class PlatformCrashHandlers
 		Runtime.MarshalObjectiveCException += ( _, args ) => ReportNsException( args.Exception, "apple.marshal_objective_c_exception", isTerminating: false );
 
 		// Uncaught Objective-C exceptions (UIKit/AppKit assertions, NSInvalidArgumentException, ...). Chain to any previously installed handler.
-		s_previousHandler = NSGetUncaughtExceptionHandler();
+		_s_sPreviousHandler = NSGetUncaughtExceptionHandler();
 		NSSetUncaughtExceptionHandler( &OnUncaughtObjectiveCException );
 		logger.LogDebug( "Installed Apple crash handlers" );
 	}
@@ -90,11 +90,11 @@ internal static partial class PlatformCrashHandlers
 		catch ( Exception ) { } // never interfere with the crash itself
 		finally
 		{
-			if ( s_previousHandler != null ) { s_previousHandler( exceptionHandle ); }
+			if ( _s_sPreviousHandler != null ) { _s_sPreviousHandler( exceptionHandle ); }
 		}
 	}
 
-	private static void ReportNsException( NSException exception, string source, bool isTerminating ) => s_reporter?.ReportNative( source, exception.Name?.ToString() ?? "NSException", exception.Reason, string.Join( '\n', exception.CallStackSymbols ), isTerminating );
+	private static void ReportNsException( NSException exception, string source, bool isTerminating ) => _s_sReporter?.ReportNative( source, exception.Name?.ToString() ?? "NSException", exception.Reason, string.Join( '\n', exception.CallStackSymbols ), isTerminating );
 
 	#elif WINDOWS
 	private static void InstallPlatform( JakarCrashReporter reporter, ILogger logger )
@@ -110,7 +110,7 @@ internal static partial class PlatformCrashHandlers
 		application.UnhandledException += OnWinUIUnhandledException;
 	}
 
-	private static void OnWinUIUnhandledException( object _, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args ) => ReportWinUIException( s_reporter, args.Exception, args.Message, args.Handled );
+	private static void OnWinUIUnhandledException( object _, Microsoft.UI.Xaml.UnhandledExceptionEventArgs args ) => ReportWinUIException( _s_sReporter, args.Exception, args.Message, args.Handled );
 
 	#else
     private static void InstallPlatform( JakarCrashReporter reporter, ILogger logger ) { }

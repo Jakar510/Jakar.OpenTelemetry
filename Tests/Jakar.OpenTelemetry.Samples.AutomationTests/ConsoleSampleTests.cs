@@ -6,7 +6,7 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 {
 	private const string SAMPLE = "Jakar.OpenTelemetry.Samples.Console";
 
-	private static readonly TimeSpan RunTimeout = TimeSpan.FromSeconds( 90 );
+	private static readonly TimeSpan _s_runTimeout = TimeSpan.FromSeconds( 90 );
 
 
 	private static (string Name, object Value) Service( string name ) => ( "service", name );
@@ -17,7 +17,7 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 		string service = $"console-run-{Guid.NewGuid():N}";
 
 		await using SampleProcess sample   = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) );
-		int                       exitCode = await sample.WaitForExitAsync( RunTimeout );
+		int                       exitCode = await sample.WaitForExitAsync( _s_runTimeout );
 
 		Assert.Multiple( () =>
 						 {
@@ -37,11 +37,11 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 	{
 		string service = $"console-crash-{Guid.NewGuid():N}";
 
-		await using ( SampleProcess crashing = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ), "crash" ) ) { Assert.That( await crashing.WaitForExitAsync( RunTimeout ), Is.Not.Zero, "an unhandled exception terminates the process" ); }
+		await using ( SampleProcess crashing = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ), "crash" ) ) { Assert.That( await crashing.WaitForExitAsync( _s_runTimeout ), Is.Not.Zero, "an unhandled exception terminates the process" ); }
 
 		await Telemetry.WaitForAsync( "Logs", """ "ServiceName" = @service AND "SeverityNumber" = 21 AND "AttributesJson"->>'crash.source' = 'appdomain.unhandled_exception' AND "AttributesJson"->>'exception.type' = 'System.InvalidProgramException'""", parameters: Service( service ) );
 
-		await using ( SampleProcess next = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) ) ) { Assert.That( await next.WaitForExitAsync( RunTimeout ), Is.Zero, next.Output ); }
+		await using ( SampleProcess next = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) ) ) { Assert.That( await next.WaitForExitAsync( _s_runTimeout ), Is.Zero, next.Output ); }
 
 		await Telemetry.WaitForAsync( "Logs", """ "ServiceName" = @service AND "Body" = 'Console sample started in run mode'""", parameters: Service( service ) );
 		Assert.That( await Telemetry.CountAsync( "Logs", """ "ServiceName" = @service AND "Body" LIKE '%without a clean shutdown%'""", Service( service ) ), Is.Zero, "the crash already explained the termination" );
@@ -56,11 +56,11 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 		environment["JakarTelemetry__ImageEndpoint"] = offline.ToString();
 		environment["JakarTelemetry__FlushTimeout"]  = "00:00:01";
 
-		await using ( SampleProcess crashing = SampleProcess.StartSample( SAMPLE, environment, "crash" ) ) { await crashing.WaitForExitAsync( RunTimeout ); }
+		await using ( SampleProcess crashing = SampleProcess.StartSample( SAMPLE, environment, "crash" ) ) { await crashing.WaitForExitAsync( _s_runTimeout ); }
 
 		Assert.That( Directory.GetFiles( Path.Combine( Storage.Path, "crashes" ), "*.json" ), Has.Length.EqualTo( 1 ), "the crash report was persisted before the process died" );
 
-		await using ( SampleProcess next = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) ) ) { Assert.That( await next.WaitForExitAsync( RunTimeout ), Is.Zero, next.Output ); }
+		await using ( SampleProcess next = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) ) ) { Assert.That( await next.WaitForExitAsync( _s_runTimeout ), Is.Zero, next.Output ); }
 
 		await Telemetry.WaitForAsync( "Logs",   """ "ServiceName" = @service AND "Body" LIKE 'Crash in previous session%' AND "AttributesJson"->>'exception.type' = 'System.InvalidProgramException' AND "AttributesJson"->>'crash.previous_session' = 'true'""", parameters: Service( service ) );
 		await Telemetry.WaitForAsync( "Images", """ "FileName" = 'console-error.png'""",                                                                                                                                                                          minimum: 2 );
@@ -78,7 +78,7 @@ public sealed class ConsoleSampleTests : LiveApiFixture
 			hanging.Kill();
 		}
 
-		await using ( SampleProcess next = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) ) ) { Assert.That( await next.WaitForExitAsync( RunTimeout ), Is.Zero, next.Output ); }
+		await using ( SampleProcess next = SampleProcess.StartSample( SAMPLE, ClientEnvironment( service ) ) ) { Assert.That( await next.WaitForExitAsync( _s_runTimeout ), Is.Zero, next.Output ); }
 
 		await Telemetry.WaitForAsync( "Logs", """ "ServiceName" = @service AND "SeverityNumber" = 17 AND "Body" LIKE 'Previous session % ended without a clean shutdown or crash report%'""", parameters: Service( service ) );
 	}

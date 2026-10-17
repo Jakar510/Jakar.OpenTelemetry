@@ -37,8 +37,8 @@ public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> opt
 													  ConfigureStringDictionary( entity.Property( x => x.ScopeAttributesJson ) );
 													  ConfigureStringDictionary( entity.Property( x => x.AttributesJson ) );
 
-													  entity.Property( x => x.EventsJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.SpanEventArrayConverter ).Metadata.SetValueComparer( TelemetryJson.SpanEventArrayComparer );
-													  entity.Property( x => x.LinksJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.SpanLinkArrayConverter ).Metadata.SetValueComparer( TelemetryJson.SpanLinkArrayComparer );
+													  entity.Property( x => x.EventsJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.s_SpanEventArrayConverter ).Metadata.SetValueComparer( TelemetryJson.s_SpanEventArrayComparer );
+													  entity.Property( x => x.LinksJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.s_SpanLinkArrayConverter ).Metadata.SetValueComparer( TelemetryJson.s_SpanLinkArrayComparer );
 												  } );
 
 		modelBuilder.Entity<TelemetryMetricEntity>( entity =>
@@ -52,7 +52,7 @@ public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> opt
 														ConfigureStringDictionary( entity.Property( x => x.AttributesJson ) );
 														entity.Property( x => x.DistributionJson ).HasColumnType( "jsonb" );
 														entity.Property( x => x.ExemplarsJson ).HasColumnType( "jsonb" );
-														entity.Property( x => x.QuantilesJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.DoubleDictionaryConverter ).Metadata.SetValueComparer( TelemetryJson.DoubleDictionaryComparer );
+														entity.Property( x => x.QuantilesJson ).HasColumnType( "jsonb" ).HasConversion( TelemetryJson.s_DoubleDictionaryConverter ).Metadata.SetValueComparer( TelemetryJson.s_DoubleDictionaryComparer );
 													} );
 	}
 
@@ -61,7 +61,7 @@ public sealed class TelemetryDbContext( DbContextOptions<TelemetryDbContext> opt
 	private static void ConfigureStringDictionary( PropertyBuilder<ReadOnlyDictionary<string, string?>> property )
 	{
 		property.HasColumnType( "jsonb" );
-		property.HasConversion( TelemetryJson.StringDictionaryConverter );
-		property.Metadata.SetValueComparer( TelemetryJson.StringDictionaryComparer );
+		property.HasConversion( TelemetryJson.s_StringDictionaryConverter );
+		property.Metadata.SetValueComparer( TelemetryJson.s_StringDictionaryComparer );
 	}
 }

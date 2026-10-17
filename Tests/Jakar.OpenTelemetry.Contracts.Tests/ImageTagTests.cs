@@ -3,7 +3,7 @@ namespace Jakar.OpenTelemetry.Contracts.Tests;
 [TestFixture]
 public sealed class ImageTagTests
 {
-	private static readonly Guid Id = Guid.Parse( "0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b" );
+	private static readonly Guid _s_id = Guid.Parse( "0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b" );
 
 
 	[Test] public void Create_GeneratesVersion7IdAndSanitizedName()
@@ -18,7 +18,7 @@ public sealed class ImageTagTests
 						 } );
 	}
 
-	[Test] public void ToString_UsesPrefixNameAndDashedId() => Assert.That( new ImageTag( Id, "shot.png" ).ToString(), Is.EqualTo( "image:shot.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b" ) );
+	[Test] public void ToString_UsesPrefixNameAndDashedId() => Assert.That( new ImageTag( _s_id, "shot.png" ).ToString(), Is.EqualTo( "image:shot.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b" ) );
 
 
 	[TestCase( "image:shot.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b", "shot.png" )] [TestCase( "image:shot.png:0192A6F13C4D7E5F8A9B0C1D2E3F4A5B", "shot.png" )] [TestCase( "image:a:b:c.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b", "a:b:c.png" )] [TestCase( "image:shot.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b  ", "shot.png" )] [TestCase( "  image:shot.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b", "shot.png" )]
@@ -29,7 +29,7 @@ public sealed class ImageTagTests
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( parsed,       Is.True );
-							 Assert.That( tag.ID,       Is.EqualTo( Id ) );
+							 Assert.That( tag.ID,       Is.EqualTo( _s_id ) );
 							 Assert.That( tag.FileName, Is.EqualTo( expectedName ) );
 						 } );
 	}
@@ -53,7 +53,7 @@ public sealed class ImageTagTests
 	[Test] public void ParseAll_SingleString_ReturnsTag() => Assert.That( ImageTag.ParseAll( "image:a.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b" ),
 																		  Is.EqualTo( new[]
 																						  {
-																							  new ImageTag( Id, "a.png" )
+																							  new ImageTag( _s_id, "a.png" )
 																						  } ) );
 
 	[TestCase( "image:a.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b,image:b:c.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5c" )] [TestCase( "image:a.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b;image:b:c.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5c" )] [TestCase( """["image:a.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b","image:b:c.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5c"]""" )] [TestCase( "['image:a.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b', 'image:b:c.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5c']" )] [TestCase( "image:a.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b\nimage:b:c.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5c" )]
@@ -64,7 +64,7 @@ public sealed class ImageTagTests
 		Assert.That( tags,
 					 Is.EqualTo( new[]
 									 {
-										 new ImageTag( Id,                                                   "a.png" ),
+										 new ImageTag( _s_id,                                                   "a.png" ),
 										 new ImageTag( Guid.Parse( "0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5c" ), "b:c.png" )
 									 } ) );
 	}
@@ -74,7 +74,7 @@ public sealed class ImageTagTests
 	[Test] public void ParseAll_SkipsMatchesThatAreNotGuids() => Assert.That( ImageTag.ParseAll( "image:a.png:0192a6f13c4d-7e5f-8a9b0c1d2e3f4a5b,image:b.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5b" ),
 																			  Is.EqualTo( new[]
 																							  {
-																								  new ImageTag( Id, "b.png" )
+																								  new ImageTag( _s_id, "b.png" )
 																							  } ) );
 
 	[Test] public void ParseAll_IdFollowedByMoreHex_IsNotAMatch() => Assert.That( ImageTag.ParseAll( "image:a.png:0192a6f1-3c4d-7e5f-8a9b-0c1d2e3f4a5bff" ), Is.Empty );

@@ -66,7 +66,7 @@ public sealed class TelemetrySchemaTests
 		await Assert.MultipleAsync( async () =>
 									{
 										Assert.That( await ScalarAsync( dataSource, """SELECT format_type(atttypid, atttypmod) FROM pg_attribute WHERE attrelid = '"Logs"'::regclass AND attname = 'ServiceName'""" ), Is.EqualTo( "text" ) );
-										Assert.That( await ScalarAsync( dataSource, """SELECT "TraceId" FROM "Logs" """ ),                                                                                             Is.EqualTo( Otlp.TraceId ), "hex text is decoded into bytea" );
+										Assert.That( await ScalarAsync( dataSource, """SELECT "TraceId" FROM "Logs" """ ),                                                                                             Is.EqualTo( Otlp.s_TraceId ), "hex text is decoded into bytea" );
 										Assert.That( await ScalarAsync( dataSource, """SELECT "SpanId" FROM "Logs" """ ),                                                                                              Is.EqualTo( DBNull.Value ), "empty strings become NULL" );
 										Assert.That( await ScalarAsync( dataSource, """SELECT "Flags" FROM "Logs" """ ),                                                                                               Is.EqualTo( 1L ) );
 										Assert.That( await ScalarAsync( dataSource, """SELECT "SortTimeUtc" IS NOT NULL FROM "Logs" """ ),                                                                             Is.True, "generated for existing rows" );

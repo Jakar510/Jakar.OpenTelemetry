@@ -5,7 +5,7 @@ namespace Jakar.OpenTelemetry.Contracts.Tests;
 [TestFixture]
 public sealed class TelemetryContractsTests
 {
-	private static readonly ReadOnlyDictionary<string, string?> NoAttributes = new(new Dictionary<string, string?>());
+	private static readonly ReadOnlyDictionary<string, string?> _s_noAttributes = new(new Dictionary<string, string?>());
 
 
 	[Test] public void LogTags_ImagePath_UsesImageRouteAndDashedId()
@@ -21,8 +21,8 @@ public sealed class TelemetryContractsTests
 
 	[Test] public void SpanEventAndLink_DefaultCounts_AreZero()
 	{
-		SpanEvent spanEvent = new(null, "event", NoAttributes);
-		SpanLink  link      = new("trace", "span", string.Empty, NoAttributes);
+		SpanEvent spanEvent = new(null, "event", _s_noAttributes);
+		SpanLink  link      = new("trace", "span", string.Empty, _s_noAttributes);
 
 		Assert.Multiple( () =>
 						 {
@@ -63,9 +63,9 @@ public sealed class TelemetryContractsTests
 										null,
 										null,
 										0,
-										NoAttributes,
-										NoAttributes,
-										NoAttributes);
+										_s_noAttributes,
+										_s_noAttributes,
+										_s_noAttributes);
 
 		Assert.Multiple( () =>
 						 {

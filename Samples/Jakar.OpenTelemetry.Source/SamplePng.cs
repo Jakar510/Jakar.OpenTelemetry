@@ -6,7 +6,7 @@ namespace Jakar.OpenTelemetry.Source;
 /// <summary> Tiny dependency-free PNG encoder used to fabricate "screenshots" for the simulated errors. </summary>
 internal static class SamplePng
 {
-	private static readonly uint[] CrcTable = CreateCrcTable();
+	private static readonly uint[] _s_crcTable = CreateCrcTable();
 
 	public static byte[] Create( int width, int height, int seed )
 	{
@@ -66,7 +66,7 @@ internal static class SamplePng
 
 	private static uint Crc( uint crc, ReadOnlySpan<byte> data )
 	{
-		foreach ( byte b in data ) { crc = CrcTable[( crc ^ b ) & 0xFF] ^ ( crc >> 8 ); }
+		foreach ( byte b in data ) { crc = _s_crcTable[( crc ^ b ) & 0xFF] ^ ( crc >> 8 ); }
 
 		return crc;
 	}

@@ -104,7 +104,7 @@ public sealed class ClientContractTests
 
 		using ( System.Diagnostics.Metrics.Meter meter = new(service) ) { meter.CreateCounter<long>( "contract.counter" ).Add( 7 ); }
 
-		Assert.That( await host.Services.GetRequiredService<IJakarTelemetry>().FlushAsync(), Is.True );
+		Assert.That( await host.Services.GetRequiredService<ITelemetryClient>().FlushAsync(), Is.True );
 		await host.StopAsync();
 
 		await WaitUntilAsync( async () => await CountAsync( """SELECT count(*) FROM "Logs" WHERE "ServiceName" = @service AND "Body" LIKE 'Exported over %'""",  service ) == 1, "the log arrived" );
@@ -118,11 +118,11 @@ public sealed class ClientContractTests
 
 	[Test] public async Task ErrorWithScreenshot_ArrivesLinkedToItsUploadedImage()
 	{
-		const string service = "contract-images";
-		using IHost  host    = CreateClientHost( service, OtlpTransport.HttpProtobuf );
+		const string SERVICE = "contract-images";
+		using IHost  host    = CreateClientHost( SERVICE, OtlpTransport.HttpProtobuf );
 		await host.StartAsync();
 
-		IJakarTelemetry telemetry = host.Services.GetRequiredService<IJakarTelemetry>();
+		ITelemetryClient telemetry = host.Services.GetRequiredService<ITelemetryClient>();
 		ImageTag        tag       = await telemetry.AttachImageAsync( TestImages.Png, "checkout's screen.png" );
 		host.Services.GetRequiredService<ILoggerFactory>().CreateLogger( "Contract" ).LogErrorWithImages( new InvalidOperationException( "payment declined" ), [ tag ], "Checkout failed" );
 
@@ -134,7 +134,7 @@ public sealed class ClientContractTests
 
 		await WaitUntilAsync( async () =>
 							  {
-								  log = ( await query.GetScreenshotLogsAsync( 10, errorsOnly: true, service, null, CancellationToken.None ) ).SingleOrDefault();
+								  log = ( await query.GetScreenshotLogsAsync( 10, errorsOnly: true, SERVICE, null, CancellationToken.None ) ).SingleOrDefault();
 								  return log is { Images: [ { IsUploaded: true } ] };
 							  },
 							  "the log and its screenshot arrived" );
@@ -152,35 +152,35 @@ public sealed class ClientContractTests
 
 	[Test] public async Task CrashFromPreviousSession_IsReplayedOnNextStart()
 	{
-		const string service = "contract-crash";
+		const string SERVICE = "contract-crash";
 
 		// Session 1 "crashes": the report is persisted but the process dies before exporting it.
-		JakarTelemetryOptions      options = ClientTestOptions.Create( _storage.Path, o => o.ServiceName = service );
+		JakarTelemetryOptions      options = ClientTestOptions.Create( _storage.Path, o => o.ServiceName = SERVICE );
 		FileSystemCrashReportStore store   = new(ClientTestOptions.Wrap( options ), new Microsoft.Extensions.Logging.Abstractions.NullLogger<FileSystemCrashReportStore>());
 		store.Save( new CrashReport( Guid.CreateVersion7(), DateTimeOffset.UtcNow.AddMinutes( -5 ), "dead-session", "appdomain.unhandled_exception", true, "System.OutOfMemoryException", "out of memory", "at Program.Main()", null ) );
 		store.BeginSession( new SessionMarker( "killed-session", DateTimeOffset.UtcNow.AddMinutes( -1 ), 1, "0.9" ) );
 
 		// Session 2 starts and reports both.
-		using IHost host = CreateClientHost( service, OtlpTransport.HttpProtobuf );
+		using IHost host = CreateClientHost( SERVICE, OtlpTransport.HttpProtobuf );
 		await host.StartAsync();
-		await host.Services.GetRequiredService<IJakarTelemetry>().FlushAsync();
+		await host.Services.GetRequiredService<ITelemetryClient>().FlushAsync();
 		await host.StopAsync();
 
-		await WaitUntilAsync( async () => await CountAsync( """SELECT count(*) FROM "Logs" WHERE "ServiceName" = @service AND "Body" LIKE 'Crash in previous session%' AND "AttributesJson"->>'exception.type' = 'System.OutOfMemoryException'""", service ) == 1, "the persisted crash was replayed" );
-		await WaitUntilAsync( async () => await CountAsync( """SELECT count(*) FROM "Logs" WHERE "ServiceName" = @service AND "Body" LIKE '%killed-session%without a clean shutdown%'""",                                                          service ) == 1, "the abnormal termination was reported" );
+		await WaitUntilAsync( async () => await CountAsync( """SELECT count(*) FROM "Logs" WHERE "ServiceName" = @service AND "Body" LIKE 'Crash in previous session%' AND "AttributesJson"->>'exception.type' = 'System.OutOfMemoryException'""", SERVICE ) == 1, "the persisted crash was replayed" );
+		await WaitUntilAsync( async () => await CountAsync( """SELECT count(*) FROM "Logs" WHERE "ServiceName" = @service AND "Body" LIKE '%killed-session%without a clean shutdown%'""",                                                          SERVICE ) == 1, "the abnormal termination was reported" );
 
 		Assert.That( store.LoadAll(), Is.Empty, "replayed reports are removed" );
 	}
 
 	[Test] public async Task WebAssemblyExporter_OtlpJsonIsAcceptedWithHexIds()
 	{
-		const string service = "contract-wasm";
+		const string SERVICE = "contract-wasm";
 		JakarTelemetryOptions options = ClientTestOptions.Create( _storage.Path,
 																  o =>
 																  {
 																	  o.Endpoint                               = _api.HttpAddress;
 																	  o.ApiKey                                 = TestApi.API_KEY;
-																	  o.ServiceName                            = service;
+																	  o.ServiceName                            = SERVICE;
 																	  o.ResourceAttributes["browser.language"] = "en-US";
 																  } );
 
@@ -195,7 +195,7 @@ public sealed class ClientContractTests
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 10 ) ), Is.True, "the server accepted the OTLP/JSON batch" );
 
 		await using NpgsqlCommand command = _database.CreateCommand( """SELECT "Body", "EventName", "SeverityNumber", length("TraceId"), "AttributesJson"->>'Line', "AttributesJson"->>'log.tags', "ResourceAttributesJson"->>'browser.language', "ScopeName" FROM "Logs" WHERE "ServiceName" = @service""" );
-		command.Parameters.AddWithValue( "service", service );
+		command.Parameters.AddWithValue( "service", SERVICE );
 		await using NpgsqlDataReader reader = await command.ExecuteReaderAsync();
 		Assert.That( await reader.ReadAsync(), Is.True );
 
@@ -214,11 +214,11 @@ public sealed class ClientContractTests
 
 	[Test] public async Task WrongApiKey_KeepsImagesQueued()
 	{
-		const string service = "contract-wrong-key";
-		using IHost  host    = CreateClientHost( service, OtlpTransport.HttpProtobuf, static o => o.ApiKey = "wrong-key" );
+		const string SERVICE = "contract-wrong-key";
+		using IHost  host    = CreateClientHost( SERVICE, OtlpTransport.HttpProtobuf, static o => o.ApiKey = "wrong-key" );
 		await host.StartAsync();
 
-		IJakarTelemetry telemetry = host.Services.GetRequiredService<IJakarTelemetry>();
+		ITelemetryClient telemetry = host.Services.GetRequiredService<ITelemetryClient>();
 		await telemetry.AttachImageAsync( TestImages.Png, "kept.png" );
 		await telemetry.FlushAsync();
 

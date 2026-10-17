@@ -15,14 +15,12 @@
             <PrivateAssets>all</PrivateAssets>
         </PackageReference>
         <PackageReference Include="Jakar.Extensions" />
-        <PackageReference Include="Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson" />
+        <PackageReference Include="Jakar.Json.AspNetCore" />
         <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" />
-        <PackageReference Include="Newtonsoft.Json" />
         <PackageReference Include="Swashbuckle.AspNetCore" />
         <PackageReference Include="ZiggyCreatures.FusionCache.Backplane.Memory" />
         <PackageReference Include="ZiggyCreatures.FusionCache.Backplane.StackExchangeRedis" />
         <PackageReference Include="ZiggyCreatures.FusionCache.OpenTelemetry" />
-        <PackageReference Include="ZiggyCreatures.FusionCache.Serialization.NewtonsoftJson" />
         <PackageReference Include="ZLinq" />
     </ItemGroup>
 

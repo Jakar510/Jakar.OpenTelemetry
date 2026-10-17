@@ -52,12 +52,12 @@ public sealed class TelemetryHttpMessageHandlerTests
 						 } );
 	}
 
-	[Test] public void Send_TransportError_LogsErrorAndRethrows()
+	[Test] public async Task Send_TransportError_LogsErrorAndRethrows()
 	{
 		HttpRequestException failure = new("refused");
 		_inner.Throw( failure );
 
-		HttpRequestException? thrown = Assert.ThrowsAsync<HttpRequestException>( () => _client.PostAsync( "https://api.test/a?b=c", null ) );
+		HttpRequestException? thrown = await Assert.ThrowsAsync<HttpRequestException>( () => _client.PostAsync( "https://api.test/a?b=c", null ) );
 
 		Assert.Multiple( () =>
 						 {
@@ -67,7 +67,7 @@ public sealed class TelemetryHttpMessageHandlerTests
 						 } );
 	}
 
-	[Test] public void Send_CallerCancelled_IsNotLogged()
+	[Test] public async Task Send_CallerCancelled_IsNotLogged()
 	{
 		using CancellationTokenSource cancel = new();
 		_inner.Respond( async ( _, token ) =>
@@ -77,7 +77,7 @@ public sealed class TelemetryHttpMessageHandlerTests
 							return new HttpResponseMessage( HttpStatusCode.OK );
 						} );
 
-		Assert.CatchAsync<OperationCanceledException>( () => _client.GetAsync( "https://api.test/", cancel.Token ) );
+		await Assert.CatchAsync<OperationCanceledException>( () => _client.GetAsync( "https://api.test/", cancel.Token ) );
 		Assert.That( _logger.Collector.Count, Is.Zero );
 	}
 

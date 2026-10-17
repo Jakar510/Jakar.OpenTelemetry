@@ -50,21 +50,21 @@ public sealed class BrowserTelemetryModuleTests
 		Assert.That( png, Is.EqualTo( runtime.Module.Screenshot ) );
 	}
 
-	[Test] public void CaptureScreenshot_OverTheLimit_Throws()
+	[Test] public async Task CaptureScreenshot_OverTheLimit_Throws()
 	{
 		FakeJsRuntime runtime = new();
 		runtime.Module.Screenshot = new byte[BrowserTelemetryModule.SCREENSHOT_MAX_BYTES + 1];
 
-		Assert.ThrowsAsync<ArgumentOutOfRangeException>( async () => await new BrowserTelemetryModule( runtime ).CaptureScreenshotAsync() );
+		await Assert.ThrowsAsync<ArgumentOutOfRangeException>( async () => await new BrowserTelemetryModule( runtime ).CaptureScreenshotAsync() );
 	}
 
-	[Test] public void CaptureScreenshot_StuckBrowser_TimesOut()
+	[Test] public async Task CaptureScreenshot_StuckBrowser_TimesOut()
 	{
 		FakeJsRuntime runtime = new();
 		runtime.Module.HangCapture = true;
 		BrowserTelemetryModule module = new(runtime) { ScreenshotTimeout = TimeSpan.FromMilliseconds( 100 ) };
 
-		Assert.CatchAsync<OperationCanceledException>( async () => await module.CaptureScreenshotAsync() );
+		await Assert.CatchAsync<OperationCanceledException>( async () => await module.CaptureScreenshotAsync() );
 	}
 
 	[Test] public async Task Dispose_DisposesImportedModule()
@@ -78,7 +78,7 @@ public sealed class BrowserTelemetryModuleTests
 		Assert.That( runtime.Module.Disposed, Is.True );
 	}
 
-	[Test] public void Dispose_NeverImported_DoesNothing() => Assert.DoesNotThrowAsync( async () => await new BrowserTelemetryModule( new FakeJsRuntime() ).DisposeAsync() );
+	[Test] public async Task Dispose_NeverImported_DoesNothing() => await Assert.DoesNotThrowAsync( async () => await new BrowserTelemetryModule( new FakeJsRuntime() ).DisposeAsync() );
 
 	[Test] public async Task Dispose_CircuitAlreadyGone_IsIgnored()
 	{
@@ -90,6 +90,6 @@ public sealed class BrowserTelemetryModuleTests
 		BrowserTelemetryModule module = new(runtime.Object);
 		await module.GetAsync();
 
-		Assert.DoesNotThrowAsync( async () => await module.DisposeAsync() );
+		await Assert.DoesNotThrowAsync( async () => await module.DisposeAsync() );
 	}
 }

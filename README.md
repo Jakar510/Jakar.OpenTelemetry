@@ -27,7 +27,7 @@ It currently includes:
 - OTLP protocol semantics: partial success, retryable vs non-retryable failures (`UNAVAILABLE` + `RetryInfo` / HTTP 503 + `Retry-After`), message size limits
 - Full-fidelity data model: typed attributes, schema URLs, dropped counts, span/link flags, log `event_name`, exemplars, exponential histograms, summaries, exact int64 values
 - PostgreSQL-backed storage using binary `COPY` ingest, a self-upgrading schema, and optional time-based retention
-- Newtonsoft.Json-based serialization for HTTP, SignalR, and internal JSON handling
+- Jakar.Json (`[JsonModel]`) serialization for the HTTP JSON endpoints and the client's durable state files; System.Text.Json for SignalR and the `jsonb` columns
 - SignalR live updates for external consumers; in-process live updates for the dashboard
 - Interactive (server) Blazor dashboard at `/` with record details for every log, span and metric point (events, links, exemplars, distributions, quantiles) and trace pivots
 - Error screenshots page at `/screenshots`
@@ -92,7 +92,7 @@ The API uses:
 
 - `Npgsql.EntityFrameworkCore.PostgreSQL`
 - `Grpc.AspNetCore`
-- `Microsoft.AspNetCore.SignalR.Protocols.NewtonsoftJson`
+- `Jakar.Json.AspNetCore`
 - `Swashbuckle.AspNetCore`
 - `ZiggyCreatures.FusionCache`
 
@@ -268,9 +268,9 @@ Current JSON endpoints:
 - `GET /api`
 - `GET /api/telemetry/snapshot?take=250`
 
-These responses are serialized through Newtonsoft.Json rather than the default `System.Text.Json` minimal API serializer.
+These responses are serialized by Jakar.Json: the DTOs in `Jakar.OpenTelemetry.Contracts` are `[JsonModel]` types (camelCase, NaN/Infinity as strings), returned through `JakarResults.Ok`. The output is standard JSON with Jakar.Json's spacing (`"name" : value`).
 
-Where possible, the minimal endpoints use `TypedResults`. The JSON endpoints still use a typed custom result so they can keep Newtonsoft.Json serialization instead of `TypedResults.Json`.
+Where possible, the minimal endpoints use `TypedResults`. The JSON endpoints use `JakarResults`, which describe themselves to OpenAPI the same way.
 
 ### Swagger
 
@@ -394,7 +394,7 @@ Clients send OTLP to the API and upload screenshots referenced from their logs. 
   - the queue is bounded by count, bytes and age, oldest first
 - **Crash reports.** A terminating crash is written synchronously to `{StorageDirectory}/crashes`, logged as `Critical` (`app.crash`) and flushed. If the process dies before the export gets out, it is replayed on the next launch (`app.crash.previous_session`).
 - **Abnormal termination.** A session marker detects a previous run that ended without a clean shutdown or crash report (native crash, OOM kill, force quit) and logs `app.abnormal_termination`.
-- **On demand.** `IJakarTelemetry.FlushAsync()` sends buffered telemetry and runs an image upload pass now.
+- **On demand.** `ITelemetryClient.FlushAsync()` sends buffered telemetry and runs an image upload pass now.
 
 ### Platform crash coverage
 
@@ -502,7 +502,7 @@ Each sample points at the API's development endpoint and dev API key; run the AP
 
 - The dashboard is part of `Jakar.OpenTelemetry.Api`; there is no separate portal project anymore.
 - The current UI is server-rendered Blazor with interactive server components.
-- JSON handling was switched to Newtonsoft.Json to avoid issues with types like `ReadOnlyDictionary<string, string?>`.
+- Jakar.Json reads and writes `IReadOnlyDictionary<,>` but not `ReadOnlyDictionary<,>`, so the DTOs' attribute and quantile dictionaries use the converters in `Jakar.OpenTelemetry.Contracts/JsonConverters.cs`.
 - The API currently supports PostgreSQL only.
 
 ## Verification

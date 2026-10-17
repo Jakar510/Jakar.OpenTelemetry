@@ -66,7 +66,7 @@ public sealed class BrowserTelemetryImageQueue( BrowserTelemetryModule          
 		{
 			try
 			{
-				if ( JsonSerializer.Deserialize( meta, BrowserJsonContext.Default.PendingImage ) is { } pending ) { items.Add( pending ); }
+				if ( PendingImage.FromJson( meta ) is { } pending ) { items.Add( pending ); }
 			}
 			catch ( JsonException e ) { logger.LogDebug( e, "Skipping unreadable queued image metadata" ); }
 		}
@@ -95,5 +95,5 @@ public sealed class BrowserTelemetryImageQueue( BrowserTelemetryModule          
 
 	private static string Key( Guid id ) => id.ToString( "N" );
 
-	private static string Serialize( PendingImage pending ) => JsonSerializer.Serialize( pending, BrowserJsonContext.Default.PendingImage );
+	private static string Serialize( PendingImage pending ) => pending.ToJson();
 }

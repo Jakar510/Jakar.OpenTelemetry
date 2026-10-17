@@ -29,10 +29,10 @@ public sealed class TelemetryMetricEntity
 	public string?                             ScopeVersion           { get; init; }
 	public string?                             ResourceSchemaUrl      { get; init; }
 	public string?                             ScopeSchemaUrl         { get; init; }
-	public ReadOnlyDictionary<string, string?> MetadataAttributesJson { get; init; } = TelemetryJson.Empty;
-	public ReadOnlyDictionary<string, string?> ResourceAttributesJson { get; init; } = TelemetryJson.Empty;
-	public ReadOnlyDictionary<string, string?> ScopeAttributesJson    { get; init; } = TelemetryJson.Empty;
-	public ReadOnlyDictionary<string, string?> AttributesJson         { get; init; } = TelemetryJson.Empty;
+	public ReadOnlyDictionary<string, string?> MetadataAttributesJson { get; init; } = TelemetryJson.s_Empty;
+	public ReadOnlyDictionary<string, string?> ResourceAttributesJson { get; init; } = TelemetryJson.s_Empty;
+	public ReadOnlyDictionary<string, string?> ScopeAttributesJson    { get; init; } = TelemetryJson.s_Empty;
+	public ReadOnlyDictionary<string, string?> AttributesJson         { get; init; } = TelemetryJson.s_Empty;
 	public string?                             DistributionJson       { get; init; }
 	public ReadOnlyDictionary<double, double>? QuantilesJson          { get; init; }
 	public string?                             ExemplarsJson          { get; init; }

@@ -208,9 +208,9 @@ public sealed class BlazorWebAssemblySampleTests : BlazorSampleTests
 
 	[OneTimeSetUp] public async Task PublishAndServeAsync()
 	{
-		string output = Path.Combine( Path.GetTempPath(), "jakar-otel-tests", "wasm-sample", Paths.Configuration );
+		string output = Path.Combine( Path.GetTempPath(), "jakar-otel-tests", "wasm-sample", Paths.s_Configuration );
 
-		await using ( SampleProcess publish = SampleProcess.Start( "dotnet", [ "publish", Paths.SampleProject( SAMPLE ), "-c", Paths.Configuration, "-o", output, "--nologo", "-nodeReuse:false" ], new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" } ) ) { Assert.That( await publish.WaitForExitAsync( TimeSpan.FromMinutes( 10 ) ), Is.Zero, publish.Output ); }
+		await using ( SampleProcess publish = SampleProcess.Start( "dotnet", [ "publish", Paths.SampleProject( SAMPLE ), "-c", Paths.s_Configuration, "-o", output, "--nologo", "-nodeReuse:false" ], new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" } ) ) { Assert.That( await publish.WaitForExitAsync( TimeSpan.FromMinutes( 10 ) ), Is.Zero, publish.Output ); }
 
 		string wwwroot = Path.Combine( output, "wwwroot" );
 

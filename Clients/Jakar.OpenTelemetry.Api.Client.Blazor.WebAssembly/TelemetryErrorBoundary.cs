@@ -14,7 +14,7 @@ namespace Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly;
 /// </summary>
 public class TelemetryErrorBoundary : ErrorBoundary, IAsyncDisposable
 {
-	private static readonly EventId ComponentError = new(9110, "blazor.component_error");
+	private static readonly EventId _s_componentError = new(9110, "blazor.component_error");
 
 	private BrowserTelemetryModule? _module;
 
@@ -33,7 +33,7 @@ public class TelemetryErrorBoundary : ErrorBoundary, IAsyncDisposable
 	{
 		IReadOnlyList<ImageTag> images = [ ];
 
-		if ( CaptureScreenshot && Services.GetService<IJakarTelemetry>() is { } telemetry )
+		if ( CaptureScreenshot && Services.GetService<ITelemetryClient>() is { } telemetry )
 		{
 			try
 			{
@@ -44,7 +44,7 @@ public class TelemetryErrorBoundary : ErrorBoundary, IAsyncDisposable
 			catch ( Exception e ) { Logger.LogDebug( e, "Error boundary screenshot capture failed" ); }
 		}
 
-		using ( Logger.BeginImageScope( images ) ) { Logger.LogError( ComponentError, exception, "Unhandled component exception in {ErrorBoundary}", Name ?? "error boundary" ); }
+		using ( Logger.BeginImageScope( images ) ) { Logger.LogError( _s_componentError, exception, "Unhandled component exception in {ErrorBoundary}", Name ?? "error boundary" ); }
 	}
 
 	public async ValueTask DisposeAsync()

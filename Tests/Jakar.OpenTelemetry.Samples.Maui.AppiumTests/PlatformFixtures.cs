@@ -13,9 +13,9 @@ internal static class Builds
 	/// <summary> Builds the MAUI sample for <paramref name="framework"/> and returns the output directory. </summary>
 	public static async Task<string> BuildAsync( string framework, params string[] properties )
 	{
-		( int exitCode, string output ) = await ChildProcess.RunAsync( "dotnet", [ "build", Paths.SampleProject, "-f", framework, "-c", Paths.Configuration, "--nologo", "-nodeReuse:false", .. properties ], TimeSpan.FromMinutes( 20 ), new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" } );
+		( int exitCode, string output ) = await ChildProcess.RunAsync( "dotnet", [ "build", Paths.SampleProject, "-f", framework, "-c", Paths.s_Configuration, "--nologo", "-nodeReuse:false", .. properties ], TimeSpan.FromMinutes( 20 ), new Dictionary<string, string?> { ["MSBUILDDISABLENODEREUSE"] = "1" } );
 		Assert.That( exitCode, Is.Zero, output );
-		return Path.Combine( Paths.SampleProject, "bin", Paths.Configuration, framework );
+		return Path.Combine( Paths.SampleProject, "bin", Paths.s_Configuration, framework );
 	}
 }
 

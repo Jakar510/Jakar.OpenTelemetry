@@ -1,9 +1,11 @@
+using Jakar.Extensions;
 using Jakar.OpenTelemetry.Contracts;
 
 namespace Jakar.OpenTelemetry.Api.Client.Images;
 
 /// <summary> An image waiting to be uploaded. The <see cref="ID"/> was generated on the client and is already referenced by an exported log. </summary>
-public sealed record PendingImage( Guid           ID,
+[JsonModel]
+public sealed partial record PendingImage( Guid           ID,
 								   string         FileName,
 								   string         ContentType,
 								   long           Length,

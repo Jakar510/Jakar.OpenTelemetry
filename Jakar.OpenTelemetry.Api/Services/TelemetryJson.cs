@@ -24,42 +24,42 @@ public static class TelemetryJson
 
 	private const int MAX_RETAINED_SCRATCH_BYTES = 256 * 1024;
 
-	public static readonly ReadOnlyDictionary<string, string?> Empty          = new(new Dictionary<string, string?>( 0, StringComparer.Ordinal ));
-	public static readonly ReadOnlyDictionary<double, double>  EmptyQuantiles = new(new Dictionary<double, double>( 0 ));
+	public static readonly ReadOnlyDictionary<string, string?> s_Empty          = new(new Dictionary<string, string?>( 0, StringComparer.Ordinal ));
+	public static readonly ReadOnlyDictionary<double, double>  s_EmptyQuantiles = new(new Dictionary<double, double>( 0 ));
 
-	private static readonly JsonWriterOptions WriterOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, SkipValidation = true };
+	private static readonly JsonWriterOptions _s_writerOptions = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping, SkipValidation = true };
 
-	[ThreadStatic] private static Scratch? t_scratch;
+	[ThreadStatic] private static Scratch? _s_tScratch;
 
 
-	public static readonly ValueConverter<ReadOnlyDictionary<string, string?>, string> StringDictionaryConverter = new(static value => WriteDictionary( value ), static value => ReadDictionary( value ));
+	public static readonly ValueConverter<ReadOnlyDictionary<string, string?>, string> s_StringDictionaryConverter = new(static value => WriteDictionary( value ), static value => ReadDictionary( value ));
 
-	public static readonly ValueComparer<ReadOnlyDictionary<string, string?>> StringDictionaryComparer = new(static ( left, right ) => CompareDictionaries( left, right ), static value => HashDictionary( value ), static value => value);
+	public static readonly ValueComparer<ReadOnlyDictionary<string, string?>> s_StringDictionaryComparer = new(static ( left, right ) => CompareDictionaries( left, right ), static value => HashDictionary( value ), static value => value);
 
-	public static readonly ValueConverter<ReadOnlyDictionary<double, double>?, string?> DoubleDictionaryConverter = new(static value => value == null
+	public static readonly ValueConverter<ReadOnlyDictionary<double, double>?, string?> s_DoubleDictionaryConverter = new(static value => value == null
 																																			? null
 																																			: WriteQuantiles( value ),
 																														static value => ReadQuantiles( value ));
 
-	public static readonly ValueComparer<ReadOnlyDictionary<double, double>?> DoubleDictionaryComparer = new(static ( left, right ) => CompareDictionaries( left, right ), static value => HashDictionary( value ), static value => value);
+	public static readonly ValueComparer<ReadOnlyDictionary<double, double>?> s_DoubleDictionaryComparer = new(static ( left, right ) => CompareDictionaries( left, right ), static value => HashDictionary( value ), static value => value);
 
-	public static readonly ValueConverter<SpanEvent[]?, string?> SpanEventArrayConverter = new(static value => value == null
+	public static readonly ValueConverter<SpanEvent[]?, string?> s_SpanEventArrayConverter = new(static value => value == null
 																												   ? null
 																												   : WriteSpanEvents( value ),
 																							   static value => ReadSpanEvents( value ));
 
-	public static readonly ValueComparer<SpanEvent[]?> SpanEventArrayComparer = new(static ( left, right ) => ReferenceEquals( left, right ),
+	public static readonly ValueComparer<SpanEvent[]?> s_SpanEventArrayComparer = new(static ( left, right ) => ReferenceEquals( left, right ),
 																					static value => value == null
 																										? 0
 																										: value.Length,
 																					static value => value);
 
-	public static readonly ValueConverter<SpanLink[]?, string?> SpanLinkArrayConverter = new(static value => value == null
+	public static readonly ValueConverter<SpanLink[]?, string?> s_SpanLinkArrayConverter = new(static value => value == null
 																												 ? null
 																												 : WriteSpanLinks( value ),
 																							 static value => ReadSpanLinks( value ));
 
-	public static readonly ValueComparer<SpanLink[]?> SpanLinkArrayComparer = new(static ( left, right ) => ReferenceEquals( left, right ),
+	public static readonly ValueComparer<SpanLink[]?> s_SpanLinkArrayComparer = new(static ( left, right ) => ReferenceEquals( left, right ),
 																				  static value => value == null
 																									  ? 0
 																									  : value.Length,
@@ -260,7 +260,7 @@ public static class TelemetryJson
 	public static ReadOnlyDictionary<string, string?> ReadDictionary( string? json )
 	{
 		if ( string.IsNullOrEmpty( json ) ||
-			 json == EMPTY_OBJECT ) { return Empty; }
+			 json == EMPTY_OBJECT ) { return s_Empty; }
 
 		using JsonDocument document = JsonDocument.Parse( json );
 		return ReadDictionary( document.RootElement );
@@ -268,13 +268,13 @@ public static class TelemetryJson
 
 	public static ReadOnlyDictionary<string, string?> ReadDictionary( JsonElement element )
 	{
-		if ( element.ValueKind != JsonValueKind.Object ) { return Empty; }
+		if ( element.ValueKind != JsonValueKind.Object ) { return s_Empty; }
 
 		Dictionary<string, string?> values = new(StringComparer.Ordinal);
 		foreach ( JsonProperty property in element.EnumerateObject() ) { values[property.Name] = ToDisplayText( property.Value ); }
 
 		return values.Count == 0
-				   ? Empty
+				   ? s_Empty
 				   : new ReadOnlyDictionary<string, string?>( values );
 	}
 
@@ -290,7 +290,7 @@ public static class TelemetryJson
 		if ( string.IsNullOrEmpty( json ) ) { return null; }
 
 		using JsonDocument document = JsonDocument.Parse( json );
-		if ( document.RootElement.ValueKind != JsonValueKind.Object ) { return EmptyQuantiles; }
+		if ( document.RootElement.ValueKind != JsonValueKind.Object ) { return s_EmptyQuantiles; }
 
 		Dictionary<double, double> values = new();
 
@@ -319,7 +319,7 @@ public static class TelemetryJson
 											 ReadString( item, "name" ) ?? string.Empty,
 											 item.TryGetProperty( "attributes", out JsonElement attributes )
 												 ? ReadDictionary( attributes )
-												 : Empty,
+												 : s_Empty,
 											 ReadUInt32( item, "droppedAttributesCount" ) );
 		}
 
@@ -344,7 +344,7 @@ public static class TelemetryJson
 										   ReadString( item, "traceState" ) ?? string.Empty,
 										   item.TryGetProperty( "attributes", out JsonElement attributes )
 											   ? ReadDictionary( attributes )
-											   : Empty,
+											   : s_Empty,
 										   ReadUInt32( item, "flags" ),
 										   ReadUInt32( item, "droppedAttributesCount" ) );
 		}
@@ -522,14 +522,14 @@ public static class TelemetryJson
 	#region Scratch buffer
 
 	/// <summary> One reusable UTF-8 buffer + writer per thread. Only used by synchronous Begin/End sections, so it is never shared across an await. </summary>
-	private static Scratch RentScratch() => t_scratch ??= new Scratch();
+	private static Scratch RentScratch() => _s_tScratch ??= new Scratch();
 
 	private sealed class Scratch
 	{
 		private          ArrayBufferWriter<byte> _buffer = new(4096);
 		private readonly Utf8JsonWriter          _writer;
 
-		public Scratch() => _writer = new Utf8JsonWriter( _buffer, WriterOptions );
+		public Scratch() => _writer = new Utf8JsonWriter( _buffer, _s_writerOptions );
 
 		public Utf8JsonWriter Begin()
 		{

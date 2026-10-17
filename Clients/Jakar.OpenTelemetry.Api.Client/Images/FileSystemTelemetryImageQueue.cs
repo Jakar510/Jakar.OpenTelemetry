@@ -105,7 +105,7 @@ public sealed class FileSystemTelemetryImageQueue( IOptions<JakarTelemetryOption
 	private string DataPath( Guid id ) => Path.Combine( _directory, id.ToString( "N" ) + DATA_EXTENSION );
 	private string MetaPath( Guid id ) => Path.Combine( _directory, id.ToString( "N" ) + META_EXTENSION );
 
-	private async Task WriteMetadataAsync( PendingImage pending, CancellationToken token ) => await WriteAtomicAsync( MetaPath( pending.ID ), JsonSerializer.SerializeToUtf8Bytes( pending, ClientJsonContext.Default.PendingImage ), token );
+	private async Task WriteMetadataAsync( PendingImage pending, CancellationToken token ) => await WriteAtomicAsync( MetaPath( pending.ID ), pending.ToJsonUtf8(), token );
 
 	private static async Task WriteAtomicAsync( string path, ReadOnlyMemory<byte> data, CancellationToken token )
 	{
@@ -129,7 +129,7 @@ public sealed class FileSystemTelemetryImageQueue( IOptions<JakarTelemetryOption
 		{
 			try
 			{
-				if ( JsonSerializer.Deserialize( File.ReadAllBytes( meta ), ClientJsonContext.Default.PendingImage ) is { } pending &&
+				if ( PendingImage.FromJson( File.ReadAllBytes( meta ) ) is { } pending &&
 					 File.Exists( DataPath( pending.ID ) ) ) { items.Add( pending ); }
 				else { File.Delete( meta ); }
 			}

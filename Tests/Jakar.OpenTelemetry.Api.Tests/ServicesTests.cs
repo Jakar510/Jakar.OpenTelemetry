@@ -52,7 +52,7 @@ public sealed class TelemetryChangeNotifierTests
 [TestFixture]
 public sealed class TelemetryLiveFeedTests
 {
-	private static readonly TelemetryRealtimeEventDto Event = new(DateTimeOffset.UnixEpoch, 1, 2, 3, "summary");
+	private static readonly TelemetryRealtimeEventDto _s_event = new(DateTimeOffset.UnixEpoch, 1, 2, 3, "summary");
 
 
 	[Test] public async Task Publish_ReachesEverySubscriberAndRemembersLast()
@@ -69,12 +69,12 @@ public sealed class TelemetryLiveFeedTests
 
 		Assert.That( feed.Last, Is.Null );
 
-		await feed.PublishAsync( Event );
+		await feed.PublishAsync( _s_event );
 
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( received,  Has.Count.EqualTo( 2 ) );
-							 Assert.That( feed.Last, Is.SameAs( Event ) );
+							 Assert.That( feed.Last, Is.SameAs( _s_event ) );
 						 } );
 	}
 
@@ -91,7 +91,7 @@ public sealed class TelemetryLiveFeedTests
 														return Task.CompletedTask;
 													} );
 
-		await feed.PublishAsync( Event );
+		await feed.PublishAsync( _s_event );
 
 		Assert.Multiple( () =>
 						 {
@@ -114,7 +114,7 @@ public sealed class TelemetryLiveFeedTests
 		subscription.Dispose();
 		subscription.Dispose();
 
-		await feed.PublishAsync( Event );
+		await feed.PublishAsync( _s_event );
 
 		Assert.That( calls, Is.Zero );
 	}
@@ -230,17 +230,7 @@ public sealed class TelemetryChangeBroadcasterTests
 [TestFixture]
 public sealed class SmallServicesTests
 {
-	[Test] public void NewtonsoftJsonHttpResult_WritesCamelCaseWithoutNulls()
-	{
-		ContentHttpResult result = NewtonsoftJsonHttpResult.Ok( new ApiIngestEndpointsDto( "grpc", "hub", null! ) );
-
-		Assert.Multiple( () =>
-						 {
-							 Assert.That( result.ContentType,     Is.EqualTo( "application/json" ) );
-							 Assert.That( result.ResponseContent, Is.EqualTo( """{"grpc":"grpc","signalR":"hub"}""" ) );
-							 Assert.That( result.StatusCode,      Is.Null.Or.EqualTo( StatusCodes.Status200OK ) );
-						 } );
-	}
+	[Test] public void ApiDtos_WriteCamelCaseJson() => Assert.That( new ApiIngestEndpointsDto( "grpc", "hub", "snapshot" ).ToJson(), Is.EqualTo( """{"grpc" : "grpc","signalR" : "hub","snapshot" : "snapshot"}""" ) );
 
 	[Test] public void TelemetryCacheKeys_AreScopedPerTake() => Assert.That( TelemetryCacheKeys.Snapshot( 250 ), Is.EqualTo( "telemetry:snapshot:250" ) );
 
@@ -275,7 +265,7 @@ public sealed class SmallServicesTests
 		Assert.That( TelemetryImageStore.MatchesSignature( contentType, data ), Is.EqualTo( expected ) );
 	}
 
-	[Test] public void ImageStore_AllowsOnlyRasterTypes() => Assert.That( TelemetryImageStore.AllowedContentTypes,
+	[Test] public void ImageStore_AllowsOnlyRasterTypes() => Assert.That( TelemetryImageStore.s_AllowedContentTypes,
 																		  Is.EquivalentTo( new[]
 																							   {
 																								   "image/png",
@@ -304,8 +294,8 @@ public sealed class SmallServicesTests
 							 Assert.That( logs.FindProperty( nameof(TelemetryLogEntity.SortTimeUtc) )!.GetComputedColumnSql(),     Does.Contain( "COALESCE" ) );
 							 Assert.That( logs.FindProperty( nameof(TelemetryLogEntity.AttributesJson) )!.GetColumnType(),         Is.EqualTo( "jsonb" ) );
 							 Assert.That( spans.FindProperty( nameof(TelemetrySpanEntity.EventsJson) )!.GetColumnType(),           Is.EqualTo( "jsonb" ) );
-							 Assert.That( spans.FindProperty( nameof(TelemetrySpanEntity.LinksJson) )!.GetValueConverter(),        Is.SameAs( TelemetryJson.SpanLinkArrayConverter ) );
-							 Assert.That( metrics.FindProperty( nameof(TelemetryMetricEntity.QuantilesJson) )!.GetValueComparer(), Is.SameAs( TelemetryJson.DoubleDictionaryComparer ) );
+							 Assert.That( spans.FindProperty( nameof(TelemetrySpanEntity.LinksJson) )!.GetValueConverter(),        Is.SameAs( TelemetryJson.s_SpanLinkArrayConverter ) );
+							 Assert.That( metrics.FindProperty( nameof(TelemetryMetricEntity.QuantilesJson) )!.GetValueComparer(), Is.SameAs( TelemetryJson.s_DoubleDictionaryComparer ) );
 							 Assert.That( metrics.FindProperty( nameof(TelemetryMetricEntity.ExemplarsJson) )!.GetColumnType(),    Is.EqualTo( "jsonb" ) );
 							 Assert.That( context.Logs.EntityType,                                                                 Is.SameAs( logs ) );
 							 Assert.That( context.Spans.EntityType,                                                                Is.SameAs( spans ) );
@@ -328,9 +318,9 @@ public sealed class SmallServicesTests
 												  metric.ID
 											  }.Select( static x => x.Version ),
 										  Is.All.EqualTo( 7 ) );
-							 Assert.That( log.AttributesJson,            Is.SameAs( TelemetryJson.Empty ) );
-							 Assert.That( span.ScopeAttributesJson,      Is.SameAs( TelemetryJson.Empty ) );
-							 Assert.That( metric.MetadataAttributesJson, Is.SameAs( TelemetryJson.Empty ) );
+							 Assert.That( log.AttributesJson,            Is.SameAs( TelemetryJson.s_Empty ) );
+							 Assert.That( span.ScopeAttributesJson,      Is.SameAs( TelemetryJson.s_Empty ) );
+							 Assert.That( metric.MetadataAttributesJson, Is.SameAs( TelemetryJson.s_Empty ) );
 						 } );
 	}
 }

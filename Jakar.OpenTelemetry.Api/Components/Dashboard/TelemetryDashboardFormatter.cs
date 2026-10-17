@@ -7,7 +7,7 @@ namespace Jakar.OpenTelemetry.Api.Components.Dashboard;
 
 internal static class TelemetryDashboardFormatter
 {
-	private static readonly JsonWriterOptions IndentedOptions = new() { Indented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
+	private static readonly JsonWriterOptions _s_indentedOptions = new() { Indented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
 	public static string FormatCount( long                  value ) => value.ToString( "N0", CultureInfo.InvariantCulture );
 	public static string FormatDate( DateTimeOffset         value ) => value.ToUniversalTime().ToString( "yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture )         + "Z";
@@ -67,7 +67,7 @@ internal static class TelemetryDashboardFormatter
 		{
 			using JsonDocument document = JsonDocument.Parse( json );
 			using MemoryStream stream   = new();
-			using ( Utf8JsonWriter writer = new(stream, IndentedOptions) ) { document.WriteTo( writer ); }
+			using ( Utf8JsonWriter writer = new(stream, _s_indentedOptions) ) { document.WriteTo( writer ); }
 
 			return System.Text.Encoding.UTF8.GetString( stream.GetBuffer(), 0, (int)stream.Length );
 		}

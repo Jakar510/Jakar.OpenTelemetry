@@ -3,7 +3,7 @@ namespace Jakar.OpenTelemetry.Api.Client.Tests;
 [TestFixture]
 public sealed class JakarTelemetryOptionsTests
 {
-	private static JakarTelemetryOptions Valid() => new() { Endpoint = new Uri( "https://telemetry.test" ), ServiceName = "svc" };
+	private static JakarTelemetryOptions Valid() => new() { Endpoint = new Uri( "https://telemetry.test" ), ServiceName = "svc", AppName = "svc" };
 
 
 	[Test] public void Defaults_AreSensible()

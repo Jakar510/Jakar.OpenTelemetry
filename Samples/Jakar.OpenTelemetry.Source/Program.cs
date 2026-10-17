@@ -66,13 +66,13 @@ app.MapGet( "/",
 app.MapGet( "/boom", static IResult () => throw new InvalidOperationException( "Sample unhandled request exception" ) );
 
 app.MapGet( "/screenshot",
-			static async ( IJakarTelemetry telemetry, ILogger<Program> logger, CancellationToken token ) =>
+			static async ( ITelemetryClient telemetry, ILogger<Program> logger, CancellationToken token ) =>
 			{
 				ImageTag screenshot = await telemetry.AttachImageAsync( SamplePng.Create( 640, 400, Random.Shared.Next( 1, 9 ) ), "endpoint-error.png", token: token );
 				logger.LogErrorWithImages( new InvalidOperationException( "Sample error reported from an endpoint" ), [ screenshot ], "Endpoint error with screenshot {ScreenshotId}", screenshot.ID );
 				return TypedResults.Ok( new { screenshot = screenshot.ToString() } );
 			} );
 
-app.MapPost( "/flush", static async ( IJakarTelemetry telemetry, CancellationToken token ) => TypedResults.Ok( new { flushed = await telemetry.FlushAsync( token ) } ) );
+app.MapPost( "/flush", static async ( ITelemetryClient telemetry, CancellationToken token ) => TypedResults.Ok( new { flushed = await telemetry.FlushAsync( token ) } ) );
 
 await app.RunAsync();

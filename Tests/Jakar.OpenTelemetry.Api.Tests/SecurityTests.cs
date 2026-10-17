@@ -33,7 +33,7 @@ public sealed class AppSecurityHelpersTests
 						 } );
 	}
 
-	[Test] public void Roles_DashboardRolesContainViewerAndAdmin() => Assert.That( AppRoles.DashboardRoles,
+	[Test] public void Roles_DashboardRolesContainViewerAndAdmin() => Assert.That( AppRoles.s_DashboardRoles,
 																				   Is.EquivalentTo( new[]
 																										{
 																											AppRoles.VIEWER,

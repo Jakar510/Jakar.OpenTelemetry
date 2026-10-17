@@ -8,17 +8,17 @@ namespace Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.Tests;
 [TestFixture]
 public sealed class JakarTelemetryComponentTests
 {
-	private BunitContext          _context   = null!;
-	private FakeJsRuntime         _runtime   = null!;
-	private FakeLogCollector      _logs      = null!;
-	private Mock<IJakarTelemetry> _telemetry = null!;
+	private BunitContext           _context   = null!;
+	private FakeJsRuntime          _runtime   = null!;
+	private FakeLogCollector       _logs      = null!;
+	private Mock<ITelemetryClient> _telemetry = null!;
 
 
 	[SetUp] public void SetUp()
 	{
 		_context   = new BunitContext();
 		_runtime   = new FakeJsRuntime();
-		_telemetry = new Mock<IJakarTelemetry>();
+		_telemetry = new Mock<ITelemetryClient>();
 		_context.Services.AddSingleton<IJSRuntime>( _runtime );
 		_context.Services.AddLogging( static builder => builder.AddFakeLogging().SetMinimumLevel( LogLevel.Trace ) );
 		_context.Services.AddSingleton( _telemetry.Object );
@@ -103,7 +103,7 @@ public sealed class JakarTelemetryComponentTests
 		_runtime.Module.Fail( "uninstall" );
 		_context.Render<JakarTelemetry>();
 
-		Assert.DoesNotThrowAsync( async () => await _context.DisposeComponentsAsync() );
+		await Assert.DoesNotThrowAsync( async () => await _context.DisposeComponentsAsync() );
 		await Task.CompletedTask;
 	}
 
@@ -112,7 +112,7 @@ public sealed class JakarTelemetryComponentTests
 		_runtime.ImportFailure = new JSException( "no module" );
 		_context.Render<JakarTelemetry>();
 
-		Assert.DoesNotThrowAsync( async () => await _context.DisposeComponentsAsync() );
+		await Assert.DoesNotThrowAsync( async () => await _context.DisposeComponentsAsync() );
 		await Task.CompletedTask;
 	}
 }
@@ -120,16 +120,16 @@ public sealed class JakarTelemetryComponentTests
 [TestFixture]
 public sealed class TelemetryErrorBoundaryTests
 {
-	private BunitContext          _context   = null!;
-	private FakeJsRuntime         _runtime   = null!;
-	private Mock<IJakarTelemetry> _telemetry = null!;
+	private BunitContext           _context   = null!;
+	private FakeJsRuntime          _runtime   = null!;
+	private Mock<ITelemetryClient> _telemetry = null!;
 
 
 	[SetUp] public void SetUp()
 	{
 		_context   = new BunitContext();
 		_runtime   = new FakeJsRuntime();
-		_telemetry = new Mock<IJakarTelemetry>();
+		_telemetry = new Mock<ITelemetryClient>();
 		_telemetry.Setup( static x => x.AttachImageAsync( It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>() ) ).Returns<ReadOnlyMemory<byte>, string, string, CancellationToken>( static ( _, name, _, _ ) => ValueTask.FromResult( ImageTag.Create( name ) ) );
 		_context.Services.AddSingleton<IJSRuntime>( _runtime );
 		_context.Services.AddLogging( static builder => builder.AddFakeLogging().SetMinimumLevel( LogLevel.Trace ) );
@@ -145,9 +145,9 @@ public sealed class TelemetryErrorBoundaryTests
 																																																		   } );
 
 	// Resolved lazily: bUnit forbids registering services after the first one has been resolved.
-	private FakeLogCollector _logs => _context.Services.GetFakeLogCollector();
+	private FakeLogCollector Logs => _context.Services.GetFakeLogCollector();
 
-	private FakeLogRecord ComponentError => _logs.GetSnapshot().Single( static x => x.Id.Id == 9110 );
+	private FakeLogRecord ComponentError => Logs.GetSnapshot().Single( static x => x.Id.Id == 9110 );
 
 	private static string[]? Tags( FakeLogRecord record ) => record.Scopes.OfType<IEnumerable<KeyValuePair<string, object?>>>().SelectMany( static x => x ).Where( static x => x.Key == LogTags.ATTRIBUTE_KEY ).Select( static x => (string[]?)x.Value ).SingleOrDefault();
 
@@ -204,8 +204,8 @@ public sealed class TelemetryErrorBoundaryTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( _logs.GetSnapshot().Any( static x => x.Level == LogLevel.Debug && x.Message == "Error boundary screenshot capture failed" ), Is.True );
-							 Assert.That( ComponentError,                                                                                                              Is.Not.Null );
+							 Assert.That( Logs.GetSnapshot().Any( static x => x.Level == LogLevel.Debug && x.Message == "Error boundary screenshot capture failed" ), Is.True );
+							 Assert.That( ComponentError,                                                                                                             Is.Not.Null );
 						 } );
 	}
 
@@ -223,7 +223,7 @@ public sealed class TelemetryErrorBoundaryTests
 	{
 		_context.Render<TelemetryErrorBoundary>( static parameters => parameters.AddChildContent( "<p>fine</p>" ) );
 
-		Assert.DoesNotThrowAsync( async () => await _context.DisposeComponentsAsync() );
+		await Assert.DoesNotThrowAsync( async () => await _context.DisposeComponentsAsync() );
 		await Task.CompletedTask;
 	}
 

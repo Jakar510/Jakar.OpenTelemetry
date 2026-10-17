@@ -29,10 +29,10 @@ public sealed class DashboardFormatterTests
 																																																					  null,
 																																																					  null,
 																																																					  null,
-																																																					  TelemetryJson.Empty,
-																																																					  TelemetryJson.Empty,
-																																																					  attributes ?? TelemetryJson.Empty,
-																																																					  metadata   ?? TelemetryJson.Empty,
+																																																					  TelemetryJson.s_Empty,
+																																																					  TelemetryJson.s_Empty,
+																																																					  attributes ?? TelemetryJson.s_Empty,
+																																																					  metadata   ?? TelemetryJson.s_Empty,
 																																																					  null,
 																																																					  null,
 																																																					  intValue);
@@ -55,7 +55,7 @@ public sealed class DashboardFormatterTests
 	{
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( TelemetryDashboardFormatter.FormatMap( TelemetryJson.Empty ),                                       Is.EqualTo( "none" ) );
+							 Assert.That( TelemetryDashboardFormatter.FormatMap( TelemetryJson.s_Empty ),                                       Is.EqualTo( "none" ) );
 							 Assert.That( TelemetryDashboardFormatter.FormatMap( Map( ( "a", "\"quoted\"" ), ( "b", null ), ( "c", "x" ) ) ), Is.EqualTo( "a=quoted, b=, c=x" ) );
 						 } );
 	}
@@ -86,7 +86,7 @@ public sealed class DashboardFormatterTests
 	{
 		Guid                  id       = Guid.CreateVersion7();
 		TelemetryLogRecordDto tagged   = Log( Map( ( LogTags.ATTRIBUTE_KEY, $"""["image:a.png:{id}"]""" ) ) );
-		TelemetryLogRecordDto untagged = Log( TelemetryJson.Empty );
+		TelemetryLogRecordDto untagged = Log( TelemetryJson.s_Empty );
 
 		Assert.Multiple( () =>
 						 {
@@ -112,8 +112,8 @@ public sealed class DashboardFormatterTests
 																								  null,
 																								  null,
 																								  0,
-																								  TelemetryJson.Empty,
-																								  TelemetryJson.Empty,
+																								  TelemetryJson.s_Empty,
+																								  TelemetryJson.s_Empty,
 																								  attributes);
 	}
 

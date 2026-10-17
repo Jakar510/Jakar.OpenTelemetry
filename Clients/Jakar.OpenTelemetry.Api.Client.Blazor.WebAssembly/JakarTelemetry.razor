@@ -10,7 +10,7 @@
 @* Renders nothing. Place once in the app root (App.razor / MainLayout) with an interactive render mode. *@
 
 @code {
-    private static readonly EventId NavigationEvent = new( 9106, "browser.navigation" );
+    private static readonly EventId _s_navigationEvent = new( 9106, "browser.navigation" );
 
     /// <summary> Attach a screenshot to browser errors (at most one per minute). </summary>
     [Parameter] public bool CaptureScreenshotOnError { get; set; } = true;
@@ -40,7 +40,7 @@
         try
         {
             _module = new BrowserTelemetryModule( JS );
-            _bridge = DotNetObjectReference.Create( new BrowserTelemetryBridge( _logger!, _module, Services.GetService( typeof(IJakarTelemetry) ) as IJakarTelemetry, CaptureScreenshotOnError ) );
+            _bridge = DotNetObjectReference.Create( new BrowserTelemetryBridge( _logger!, _module, Services.GetService( typeof(ITelemetryClient) ) as ITelemetryClient, CaptureScreenshotOnError ) );
 
             IJSObjectReference module = await _module.GetAsync();
             await module.InvokeVoidAsync( "install", _bridge, new { maxEventsPerMinute = MaxEventsPerMinute, reportWebVitals = ReportWebVitals } );
@@ -54,7 +54,7 @@
     private void OnLocationChanged( object? sender, LocationChangedEventArgs args )
     {
         string path = new Uri( args.Location ).AbsolutePath;
-        _logger?.LogInformation( NavigationEvent, "Navigated to {UrlPath}", path );
+        _logger?.LogInformation( _s_navigationEvent, "Navigated to {UrlPath}", path );
     }
 
     public async ValueTask DisposeAsync()

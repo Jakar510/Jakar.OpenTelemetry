@@ -32,7 +32,7 @@ public sealed class JakarTelemetryWebAssemblyExtensionsTests
 							 Assert.That( services.GetRequiredService<ITelemetryFlusher>(),                                                                 Is.SameAs( services.GetRequiredService<BrowserOtlpLogExporter>() ) );
 							 Assert.That( services.GetServices<Microsoft.Extensions.Logging.ILoggerProvider>().OfType<BrowserOtlpLoggerProvider>().Count(), Is.EqualTo( 1 ) );
 							 Assert.That( services.GetRequiredService<BrowserTelemetryModule>(),                                                            Is.SameAs( services.GetRequiredService<BrowserTelemetryModule>() ) );
-							 Assert.That( services.GetRequiredService<IJakarTelemetry>(),                                                                   Is.Not.Null );
+							 Assert.That( services.GetRequiredService<ITelemetryClient>(),                                                                   Is.Not.Null );
 						 } );
 	}
 

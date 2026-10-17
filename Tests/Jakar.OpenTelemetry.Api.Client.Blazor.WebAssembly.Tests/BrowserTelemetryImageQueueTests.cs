@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text.Json;
 using Jakar.OpenTelemetry.Api.Client.Images;
 using Jakar.OpenTelemetry.Contracts;
 
@@ -33,30 +32,30 @@ public sealed class BrowserTelemetryImageQueueTests
 		ImageTag tag = await queue.EnqueueAsync( TestImages.Png, "dir/shot.png", ImageContentTypes.PNG );
 
 		( string meta, byte[] data ) = _runtime.Module.Images[Key( tag.ID )];
-		PendingImage pending = JsonSerializer.Deserialize<PendingImage>( meta, new JsonSerializerOptions( JsonSerializerDefaults.Web ) )!;
+		PendingImage pending = PendingImage.FromJson( meta );
 
 		Assert.Multiple( async () =>
 						 {
 							 Assert.That( tag.FileName,             Is.EqualTo( "shot.png" ) );
 							 Assert.That( data,                     Is.EqualTo( TestImages.Png ) );
-							 Assert.That( meta,                     Does.Contain( "\"fileName\":\"shot.png\"" ), "camelCase metadata" );
+							 Assert.That( meta,                     Does.Contain( "\"fileName\" : \"shot.png\"" ), "camelCase metadata" );
 							 Assert.That( pending.ID,               Is.EqualTo( tag.ID ) );
 							 Assert.That( pending.Sha256,           Is.EqualTo( Convert.ToBase64String( SHA256.HashData( TestImages.Png ) ) ) );
 							 Assert.That( await queue.CountAsync(), Is.EqualTo( 1 ) );
 						 } );
 	}
 
-	[Test] public void Enqueue_InvalidInput_Throws()
+	[Test] public async Task Enqueue_InvalidInput_Throws()
 	{
 		BrowserTelemetryImageQueue queue = Create();
 		_options.Images.MaxImageBytes = 10;
 
-		Assert.Multiple( () =>
-						 {
-							 Assert.ThrowsAsync<ArgumentException>( async () => await queue.EnqueueAsync( ReadOnlyMemory<byte>.Empty,   "a.png", ImageContentTypes.PNG ) );
-							 Assert.ThrowsAsync<ArgumentException>( async () => await queue.EnqueueAsync( TestImages.PngOfLength( 11 ), "a.png", ImageContentTypes.PNG ) );
-							 Assert.ThrowsAsync<ArgumentException>( async () => await queue.EnqueueAsync( TestImages.Png,               "a.svg", "image/svg+xml" ) );
-						 } );
+		await Assert.MultipleAsync( async () =>
+									{
+										await Assert.ThrowsAsync<ArgumentException>( async () => await queue.EnqueueAsync( ReadOnlyMemory<byte>.Empty,   "a.png", ImageContentTypes.PNG ) );
+										await Assert.ThrowsAsync<ArgumentException>( async () => await queue.EnqueueAsync( TestImages.PngOfLength( 11 ), "a.png", ImageContentTypes.PNG ) );
+										await Assert.ThrowsAsync<ArgumentException>( async () => await queue.EnqueueAsync( TestImages.Png,               "a.svg", "image/svg+xml" ) );
+									} );
 	}
 
 	[Test] public async Task GetDue_FiltersOrdersAndLimits()
@@ -152,7 +151,7 @@ public sealed class BrowserTelemetryImageQueueTests
 
 		ImageTag     old   = await queue.EnqueueAsync( TestImages.PngOfLength( 10 ), "old.png", ImageContentTypes.PNG );
 		PendingImage stale = ( await queue.GetDueAsync( DateTimeOffset.UtcNow.AddSeconds( 1 ), 1 ) ).Single();
-		_runtime.Module.Images[Key( old.ID )] = ( JsonSerializer.Serialize( stale with { CreatedUtc = DateTimeOffset.UtcNow - _options.Images.MaxAge - TimeSpan.FromHours( 1 ) }, BrowserJsonContext.Default.PendingImage ), TestImages.PngOfLength( 10 ) );
+		_runtime.Module.Images[Key( old.ID )] = ( ( stale with { CreatedUtc = DateTimeOffset.UtcNow - _options.Images.MaxAge - TimeSpan.FromHours( 1 ) } ).ToJson(), TestImages.PngOfLength( 10 ) );
 
 		await queue.EnqueueAsync( TestImages.PngOfLength( 100 ), "big1.png", ImageContentTypes.PNG );
 		await Task.Delay( 5 );

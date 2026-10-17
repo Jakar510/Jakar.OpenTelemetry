@@ -52,7 +52,7 @@ public sealed class TelemetryQueryServiceTests : ApiFixture
 
 							 Assert.That( error.TraceId,                            Is.EqualTo( "0102030405060708090a0b0c0d0e0f10" ) );
 							 Assert.That( error.SpanId,                             Is.EqualTo( "a1a2a3a4a5a6a7a8" ) );
-							 Assert.That( error.TimestampUtc,                       Is.EqualTo( Otlp.Time ) );
+							 Assert.That( error.TimestampUtc,                       Is.EqualTo( Otlp.s_Time ) );
 							 Assert.That( error.ResourceAttributes["service.name"], Is.EqualTo( Otlp.SERVICE_NAME ) );
 							 Assert.That( error.ScopeAttributes["scope.attr"],      Is.EqualTo( "scope-value" ) );
 							 Assert.That( error.EventName,                          Is.EqualTo( "test.event" ) );

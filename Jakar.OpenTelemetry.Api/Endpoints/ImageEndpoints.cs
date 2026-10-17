@@ -41,7 +41,7 @@ public sealed class TelemetryImageReceiver( TelemetryImageStore             stor
 		if ( id == Guid.Empty ) { return TypedResults.Problem( "Image id must not be empty", statusCode: StatusCodes.Status400BadRequest ); }
 
 		string? contentType = NormalizeContentType( request.ContentType );
-		if ( contentType is null ) { return TypedResults.Problem( $"Unsupported image Content-Type, expected one of {string.Join( ", ", TelemetryImageStore.AllowedContentTypes )}", statusCode: StatusCodes.Status415UnsupportedMediaType ); }
+		if ( contentType is null ) { return TypedResults.Problem( $"Unsupported image Content-Type, expected one of {string.Join( ", ", TelemetryImageStore.s_AllowedContentTypes )}", statusCode: StatusCodes.Status415UnsupportedMediaType ); }
 
 		if ( request.ContentLength > _maxBytes ) { return TypedResults.Problem( $"Image exceeds {_maxBytes} byte limit", statusCode: StatusCodes.Status413PayloadTooLarge ); }
 
@@ -158,7 +158,7 @@ public sealed class TelemetryImageReceiver( TelemetryImageStore             stor
 
 		mediaType = mediaType.Trim();
 
-		foreach ( string allowed in TelemetryImageStore.AllowedContentTypes )
+		foreach ( string allowed in TelemetryImageStore.s_AllowedContentTypes )
 		{
 			if ( mediaType.Equals( allowed, StringComparison.OrdinalIgnoreCase ) ) { return allowed; }
 		}

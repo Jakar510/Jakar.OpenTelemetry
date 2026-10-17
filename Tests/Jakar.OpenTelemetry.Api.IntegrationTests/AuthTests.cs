@@ -1,7 +1,6 @@
 using System.Net;
 using Jakar.OpenTelemetry.Contracts;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Newtonsoft.Json;
 
 namespace Jakar.OpenTelemetry.Api.IntegrationTests;
 
@@ -71,7 +70,7 @@ public sealed class AuthenticationTests : ApiFixture
 		using HttpResponseMessage viewerApi = await viewer.GetAsync( "/api" );
 		using HttpResponseMessage adminApi  = await admin.GetAsync( "/api/" );
 
-		ApiMetadataDto metadata = JsonConvert.DeserializeObject<ApiMetadataDto>( await adminApi.Content.ReadAsStringAsync() )!;
+		ApiMetadataDto metadata = ApiMetadataDto.FromJson( await adminApi.Content.ReadAsStringAsync() );
 
 		Assert.Multiple( () =>
 						 {
@@ -110,14 +109,14 @@ public sealed class AuthenticationTests : ApiFixture
 		using HttpResponseMessage defaults = await admin.GetAsync( "/api/telemetry/snapshot" );
 
 		string               json     = await small.Content.ReadAsStringAsync();
-		TelemetrySnapshotDto snapshot = JsonConvert.DeserializeObject<TelemetrySnapshotDto>( json )!;
+		TelemetrySnapshotDto snapshot = TelemetrySnapshotDto.FromJson( json );
 
 		await Assert.MultipleAsync( async () =>
 									{
 										Assert.That( small.Content.Headers.ContentType?.MediaType,                                                            Is.EqualTo( "application/json" ) );
 										Assert.That( json,                                                                                                    Does.Contain( "\"overview\"" ) );
 										Assert.That( snapshot.Logs,                                                                                           Has.Count.EqualTo( 25 ), "take is clamped to at least 25" );
-										Assert.That( JsonConvert.DeserializeObject<TelemetrySnapshotDto>( await defaults.Content.ReadAsStringAsync() )!.Logs, Has.Count.EqualTo( 30 ) );
+										Assert.That( TelemetrySnapshotDto.FromJson( await defaults.Content.ReadAsStringAsync() ).Logs, Has.Count.EqualTo( 30 ) );
 									} );
 		await Task.CompletedTask;
 	}

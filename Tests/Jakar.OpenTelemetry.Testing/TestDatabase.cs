@@ -27,10 +27,10 @@ public static class TestDatabase
 	public const string IMAGE_VARIABLE             = "JAKAR_OTEL_TEST_POSTGRES_IMAGE";
 	public const string DEFAULT_IMAGE              = "postgres:18-alpine";
 
-	private static readonly SemaphoreSlim        Lock      = new(1, 1);
-	private static readonly List<string>         Databases = [ ];
-	private static          PostgreSqlContainer? s_container;
-	private static          string?              s_serverConnectionString;
+	private static readonly SemaphoreSlim        _s_lock      = new(1, 1);
+	private static readonly List<string>         _s_databases = [ ];
+	private static          PostgreSqlContainer? _s_sContainer;
+	private static          string?              _s_sServerConnectionString;
 
 
 	public static bool IsExternal => string.Equals( Environment.GetEnvironmentVariable( MODE_VARIABLE ), "external", StringComparison.OrdinalIgnoreCase ) || ( string.IsNullOrWhiteSpace( Environment.GetEnvironmentVariable( MODE_VARIABLE ) ) && !string.IsNullOrWhiteSpace( Environment.GetEnvironmentVariable( CONNECTION_STRING_VARIABLE ) ) );
@@ -52,7 +52,7 @@ public static class TestDatabase
 			await command.ExecuteNonQueryAsync( token );
 		}
 
-		lock ( Databases ) { Databases.Add( name ); }
+		lock ( _s_databases ) { _s_databases.Add( name ); }
 
 		return new NpgsqlConnectionStringBuilder( server ) { Database = name, Pooling = true }.ConnectionString;
 	}
@@ -60,55 +60,55 @@ public static class TestDatabase
 	/// <summary> Drops every database created by this process and stops the container. Call once, from an assembly-level teardown. </summary>
 	public static async Task DisposeAsync()
 	{
-		if ( s_serverConnectionString is null ) { return; }
+		if ( _s_sServerConnectionString is null ) { return; }
 
 		NpgsqlConnection.ClearAllPools();
 
 		if ( IsExternal )
 		{
-			await using NpgsqlConnection connection = new(s_serverConnectionString);
+			await using NpgsqlConnection connection = new(_s_sServerConnectionString);
 			await connection.OpenAsync();
 
-			foreach ( string name in Databases )
+			foreach ( string name in _s_databases )
 			{
 				await using NpgsqlCommand command = new($"DROP DATABASE IF EXISTS \"{name}\" WITH (FORCE)", connection);
 				await command.ExecuteNonQueryAsync();
 			}
 		}
 
-		if ( s_container is not null ) { await s_container.DisposeAsync(); }
+		if ( _s_sContainer is not null ) { await _s_sContainer.DisposeAsync(); }
 
-		s_container              = null;
-		s_serverConnectionString = null;
-		Databases.Clear();
+		_s_sContainer              = null;
+		_s_sServerConnectionString = null;
+		_s_databases.Clear();
 	}
 
 
 	private static async Task<string> GetServerAsync( CancellationToken token )
 	{
-		if ( s_serverConnectionString is not null ) { return s_serverConnectionString; }
+		if ( _s_sServerConnectionString is not null ) { return _s_sServerConnectionString; }
 
-		await Lock.WaitAsync( token );
+		await _s_lock.WaitAsync( token );
 
 		try
 		{
-			if ( s_serverConnectionString is not null ) { return s_serverConnectionString; }
+			if ( _s_sServerConnectionString is not null ) { return _s_sServerConnectionString; }
 
 			if ( IsExternal )
 			{
 				string configured = Environment.GetEnvironmentVariable( CONNECTION_STRING_VARIABLE ) ?? throw new InvalidOperationException( $"{MODE_VARIABLE}=external requires {CONNECTION_STRING_VARIABLE}" );
 
 				// Databases are created from the maintenance database, not the one in the connection string (which may be a real one).
-				return s_serverConnectionString = new NpgsqlConnectionStringBuilder( configured ) { Database = "postgres" }.ConnectionString;
+				return _s_sServerConnectionString = new NpgsqlConnectionStringBuilder( configured ) { Database = "postgres" }.ConnectionString;
 			}
 
 			PostgreSqlContainer container = new PostgreSqlBuilder( Environment.GetEnvironmentVariable( IMAGE_VARIABLE ) is { Length: > 0 } image
 																	   ? image
 																	   : DEFAULT_IMAGE ).Build();
 			await container.StartAsync( token );
-			s_container = container;
-			return s_serverConnectionString = new NpgsqlConnectionStringBuilder( container.GetConnectionString() ) { Database = "postgres" }.ConnectionString;
+			_s_sContainer = container;
+			return _s_sServerConnectionString = new NpgsqlConnectionStringBuilder( container.GetConnectionString() ) { Database = "postgres" }.ConnectionString;
 		}
-		finally { Lock.Release(); }
+		finally { _s_lock.Release(); }
 	}
 }

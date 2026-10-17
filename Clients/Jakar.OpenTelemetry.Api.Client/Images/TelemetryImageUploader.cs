@@ -22,12 +22,12 @@ public interface ITelemetryUploadGate
 ///     </list>
 ///     Uploads are idempotent on the server, so a retry after an ambiguous failure never duplicates an image.
 /// </summary>
-public sealed class TelemetryImageUploader( ITelemetryImageQueue              queue,
-											IHttpClientFactory                httpClientFactory,
-											IEnumerable<ITelemetryUploadGate> gates,
-											IOptions<JakarTelemetryOptions>   options,
-											ILogger<TelemetryImageUploader>   logger,
-											TimeProvider?                     time = null ) : IAsyncDisposable
+public sealed partial class TelemetryImageUploader( ITelemetryImageQueue              queue,
+													IHttpClientFactory                httpClientFactory,
+													IEnumerable<ITelemetryUploadGate> gates,
+													IOptions<JakarTelemetryOptions>   options,
+													ILogger<TelemetryImageUploader>   logger,
+													TimeProvider?                     time = null ) : IAsyncDisposable
 {
 	public const string HTTP_CLIENT_NAME = "Jakar.OpenTelemetry.Images";
 
@@ -210,7 +210,7 @@ public sealed class TelemetryImageUploader( ITelemetryImageQueue              qu
 		seconds *= 0.8 + Random.Shared.NextDouble() * 0.4;
 
 		await queue.RescheduleAsync( image, _time.GetUtcNow() + TimeSpan.FromSeconds( seconds ), error, token );
-		logger.LogDebug( "Image {ImageId} upload failed ({Error}), retrying in {Delay:0}s", image.ID, error, seconds );
+		LogImageImageIdUploadFailedErrorRetryingInDelayS( image.ID, error, seconds );
 	}
 
 	private static TimeSpan? RetryAfter( HttpResponseMessage response, DateTimeOffset now )
@@ -224,7 +224,7 @@ public sealed class TelemetryImageUploader( ITelemetryImageQueue              qu
 	}
 
 	/// <summary> <see cref="HttpClient"/> has already buffered the body, so this cannot fail on I/O. </summary>
-	private static async Task<string> ReadReasonAsync( HttpResponseMessage response, CancellationToken token )
+	private static async ValueTask<string> ReadReasonAsync( HttpResponseMessage response, CancellationToken token )
 	{
 		string body = await response.Content.ReadAsStringAsync( token );
 		return body.Length > 512
@@ -240,4 +240,6 @@ public sealed class TelemetryImageUploader( ITelemetryImageQueue              qu
 		Dropped,
 		ServerBusy
 	}
+
+	[LoggerMessage( LogLevel.Debug, "Image {ImageId} upload failed ({Error}), retrying in {Delay:0}s" )] partial void LogImageImageIdUploadFailedErrorRetryingInDelayS( Guid imageId, string error, double delay );
 }

@@ -1,38 +1,49 @@
+using Jakar.Extensions;
+using Jakar.Json;
+
 namespace Jakar.OpenTelemetry.Contracts;
 
-public sealed record ApiIngestEndpointsDto( string Grpc,
+[JsonModel]
+public sealed partial record ApiIngestEndpointsDto( string Grpc,
 											string SignalR,
 											string Snapshot );
 
-public sealed record ApiMetadataDto( string                Name,
+[JsonModel]
+public sealed partial record ApiMetadataDto( string                Name,
 									 ApiIngestEndpointsDto Ingest );
 
-public readonly record struct SpanEvent( DateTimeOffset?                     TimeUtc,
+[JsonModel]
+public readonly partial record struct SpanEvent( DateTimeOffset?                     TimeUtc,
 										 string                              Name,
-										 ReadOnlyDictionary<string, string?> Attributes,
+										 [property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> Attributes,
 										 uint                                DroppedAttributesCount = 0 );
 
-public readonly record struct SpanLink( string?                             TraceId,
+[JsonModel]
+public readonly partial record struct SpanLink( string?                             TraceId,
 										string?                             SpanId,
 										string                              TraceState,
-										ReadOnlyDictionary<string, string?> Attributes,
+										[property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> Attributes,
 										uint                                Flags                  = 0,
 										uint                                DroppedAttributesCount = 0 );
 
-public sealed record NamedValueDto( string Name,
+[JsonModel]
+public sealed partial record NamedValueDto( string Name,
 									double Value );
 
-public sealed record TelemetryTimeSeriesPointDto( DateTimeOffset BucketUtc,
+[JsonModel]
+public sealed partial record TelemetryTimeSeriesPointDto( DateTimeOffset BucketUtc,
 												  double         Value );
 
-public sealed record TelemetryRealtimeEventDto( DateTimeOffset TimestampUtc,
+[JsonModel]
+public sealed partial record TelemetryRealtimeEventDto( DateTimeOffset TimestampUtc,
 												int            NewLogs,
 												int            NewSpans,
 												int            NewMetrics,
 												string         Summary,
 												int            NewImages = 0 );
 
-public sealed record TelemetryOverviewDto( DateTimeOffset                             GeneratedAtUtc,
+[JsonModel]
+public sealed partial record TelemetryOverviewDto( DateTimeOffset                             GeneratedAtUtc,
 										   long                                       TotalLogs,
 										   long                                       TotalSpans,
 										   long                                       TotalMetrics,
@@ -43,7 +54,8 @@ public sealed record TelemetryOverviewDto( DateTimeOffset                       
 										   IReadOnlyList<NamedValueDto>               ServiceBreakdown,
 										   IReadOnlyList<NamedValueDto>               MetricBreakdown );
 
-public sealed record TelemetryLogRecordDto( Guid                                ID,
+[JsonModel]
+public sealed partial record TelemetryLogRecordDto( Guid                                ID,
 											DateTimeOffset                      ReceivedAtUtc,
 											DateTimeOffset?                     TimestampUtc,
 											DateTimeOffset?                     ObservedTimestampUtc,
@@ -57,15 +69,16 @@ public sealed record TelemetryLogRecordDto( Guid                                
 											string?                             ScopeVersion,
 											string?                             CategoryName,
 											uint                                Flags,
-											ReadOnlyDictionary<string, string?> ResourceAttributes,
-											ReadOnlyDictionary<string, string?> ScopeAttributes,
-											ReadOnlyDictionary<string, string?> Attributes,
+											[property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> ResourceAttributes,
+											[property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> ScopeAttributes,
+											[property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> Attributes,
 											string?                             EventName              = null,
 											uint                                DroppedAttributesCount = 0,
 											string?                             ResourceSchemaUrl      = null,
 											string?                             ScopeSchemaUrl         = null );
 
-public sealed record TelemetrySpanRecordDto( Guid                                ID,
+[JsonModel]
+public sealed partial record TelemetrySpanRecordDto( Guid                                ID,
 											 DateTimeOffset                      ReceivedAtUtc,
 											 DateTimeOffset?                     StartTimeUtc,
 											 DateTimeOffset?                     EndTimeUtc,
@@ -81,9 +94,9 @@ public sealed record TelemetrySpanRecordDto( Guid                               
 											 double                              DurationMilliseconds,
 											 string?                             ScopeName,
 											 string?                             ScopeVersion,
-											 ReadOnlyDictionary<string, string?> ResourceAttributes,
-											 ReadOnlyDictionary<string, string?> ScopeAttributes,
-											 ReadOnlyDictionary<string, string?> Attributes,
+											 [property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> ResourceAttributes,
+											 [property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> ScopeAttributes,
+											 [property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> Attributes,
 											 SpanEvent[]?                        EventsJson,
 											 SpanLink[]?                         LinksJson,
 											 uint                                Flags                  = 0,
@@ -93,7 +106,8 @@ public sealed record TelemetrySpanRecordDto( Guid                               
 											 string?                             ResourceSchemaUrl      = null,
 											 string?                             ScopeSchemaUrl         = null );
 
-public sealed record TelemetryMetricRecordDto( Guid                                ID,
+[JsonModel]
+public sealed partial record TelemetryMetricRecordDto( Guid                                ID,
 											   DateTimeOffset                      ReceivedAtUtc,
 											   DateTimeOffset?                     StartTimeUtc,
 											   DateTimeOffset?                     TimestampUtc,
@@ -111,25 +125,27 @@ public sealed record TelemetryMetricRecordDto( Guid                             
 											   double?                             Max,
 											   string?                             ScopeName,
 											   string?                             ScopeVersion,
-											   ReadOnlyDictionary<string, string?> ResourceAttributes,
-											   ReadOnlyDictionary<string, string?> ScopeAttributes,
-											   ReadOnlyDictionary<string, string?> Attributes,
-											   ReadOnlyDictionary<string, string?> MetadataAttributes,
+											   [property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> ResourceAttributes,
+											   [property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> ScopeAttributes,
+											   [property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> Attributes,
+											   [property: JsonMember( Converter = typeof(AttributesJsonConverter) )] ReadOnlyDictionary<string, string?> MetadataAttributes,
 											   string?                             DistributionJson,
-											   ReadOnlyDictionary<double, double>? QuantilesJson,
+											   [property: JsonMember( Converter = typeof(QuantilesJsonConverter) )] ReadOnlyDictionary<double, double>? QuantilesJson,
 											   long?                               IntValue          = null,
 											   uint                                Flags             = 0,
 											   string?                             ExemplarsJson     = null,
 											   string?                             ResourceSchemaUrl = null,
 											   string?                             ScopeSchemaUrl    = null );
 
-public sealed record TelemetrySnapshotDto( TelemetryOverviewDto                    Overview,
+[JsonModel]
+public sealed partial record TelemetrySnapshotDto( TelemetryOverviewDto                    Overview,
 										   IReadOnlyList<TelemetryLogRecordDto>    Logs,
 										   IReadOnlyList<TelemetrySpanRecordDto>   Spans,
 										   IReadOnlyList<TelemetryMetricRecordDto> Metrics );
 
 /// <summary> An image referenced by a log's <see cref="LogTags.ATTRIBUTE_KEY"/>; <see cref="IsUploaded"/> is false while the client has not delivered it yet. </summary>
-public sealed record TelemetryImageDto( Guid            ID,
+[JsonModel]
+public sealed partial record TelemetryImageDto( Guid            ID,
 										string          FileName,
 										bool            IsUploaded,
 										string?         ContentType,
@@ -137,7 +153,8 @@ public sealed record TelemetryImageDto( Guid            ID,
 										DateTimeOffset? ReceivedAtUtc );
 
 /// <summary> An error log record that references one or more screenshots. </summary>
-public sealed record TelemetryScreenshotLogDto( Guid                             LogID,
+[JsonModel]
+public sealed partial record TelemetryScreenshotLogDto( Guid                             LogID,
 												DateTimeOffset                   TimestampUtc,
 												string?                          ServiceName,
 												string?                          SeverityText,

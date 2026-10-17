@@ -24,7 +24,7 @@ using IHost host = builder.Build();
 await host.StartAsync();
 
 ILogger         logger    = host.Services.GetRequiredService<ILoggerFactory>().CreateLogger( "Jakar.OpenTelemetry.Samples.Console" );
-IJakarTelemetry telemetry = host.Services.GetRequiredService<IJakarTelemetry>();
+ITelemetryClient telemetry = host.Services.GetRequiredService<ITelemetryClient>();
 
 logger.LogInformation( "Console sample started in {Mode} mode", mode );
 

@@ -11,7 +11,7 @@ using Microsoft.Extensions.Options;
 namespace Jakar.OpenTelemetry.Source;
 
 public sealed class TelemetrySourceWorker( IHttpClientFactory             httpClientFactory,
-										   IJakarTelemetry                telemetry,
+										   ITelemetryClient                telemetry,
 										   ILogger<TelemetrySourceWorker> logger,
 										   IOptions<SampleSourceOptions>  options ) : BackgroundService
 {
@@ -19,11 +19,11 @@ public sealed class TelemetrySourceWorker( IHttpClientFactory             httpCl
 	public const string CLIENT_NAME          = "telemetry-source";
 	public const string METER_NAME           = "Jakar.OpenTelemetry.Source";
 
-	private static readonly ActivitySource    ActivitySource    = new(ACTIVITY_SOURCE_NAME);
-	private static readonly Meter             Meter             = new(METER_NAME);
-	private static readonly Counter<long>     RequestCounter    = Meter.CreateCounter<long>( "sample_source.requests",         "{request}", "Total outbound sample requests." );
-	private static readonly Counter<long>     FailureCounter    = Meter.CreateCounter<long>( "sample_source.request_failures", "{request}", "Failed outbound sample requests." );
-	private static readonly Histogram<double> DurationHistogram = Meter.CreateHistogram<double>( "sample_source.request.duration", "ms", "Latency for outbound sample requests." );
+	private static readonly ActivitySource    _s_activitySource    = new(ACTIVITY_SOURCE_NAME);
+	private static readonly Meter             _s_meter             = new(METER_NAME);
+	private static readonly Counter<long>     _s_requestCounter    = _s_meter.CreateCounter<long>( "sample_source.requests",         "{request}", "Total outbound sample requests." );
+	private static readonly Counter<long>     _s_failureCounter    = _s_meter.CreateCounter<long>( "sample_source.request_failures", "{request}", "Failed outbound sample requests." );
+	private static readonly Histogram<double> _s_durationHistogram = _s_meter.CreateHistogram<double>( "sample_source.request.duration", "ms", "Latency for outbound sample requests." );
 
 	private int _requests;
 
@@ -52,7 +52,7 @@ public sealed class TelemetrySourceWorker( IHttpClientFactory             httpCl
 
 		using IDisposable? scope = logger.BeginScope( new Dictionary<string, object?> { ["target.url"] = sourceOptions.TargetUrl, ["source.kind"] = "sample" } );
 
-		using Activity? activity = ActivitySource.StartActivity( "sample.http.get", ActivityKind.Client );
+		using Activity? activity = _s_activitySource.StartActivity( "sample.http.get", ActivityKind.Client );
 		activity?.SetTag( "sample.target_url", sourceOptions.TargetUrl );
 		activity?.SetTag( "sample.source",     "Jakar.OpenTelemetry.Source" );
 
@@ -70,9 +70,9 @@ public sealed class TelemetrySourceWorker( IHttpClientFactory             httpCl
 									 ? ActivityStatusCode.Ok
 									 : ActivityStatusCode.Error );
 
-			DurationHistogram.Record( stopwatch.Elapsed.TotalMilliseconds, tags.Append( new KeyValuePair<string, object?>( "http.response.status_code", (int)response.StatusCode ) ).ToArray() );
+			_s_durationHistogram.Record( stopwatch.Elapsed.TotalMilliseconds, tags.Append( new KeyValuePair<string, object?>( "http.response.status_code", (int)response.StatusCode ) ).ToArray() );
 
-			RequestCounter.Add( 1, tags );
+			_s_requestCounter.Add( 1, tags );
 
 			logger.LogInformation( "Received {StatusCode} from {TargetUrl} in {ElapsedMilliseconds} ms", (int)response.StatusCode, sourceOptions.TargetUrl, stopwatch.Elapsed.TotalMilliseconds );
 
@@ -85,9 +85,9 @@ public sealed class TelemetrySourceWorker( IHttpClientFactory             httpCl
 			stopwatch.Stop();
 			activity?.SetStatus( ActivityStatusCode.Error, e.Message );
 
-			DurationHistogram.Record( stopwatch.Elapsed.TotalMilliseconds, tags );
-			RequestCounter.Add( 1, tags );
-			FailureCounter.Add( 1, tags );
+			_s_durationHistogram.Record( stopwatch.Elapsed.TotalMilliseconds, tags );
+			_s_requestCounter.Add( 1, tags );
+			_s_failureCounter.Add( 1, tags );
 
 			logger.LogError( e, "GET request to {TargetUrl} failed after {ElapsedMilliseconds} ms", sourceOptions.TargetUrl, stopwatch.Elapsed.TotalMilliseconds );
 		}

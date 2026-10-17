@@ -84,11 +84,11 @@ public sealed class TelemetryChangeBroadcaster( TelemetryChangeNotifier         
 												IFusionCache                             cache,
 												ILogger<TelemetryChangeBroadcaster>      logger ) : BackgroundService
 {
-	private static readonly TimeSpan Interval = TimeSpan.FromSeconds( 1 );
+	private static readonly TimeSpan _s_interval = TimeSpan.FromSeconds( 1 );
 
 	protected override async Task ExecuteAsync( CancellationToken stoppingToken )
 	{
-		using PeriodicTimer timer = new(Interval);
+		using PeriodicTimer timer = new(_s_interval);
 
 		try
 		{

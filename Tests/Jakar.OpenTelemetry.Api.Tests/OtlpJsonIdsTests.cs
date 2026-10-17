@@ -10,7 +10,7 @@ namespace Jakar.OpenTelemetry.Api.Tests;
 [TestFixture]
 public sealed class OtlpJsonIdsTests
 {
-	private static readonly JsonParser Parser = new(JsonParser.Settings.Default.WithIgnoreUnknownFields( true ));
+	private static readonly JsonParser _s_parser = new(JsonParser.Settings.Default.WithIgnoreUnknownFields( true ));
 
 	private const string TRACE_HEX = "0102030405060708090a0b0c0d0e0f10";
 	private const string SPAN_HEX  = "a1a2a3a4a5a6a7a8";
@@ -18,7 +18,7 @@ public sealed class OtlpJsonIdsTests
 
 	[Test] public void Traces_HexIdsParsedAsBase64_AreRecovered()
 	{
-		ExportTraceServiceRequest request = Parser.Parse<ExportTraceServiceRequest>( $$"""
+		ExportTraceServiceRequest request = _s_parser.Parse<ExportTraceServiceRequest>( $$"""
 																					   {"resourceSpans":[{"scopeSpans":[{"spans":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}","parentSpanId":"{{SPAN_HEX}}","name":"s",
 																					    "links":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}"}]}]}]}]}
 																					   """ );
@@ -63,7 +63,7 @@ public sealed class OtlpJsonIdsTests
 
 	[Test] public void Logs_HexIds_AreRecovered()
 	{
-		ExportLogsServiceRequest request = Parser.Parse<ExportLogsServiceRequest>( $$"""{"resourceLogs":[{"scopeLogs":[{"logRecords":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}"},{}]}]}]}""" );
+		ExportLogsServiceRequest request = _s_parser.Parse<ExportLogsServiceRequest>( $$"""{"resourceLogs":[{"scopeLogs":[{"logRecords":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}"},{}]}]}]}""" );
 
 		OtlpJsonIds.Normalize( request );
 
@@ -79,7 +79,7 @@ public sealed class OtlpJsonIdsTests
 	{
 		string                      exemplar = $$"""{"exemplars":[{"traceId":"{{TRACE_HEX}}","spanId":"{{SPAN_HEX}}","asDouble":1}]}""";
 		string                      json     = "{\"resourceMetrics\":[{\"scopeMetrics\":[{\"metrics\":[" + $"{{\"name\":\"g\",\"gauge\":{{\"dataPoints\":[{exemplar}]}}}}," + $"{{\"name\":\"s\",\"sum\":{{\"dataPoints\":[{exemplar}]}}}}," + $"{{\"name\":\"h\",\"histogram\":{{\"dataPoints\":[{exemplar}]}}}}," + $"{{\"name\":\"e\",\"exponentialHistogram\":{{\"dataPoints\":[{exemplar}]}}}}," + "{\"name\":\"q\",\"summary\":{\"dataPoints\":[{}]}}," + "{\"name\":\"none\"}" + "]}]}]}";
-		ExportMetricsServiceRequest request  = Parser.Parse<ExportMetricsServiceRequest>( json );
+		ExportMetricsServiceRequest request  = _s_parser.Parse<ExportMetricsServiceRequest>( json );
 
 		OtlpJsonIds.Normalize( request );
 

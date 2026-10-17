@@ -70,7 +70,7 @@ public sealed class JakarTelemetryServiceCollectionExtensionsTests
 							 Assert.That( provider.GetRequiredService<ITelemetryImageQueue>(),                                                               Is.TypeOf<FileSystemTelemetryImageQueue>() );
 							 Assert.That( provider.GetRequiredService<ICrashReportStore>(),                                                                  Is.TypeOf<FileSystemCrashReportStore>() );
 							 Assert.That( provider.GetRequiredService<ITelemetryFlusher>(),                                                                  Is.TypeOf<OpenTelemetrySdkFlusher>() );
-							 Assert.That( provider.GetRequiredService<IJakarTelemetry>(),                                                                    Is.TypeOf<JakarTelemetryClient>() );
+							 Assert.That( provider.GetRequiredService<ITelemetryClient>(),                                                                    Is.TypeOf<TelemetryClient>() );
 							 Assert.That( provider.GetRequiredService<TimeProvider>(),                                                                       Is.SameAs( TimeProvider.System ) );
 							 Assert.That( provider.GetRequiredService<JakarTelemetryRuntime>(),                                                              Is.SameAs( provider.GetRequiredService<JakarTelemetryRuntime>() ) );
 							 Assert.That( provider.GetRequiredService<JakarCrashReporter>(),                                                                 Is.Not.Null );
@@ -188,7 +188,7 @@ public sealed class JakarTelemetryServiceCollectionExtensionsTests
 			meter.CreateCounter<long>( "work.done" ).Add( 3 );
 			host.Services.GetRequiredService<ILogger<JakarTelemetryServiceCollectionExtensionsTests>>().LogWarning( "Exported {Thing}", "log" );
 
-			Assert.That( await host.Services.GetRequiredService<IJakarTelemetry>().FlushAsync(), Is.True );
+			Assert.That( await host.Services.GetRequiredService<ITelemetryClient>().FlushAsync(), Is.True );
 
 			CapturedRequest logs    = await server.WaitForAsync( static x => x.Uri!.AbsolutePath == "/collector/v1/logs" );
 			CapturedRequest traces  = await server.WaitForAsync( static x => x.Uri!.AbsolutePath == "/collector/v1/traces" );

@@ -66,13 +66,13 @@ internal static class AppiumSettings
 
 internal static class Paths
 {
-	public static readonly string Repository = FindRepository();
+	public static readonly string s_Repository = FindRepository();
 
-	public static readonly string Configuration = AppContext.BaseDirectory.Contains( $"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase )
+	public static readonly string s_Configuration = AppContext.BaseDirectory.Contains( $"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase )
 													  ? "Release"
 													  : "Debug";
 
-	public static string SampleProject => Path.Combine( Repository, "Samples", "Jakar.OpenTelemetry.Samples.Maui" );
+	public static string SampleProject => Path.Combine( s_Repository, "Samples", "Jakar.OpenTelemetry.Samples.Maui" );
 
 	private static string FindRepository()
 	{

@@ -1,5 +1,4 @@
 using System.Security.Cryptography;
-using System.Text.Json;
 using Jakar.OpenTelemetry.Api.Client.Images;
 using Jakar.OpenTelemetry.Contracts;
 
@@ -52,16 +51,15 @@ public sealed class FileSystemTelemetryImageQueueTests
 									} );
 	}
 
-	[Test] public void Enqueue_EmptyData_Throws() => Assert.ThrowsAsync<ArgumentException>( async () => await Create().EnqueueAsync( ReadOnlyMemory<byte>.Empty, "a.png", ImageContentTypes.PNG ) );
-
-	[Test] public void Enqueue_TooLarge_Throws()
+	[Test] public async Task Enqueue_EmptyData_Throws() => await Assert.ThrowsAsync<ArgumentException>( async () => await Create().EnqueueAsync( ReadOnlyMemory<byte>.Empty, "a.png", ImageContentTypes.PNG ) );
+	[Test] public async Task Enqueue_TooLarge_Throws()
 	{
 		_options.Images.MaxImageBytes = 10;
 
-		Assert.ThrowsAsync<ArgumentException>( async () => await Create().EnqueueAsync( TestImages.PngOfLength( 11 ), "a.png", ImageContentTypes.PNG ) );
+		await  Assert.ThrowsAsync<ArgumentException>( async () => await Create().EnqueueAsync( TestImages.PngOfLength( 11 ), "a.png", ImageContentTypes.PNG ) );
 	}
 
-	[Test] public void Enqueue_UnsupportedContentType_Throws() => Assert.ThrowsAsync<ArgumentException>( async () => await Create().EnqueueAsync( TestImages.Png, "a.svg", "image/svg+xml" ) );
+	[Test] public async Task Enqueue_UnsupportedContentType_Throws() => await Assert.ThrowsAsync<ArgumentException>( async () => await Create().EnqueueAsync( TestImages.Png, "a.svg", "image/svg+xml" ) );
 
 	[Test] public async Task GetDue_HonorsNextAttemptOrderingAndMax()
 	{
@@ -276,7 +274,7 @@ public sealed class FileSystemTelemetryImageQueueTests
 		// Age the queued image past MaxAge by rewriting its metadata.
 		string       metaPath = Path.Combine( ImageDirectory, old.ID.ToString( "N" ) + ".json" );
 		PendingImage pending  = ( await queue.GetDueAsync( DateTimeOffset.UtcNow.AddSeconds( 1 ), 1 ) ).Single();
-		await File.WriteAllTextAsync( metaPath, JsonSerializer.Serialize( pending with { CreatedUtc = DateTimeOffset.UtcNow - _options.Images.MaxAge - TimeSpan.FromMinutes( 1 ) }, ClientJsonContext.Default.PendingImage ) );
+		await File.WriteAllTextAsync( metaPath, ( pending with { CreatedUtc = DateTimeOffset.UtcNow - _options.Images.MaxAge - TimeSpan.FromMinutes( 1 ) } ).ToJson() );
 
 		ImageTag fresh = await queue.EnqueueAsync( TestImages.Png, "new.png", ImageContentTypes.PNG );
 
@@ -307,7 +305,7 @@ public sealed class FileSystemTelemetryImageQueueTests
 		FileSystemTelemetryImageQueue queue = Create();
 		ImageTag                      tag   = await queue.EnqueueAsync( TestImages.Png, "a.png", ImageContentTypes.PNG );
 
-		await using ( File.Open( Path.Combine( ImageDirectory, tag.ID.ToString( "N" ) + ".bin" ), FileMode.Open, FileAccess.Read, FileShare.None ) ) { Assert.DoesNotThrowAsync( async () => await queue.CompleteAsync( tag.ID ) ); }
+		await using ( File.Open( Path.Combine( ImageDirectory, tag.ID.ToString( "N" ) + ".bin" ), FileMode.Open, FileAccess.Read, FileShare.None ) ) { await Assert.DoesNotThrowAsync( async () => await queue.CompleteAsync( tag.ID ) ); }
 
 		Assert.That( _logger.Collector.GetSnapshot().Any( static x => x.Level == LogLevel.Debug && x.Message.StartsWith( "Could not delete" ) ), Is.True );
 	}

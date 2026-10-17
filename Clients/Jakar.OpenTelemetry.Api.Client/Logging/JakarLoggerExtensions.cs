@@ -6,41 +6,42 @@ namespace Jakar.OpenTelemetry.Api.Client.Logging;
 
 public static class JakarLoggerExtensions
 {
-	/// <summary>
-	///     Attaches image references to every log written inside the scope as the <c>log.tags</c> attribute (<c>image:{file-name}:{id}</c>).
-	///     Requires scopes to be exported (the Jakar client enables them).
-	/// </summary>
-	public static IDisposable? BeginImageScope( this ILogger logger, params IEnumerable<ImageTag> images )
+	extension( ILogger logger )
 	{
-		string[] tags = images.Select( static x => x.ToString() ).Distinct( StringComparer.Ordinal ).ToArray();
-		return tags.Length == 0
-				   ? null
-				   : logger.BeginScope( new LogTagsScope( tags ) );
-	}
+		/// <summary>
+		///     Attaches image references to every log written inside the scope as the <c>log.tags</c> attribute (<c>image:{file-name}:{id}</c>).
+		///     Requires scopes to be exported (the Jakar client enables them).
+		/// </summary>
+		public IDisposable? BeginImageScope( params IEnumerable<ImageTag> images )
+		{
+			string[] tags = images.Select( static x => x.ToString() ).Distinct( StringComparer.Ordinal ).ToArray();
+			return tags.Length == 0
+					   ? null
+					   : logger.BeginScope( new LogTagsScope( tags ) );
+		}
+		public void LogWithImages( LogLevel level, Exception? exception, IEnumerable<ImageTag> images, string? message, params object?[] args )
+		{
+			using ( logger.BeginImageScope( images ) ) { logger.Log( level, exception, message, args ); }
+		}
+		public void LogErrorWithImages( Exception? exception, IEnumerable<ImageTag> images, string? message, params object?[] args ) => logger.LogWithImages( LogLevel.Error, exception, images, message, args );
+		/// <summary> Captures a screenshot (when the platform supports it), queues it for upload and logs the error referencing it. </summary>
+		public async Task<ImageTag?> LogErrorWithScreenshotAsync( ITelemetryClient telemetry, Exception? exception, string? message, params object?[] args )
+		{
+			ImageTag? screenshot = null;
 
-	public static void LogWithImages( this ILogger logger, LogLevel level, Exception? exception, IEnumerable<ImageTag> images, string? message, params object?[] args )
-	{
-		using ( logger.BeginImageScope( images ) ) { logger.Log( level, exception, message, args ); }
-	}
+			try { screenshot = await telemetry.CaptureScreenshotAsync(); }
+			catch ( Exception e ) { logger.LogDebug( e, "Screenshot capture failed" ); }
 
-	public static void LogErrorWithImages( this ILogger logger, Exception? exception, IEnumerable<ImageTag> images, string? message, params object?[] args ) => logger.LogWithImages( LogLevel.Error, exception, images, message, args );
-
-	/// <summary> Captures a screenshot (when the platform supports it), queues it for upload and logs the error referencing it. </summary>
-	public static async Task<ImageTag?> LogErrorWithScreenshotAsync( this ILogger logger, IJakarTelemetry telemetry, Exception? exception, string? message, params object?[] args )
-	{
-		ImageTag? screenshot = null;
-
-		try { screenshot = await telemetry.CaptureScreenshotAsync(); }
-		catch ( Exception e ) { logger.LogDebug( e, "Screenshot capture failed" ); }
-
-		logger.LogWithImages( LogLevel.Error,
-							  exception,
-							  screenshot is { } tag
-								  ? [ tag ]
-								  : [ ],
-							  message,
-							  args );
-		return screenshot;
+			logger.LogWithImages( LogLevel.Error,
+								  exception,
+								  screenshot is { } tag
+									  ? [ tag ]
+									  : [ ],
+								  message,
+								  args );
+			
+			return screenshot;
+		}
 	}
 
 

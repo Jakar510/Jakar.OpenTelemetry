@@ -220,7 +220,7 @@ public sealed class BrowserOtlpLogExporterTests
 
 		BrowserOtlpLogExporter exporter = Create();
 
-		Assert.DoesNotThrowAsync( exporter.StartAsync );
+		await Assert.DoesNotThrowAsync( exporter.StartAsync );
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True );
 		Assert.That( _http.Requests,                                         Is.Empty );
 	}
@@ -231,7 +231,7 @@ public sealed class BrowserOtlpLogExporterTests
 		_runtime.Module.Fail( "storageSet" );
 
 		BrowserOtlpLogExporter exporter = Create();
-		Assert.DoesNotThrowAsync( exporter.StartAsync );
+		await Assert.DoesNotThrowAsync( exporter.StartAsync );
 
 		exporter.Enqueue( Record() );
 		Assert.That( await exporter.FlushAsync( TimeSpan.FromSeconds( 5 ) ), Is.True, "persistence failures do not block delivery" );
@@ -294,8 +294,8 @@ public sealed class BrowserOtlpLogExporterTests
 	{
 		BrowserOtlpLogExporter exporter = new(new BrowserTelemetryModule( _runtime ), _factory, ClientTestOptions.Wrap( _options ));
 
-		Assert.DoesNotThrowAsync( async () => await exporter.DisposeAsync() );
-		Assert.DoesNotThrowAsync( async () => await exporter.DisposeAsync(), "disposal is idempotent" );
+		await Assert.DoesNotThrowAsync( async () => await exporter.DisposeAsync() );
+		await Assert.DoesNotThrowAsync( async () => await exporter.DisposeAsync(), "disposal is idempotent" );
 		await Task.CompletedTask;
 	}
 

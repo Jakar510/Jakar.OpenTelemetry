@@ -7,17 +7,18 @@ public static class ClientTestOptions
 {
 	public const string API_KEY = "test-api-key";
 
-	public static readonly Uri Endpoint = new("https://telemetry.test/");
+	public static readonly Uri s_Endpoint = new("https://telemetry.test/");
 
 	/// <summary> Valid options with durable state under <paramref name="storageDirectory"/> and short intervals suited to tests. </summary>
 	public static JakarTelemetryOptions Create( string storageDirectory, Action<JakarTelemetryOptions>? configure = null )
 	{
 		JakarTelemetryOptions options = new()
 											{
-												Endpoint         = Endpoint,
+												Endpoint         = s_Endpoint,
 												ApiKey           = API_KEY,
 												ServiceName      = "client-tests",
 												ServiceVersion   = "1.2.3",
+												AppName          = "client-tests",
 												StorageDirectory = storageDirectory,
 												ExportInterval   = TimeSpan.FromMilliseconds( 200 ),
 												ExportTimeout    = TimeSpan.FromSeconds( 5 ),

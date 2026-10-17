@@ -11,7 +11,7 @@ public sealed class TelemetryRetentionService( NpgsqlDataSource                 
 											   IOptions<TelemetryRetentionOptions> options,
 											   ILogger<TelemetryRetentionService>  logger ) : BackgroundService
 {
-	private static readonly string[] Tables = [ "Logs", "Spans", "Metrics", "Images" ];
+	private static readonly string[] _s_tables = [ "Logs", "Spans", "Metrics", "Images" ];
 
 	private readonly TelemetryRetentionOptions _options = options.Value;
 
@@ -40,7 +40,7 @@ public sealed class TelemetryRetentionService( NpgsqlDataSource                 
 	{
 		DateTimeOffset cutoff = DateTimeOffset.UtcNow.AddDays( -_options.RetentionDays );
 
-		foreach ( string table in Tables )
+		foreach ( string table in _s_tables )
 		{
 			long deleted = 0;
 

@@ -34,85 +34,89 @@ public static class JakarTelemetryServiceCollectionExtensions
 		return builder;
 	}
 
-	/// <summary>
-	///     Registers the transport-independent client services: options, durable image queue + uploader, crash reporter, runtime and <see cref="IJakarTelemetry"/>.
-	///     Platform packages call this and then replace individual services (queue, crash store, flusher) where the platform needs it.
-	/// </summary>
-	public static JakarTelemetryOptions AddJakarTelemetryCore( this IServiceCollection services, IConfiguration configuration, Action<JakarTelemetryOptions>? configure = null )
+	extension( IServiceCollection services )
 	{
-		JakarTelemetryOptions options = new();
-		configuration.GetSection( JakarTelemetryOptions.SECTION_NAME ).Bind( options );
-		configure?.Invoke( options );
-		options.Validate();
-
-		services.AddSingleton( Options.Create( options ) );
-		services.TryAddSingleton( TimeProvider.System );
-		services.TryAddSingleton<ITelemetryImageQueue, FileSystemTelemetryImageQueue>();
-		services.TryAddSingleton<ICrashReportStore, FileSystemCrashReportStore>();
-		services.TryAddSingleton<ITelemetryFlusher, OpenTelemetrySdkFlusher>();
-		services.TryAddSingleton<JakarCrashReporter>();
-		services.TryAddSingleton<TelemetryImageUploader>();
-		services.TryAddSingleton<JakarTelemetryRuntime>();
-		services.TryAddSingleton<IJakarTelemetry, JakarTelemetryClient>();
-		services.TryAddTransient<TelemetryHttpMessageHandler>();
-
-		// Per-request timeouts are enforced by the uploader, so large images on slow links are not cut off by HttpClient's default.
-		services.AddHttpClient( TelemetryImageUploader.HTTP_CLIENT_NAME, static client => client.Timeout = Timeout.InfiniteTimeSpan );
-
-		return options;
-	}
-
-	/// <summary> Configures the OpenTelemetry SDK (logs, traces, metrics) to export to Jakar.OpenTelemetry.Api over OTLP. </summary>
-	public static OpenTelemetryBuilder AddJakarOpenTelemetrySdk( this IServiceCollection services, IConfigurationBuilder configuration, JakarTelemetryOptions options, Action<OpenTelemetryBuilder>? configure = null )
-	{
-		if ( options.PersistFailedExports )
+		/// <summary>
+		///     Registers the transport-independent client services: options, durable image queue + uploader, crash reporter, runtime and <see cref="ITelemetryClient"/>.
+		///     Platform packages call this and then replace individual services (queue, crash store, flusher) where the platform needs it.
+		/// </summary>
+		public JakarTelemetryOptions AddJakarTelemetryCore( IConfiguration configuration, Action<JakarTelemetryOptions>? configure = null )
 		{
-			string directory = Path.Combine( options.ResolveStorageDirectory(), "otlp" );
-			Directory.CreateDirectory( directory );
-			configuration.AddInMemoryCollection( [ new KeyValuePair<string, string?>( OTLP_RETRY_KEY, "disk" ), new KeyValuePair<string, string?>( OTLP_RETRY_DIRECTORY_KEY, directory ) ] );
+			JakarTelemetryOptions options = new();
+			configuration.GetSection( JakarTelemetryOptions.SECTION_NAME ).Bind( options );
+			configure?.Invoke( options );
+			if ( string.IsNullOrWhiteSpace( options.AppName ) ) { options.AppName = options.ServiceName; } // until AppName replaces ServiceName (Docs/SPEC.md)
+			options.Validate();
+
+			services.AddSingleton( options );
+			services.AddSingleton<IOptions<JakarTelemetryOptions>>( static provider => provider.GetRequiredService<JakarTelemetryOptions>() );
+			services.TryAddSingleton( TimeProvider.System );
+			services.TryAddSingleton<ITelemetryImageQueue, FileSystemTelemetryImageQueue>();
+			services.TryAddSingleton<ICrashReportStore, FileSystemCrashReportStore>();
+			services.TryAddSingleton<ITelemetryFlusher, OpenTelemetrySdkFlusher>();
+			services.TryAddSingleton<JakarCrashReporter>();
+			services.TryAddSingleton<TelemetryImageUploader>();
+			services.TryAddSingleton<JakarTelemetryRuntime>();
+			services.TryAddSingleton<ITelemetryClient, TelemetryClient>();
+			services.TryAddTransient<TelemetryHttpMessageHandler>();
+
+			// Per-request timeouts are enforced by the uploader, so large images on slow links are not cut off by HttpClient's default.
+			services.AddHttpClient( TelemetryImageUploader.HTTP_CLIENT_NAME, static client => client.Timeout = Timeout.InfiniteTimeSpan );
+
+			return options;
 		}
-
-		OpenTelemetryBuilder openTelemetry = services.AddOpenTelemetry().ConfigureResource( resource => ConfigureResource( resource, options ) );
-
-		if ( options.EnableLogs )
+		/// <summary> Configures the OpenTelemetry SDK (logs, traces, metrics) to export to Jakar.OpenTelemetry.Api over OTLP. </summary>
+		public OpenTelemetryBuilder AddJakarOpenTelemetrySdk( IConfigurationBuilder configuration, JakarTelemetryOptions options, Action<OpenTelemetryBuilder>? configure = null )
 		{
-			openTelemetry.WithLogging( logging => logging.AddOtlpExporter( exporter => ConfigureExporter( exporter, options, "v1/logs" ) ),
-									   logging =>
-									   {
-										   // Scopes carry log.tags (image references) and crash attributes.
-										   logging.IncludeScopes           = true;
-										   logging.IncludeFormattedMessage = true;
-									   } );
-		}
+			if ( options.PersistFailedExports )
+			{
+				string directory = Path.Combine( options.ResolveStorageDirectory(), "otlp" );
+				Directory.CreateDirectory( directory );
+				configuration.AddInMemoryCollection( [ new KeyValuePair<string, string?>( OTLP_RETRY_KEY, "disk" ), new KeyValuePair<string, string?>( OTLP_RETRY_DIRECTORY_KEY, directory ) ] );
+			}
 
-		if ( options.EnableTraces )
-		{
-			openTelemetry.WithTracing( tracing =>
-									   {
-										   tracing.AddSource( INSTRUMENTATION_NAME ).AddSource( [ .. options.ActivitySources ] );
-										   tracing.AddHttpClientInstrumentation( static http => http.RecordException = true );
-										   tracing.AddOtlpExporter( exporter => ConfigureExporter( exporter, options, "v1/traces" ) );
-									   } );
-		}
+			OpenTelemetryBuilder openTelemetry = services.AddOpenTelemetry().ConfigureResource( resource => ConfigureResource( resource, options ) );
 
-		if ( options.EnableMetrics )
-		{
-			openTelemetry.WithMetrics( metrics =>
-									   {
-										   metrics.AddMeter( INSTRUMENTATION_NAME ).AddMeter( [ .. options.Meters ] );
-										   metrics.AddHttpClientInstrumentation();
-										   metrics.AddRuntimeInstrumentation();
-										   metrics.AddOtlpExporter( ( exporter, reader ) =>
-																	{
-																		ConfigureExporter( exporter, options, "v1/metrics" );
-																		reader.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = (int)options.ExportInterval.TotalMilliseconds;
-																		reader.PeriodicExportingMetricReaderOptions.ExportTimeoutMilliseconds  = (int)options.ExportTimeout.TotalMilliseconds;
-																	} );
-									   } );
-		}
+			if ( options.EnableLogs )
+			{
+				openTelemetry.WithLogging( logging => logging.AddOtlpExporter( exporter => ConfigureExporter( exporter, options, "v1/logs" ) ),
+										   logging =>
+										   {
+											   // Scopes carry log.tags (image references) and crash attributes.
+											   logging.IncludeScopes           = true;
+											   logging.IncludeFormattedMessage = true;
+										   } );
+			}
 
-		configure?.Invoke( openTelemetry );
-		return openTelemetry;
+			if ( options.EnableTraces )
+			{
+				openTelemetry.WithTracing( tracing =>
+										   {
+											   tracing.AddSource( INSTRUMENTATION_NAME, options.AppName ).AddSource( [ .. options.ActivitySources ] );
+											   tracing.AddHttpClientInstrumentation( static http => http.RecordException = true );
+											   tracing.AddOtlpExporter( exporter => ConfigureExporter( exporter, options, "v1/traces" ) );
+										   } );
+			}
+
+			if ( options.EnableMetrics )
+			{
+				openTelemetry.WithMetrics( metrics =>
+										   {
+											   metrics.AddMeter( INSTRUMENTATION_NAME, options.AppName, $"{options.AppName}.*" ).AddMeter( [ .. options.Meters.Select( static x => x.Name ) ] ); // TelemetryClient[ name ] only creates meters under these names
+											   metrics.AddHttpClientInstrumentation();
+											   metrics.AddRuntimeInstrumentation();
+											   metrics.AddOtlpExporter( ( exporter, reader ) =>
+																		{
+																			ConfigureExporter( exporter, options, "v1/metrics" );
+																			reader.PeriodicExportingMetricReaderOptions.ExportIntervalMilliseconds = (int)options.ExportInterval.TotalMilliseconds;
+																			reader.PeriodicExportingMetricReaderOptions.ExportTimeoutMilliseconds  = (int)options.ExportTimeout.TotalMilliseconds;
+																		} );
+										   } );
+			}
+
+			configure?.Invoke( openTelemetry );
+			return openTelemetry;
+		}
 	}
 
 	/// <summary> Logs failed calls made through this client (transport errors and 5xx). </summary>

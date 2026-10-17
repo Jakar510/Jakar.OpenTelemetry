@@ -14,7 +14,7 @@ namespace Jakar.OpenTelemetry.Api.IntegrationTests;
 [TestFixture]
 public sealed class ScreenshotsPageTests : ApiFixture
 {
-	private static readonly TimeSpan Wait = TimeSpan.FromSeconds( 15 );
+	private static readonly TimeSpan _s_wait = TimeSpan.FromSeconds( 15 );
 
 	private BunitContext      _context = null!;
 	private GatedFactory      _factory = null!;
@@ -41,7 +41,7 @@ public sealed class ScreenshotsPageTests : ApiFixture
 	{
 		IRenderedComponent<Screenshots> page = _context.Render<Screenshots>();
 
-		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, Wait );
+		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, _s_wait );
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( page.Find( "select" ).QuerySelectorAll( "option" ).Select( static x => x.TextContent ),
@@ -58,7 +58,7 @@ public sealed class ScreenshotsPageTests : ApiFixture
 	[Test] public async Task RefreshRequestedDuringARefresh_IsNotDropped()
 	{
 		IRenderedComponent<Screenshots> page = _context.Render<Screenshots>();
-		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, Wait );
+		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, _s_wait );
 		int before = _factory.Calls;
 
 		_factory.Close();
@@ -72,14 +72,14 @@ public sealed class ScreenshotsPageTests : ApiFixture
 		_factory.Open();
 		await running;
 
-		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 3, Wait ); // the follow-up refresh saw the log that arrived meanwhile
+		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 3, _s_wait ); // the follow-up refresh saw the log that arrived meanwhile
 		Assert.That( _factory.Calls - before, Is.EqualTo( 2 ), "the running refresh plus one coalesced follow-up" );
 	}
 
 	[Test] public void LiveEventWithoutLogsOrImages_DoesNotRefresh()
 	{
 		IRenderedComponent<Screenshots> page = _context.Render<Screenshots>();
-		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, Wait );
+		page.WaitForState( () => page.FindAll( ".screenshot-card" ).Count == 2, _s_wait );
 		int before = _factory.Calls;
 
 		page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( DateTimeOffset.UtcNow, 0, 5, 5, "spans and metrics only" ) ) ).GetAwaiter().GetResult();
@@ -93,7 +93,7 @@ public sealed class ScreenshotsPageTests : ApiFixture
 
 		IRenderedComponent<Screenshots> page = _context.Render<Screenshots>();
 
-		page.WaitForState( () => page.FindAll( ".error-banner" ).Count == 1, Wait );
+		page.WaitForState( () => page.FindAll( ".error-banner" ).Count == 1, _s_wait );
 		Assert.That( page.Find( ".error-banner" ).TextContent, Is.EqualTo( "Failed to load screenshots: database offline" ) );
 	}
 

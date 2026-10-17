@@ -25,8 +25,8 @@ public sealed class OtlpHttpReceiver( TelemetryIngestService      telemetry,
 {
 	public const            string        PROTOBUF_CONTENT_TYPE = "application/x-protobuf";
 	public const            string        JSON_CONTENT_TYPE     = "application/json";
-	private static readonly JsonParser    Parser                = new(JsonParser.Settings.Default.WithIgnoreUnknownFields( true ));
-	private static readonly JsonFormatter Formatter             = new(JsonFormatter.Settings.Default);
+	private static readonly JsonParser    _s_parser                = new(JsonParser.Settings.Default.WithIgnoreUnknownFields( true ));
+	private static readonly JsonFormatter _s_formatter             = new(JsonFormatter.Settings.Default);
 	private readonly        int           _maxBytes             = options.Value.MaxReceiveMessageSizeBytes;
 	private readonly        string        _retryAfter           = options.Value.RetryAfterSeconds.ToString( System.Globalization.CultureInfo.InvariantCulture );
 
@@ -115,7 +115,7 @@ public sealed class OtlpHttpReceiver( TelemetryIngestService      telemetry,
 			{
 				if ( !json ) { return parser.ParseFrom( buffer ); }
 
-				TRequest request = Parser.Parse<TRequest>( Encoding.UTF8.GetString( buffer ) );
+				TRequest request = _s_parser.Parse<TRequest>( Encoding.UTF8.GetString( buffer ) );
 				normalizeJson( request );
 				return request;
 			}
@@ -151,7 +151,7 @@ public sealed class OtlpHttpReceiver( TelemetryIngestService      telemetry,
 		if ( json )
 		{
 			response.ContentType = JSON_CONTENT_TYPE;
-			await response.WriteAsync( Formatter.Format( message ), context.RequestAborted );
+			await response.WriteAsync( _s_formatter.Format( message ), context.RequestAborted );
 			return;
 		}
 

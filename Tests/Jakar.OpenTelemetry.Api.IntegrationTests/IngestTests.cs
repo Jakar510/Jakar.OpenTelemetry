@@ -41,7 +41,7 @@ public sealed class OtlpHttpIngestTests : ApiFixture
 							 Assert.That( rows[0]["SeverityNumber"],                                                                              Is.EqualTo( 17 ) );
 							 Assert.That( rows[0]["Body"],                                                                                        Is.EqualTo( """{"order":42}""" ) );
 							 Assert.That( rows[0]["TraceId"],                                                                                     Is.Null );
-							 Assert.That( rows[0]["SpanId"],                                                                                      Is.EqualTo( Otlp.SpanId ) );
+							 Assert.That( rows[0]["SpanId"],                                                                                      Is.EqualTo( Otlp.s_SpanId ) );
 							 Assert.That( rows[0]["CategoryName"],                                                                                Is.EqualTo( "Orders.Service" ) );
 							 Assert.That( rows[0]["EventName"],                                                                                   Is.EqualTo( "test.event" ) );
 							 Assert.That( rows[0]["Flags"],                                                                                       Is.EqualTo( 1L ) );
@@ -50,13 +50,13 @@ public sealed class OtlpHttpIngestTests : ApiFixture
 							 Assert.That( rows[0]["ScopeVersion"],                                                                                Is.EqualTo( "1.0.0" ) );
 							 Assert.That( rows[0]["ResourceSchemaUrl"],                                                                           Is.EqualTo( "https://opentelemetry.io/schemas/resource" ) );
 							 Assert.That( rows[0]["ScopeSchemaUrl"],                                                                              Is.EqualTo( "https://opentelemetry.io/schemas/scope" ) );
-							 Assert.That( (DateTime)rows[0]["TimestampUtc"]!,                                                                     Is.EqualTo( Otlp.Time.UtcDateTime ) );
+							 Assert.That( (DateTime)rows[0]["TimestampUtc"]!,                                                                     Is.EqualTo( Otlp.s_Time.UtcDateTime ) );
 							 Assert.That( JsonDocument.Parse( (string)rows[0]["AttributesJson"]! ).RootElement.GetProperty( "count" ).GetInt64(), Is.EqualTo( 3 ), "attribute types are kept in jsonb" );
 							 Assert.That( (string)rows[0]["ScopeAttributesJson"]!,                                                                Does.Contain( "scope-value" ) );
 							 Assert.That( (string)rows[0]["ResourceAttributesJson"]!,                                                             Does.Contain( Otlp.SERVICE_NAME ) );
 							 Assert.That( rows[1]["Body"],                                                                                        Is.EqualTo( "plain�text" ), "NUL cannot be stored in PostgreSQL text" );
 							 Assert.That( rows[1]["SeverityText"],                                                                                Is.EqualTo( "WARNING" ) );
-							 Assert.That( rows[1]["TraceId"],                                                                                     Is.EqualTo( Otlp.TraceId ) );
+							 Assert.That( rows[1]["TraceId"],                                                                                     Is.EqualTo( Otlp.s_TraceId ) );
 						 } );
 	}
 
@@ -120,7 +120,7 @@ public sealed class OtlpHttpIngestTests : ApiFixture
 							 Assert.That( rows[0]["StatusCode"],               Is.EqualTo( "Error" ) );
 							 Assert.That( rows[0]["StatusMessage"],            Is.EqualTo( "boom" ) );
 							 Assert.That( rows[0]["DurationMilliseconds"],     Is.EqualTo( 42d ) );
-							 Assert.That( rows[0]["ParentSpanId"],             Is.EqualTo( Otlp.Parent ) );
+							 Assert.That( rows[0]["ParentSpanId"],             Is.EqualTo( Otlp.s_Parent ) );
 							 Assert.That( rows[0]["TraceState"],               Is.EqualTo( "vendor=value" ) );
 							 Assert.That( rows[0]["Flags"],                    Is.EqualTo( 0x301L ) );
 							 Assert.That( rows[0]["DroppedAttributesCount"],   Is.EqualTo( 3L ) );
@@ -258,7 +258,7 @@ public sealed class OtlpHttpIngestTests : ApiFixture
 										Assert.That( await response.Content.ReadAsStringAsync(),      Is.EqualTo( "{ }" ) );
 										Assert.That( row["ServiceName"],                              Is.EqualTo( "json-svc" ) );
 										Assert.That( row["Body"],                                     Is.EqualTo( "from json" ) );
-										Assert.That( row["TraceId"],                                  Is.EqualTo( Otlp.TraceId ) );
+										Assert.That( row["TraceId"],                                  Is.EqualTo( Otlp.s_TraceId ) );
 									} );
 		await Task.CompletedTask;
 	}
@@ -342,9 +342,9 @@ public sealed class OtlpGrpcIngestTests : ApiFixture
 
 	private static Method<TRequest, TResponse> Export<TRequest, TResponse>( string service, MessageParser<TRequest> requestParser, MessageParser<TResponse> responseParser ) where TRequest : IMessage<TRequest> where TResponse : IMessage<TResponse> => new(MethodType.Unary, service, "Export", Marshallers.Create( static r => r.ToByteArray(), requestParser.ParseFrom ), Marshallers.Create( static r => r.ToByteArray(), responseParser.ParseFrom ));
 
-	private static readonly Method<ExportLogsServiceRequest, ExportLogsServiceResponse>       LogsExport    = Export( "opentelemetry.proto.collector.logs.v1.LogsService",       ExportLogsServiceRequest.Parser,    ExportLogsServiceResponse.Parser );
-	private static readonly Method<ExportTraceServiceRequest, ExportTraceServiceResponse>     TraceExport   = Export( "opentelemetry.proto.collector.trace.v1.TraceService",     ExportTraceServiceRequest.Parser,   ExportTraceServiceResponse.Parser );
-	private static readonly Method<ExportMetricsServiceRequest, ExportMetricsServiceResponse> MetricsExport = Export( "opentelemetry.proto.collector.metrics.v1.MetricsService", ExportMetricsServiceRequest.Parser, ExportMetricsServiceResponse.Parser );
+	private static readonly Method<ExportLogsServiceRequest, ExportLogsServiceResponse>       _s_logsExport    = Export( "opentelemetry.proto.collector.logs.v1.LogsService",       ExportLogsServiceRequest.Parser,    ExportLogsServiceResponse.Parser );
+	private static readonly Method<ExportTraceServiceRequest, ExportTraceServiceResponse>     _s_traceExport   = Export( "opentelemetry.proto.collector.trace.v1.TraceService",     ExportTraceServiceRequest.Parser,   ExportTraceServiceResponse.Parser );
+	private static readonly Method<ExportMetricsServiceRequest, ExportMetricsServiceResponse> _s_metricsExport = Export( "opentelemetry.proto.collector.metrics.v1.MetricsService", ExportMetricsServiceRequest.Parser, ExportMetricsServiceResponse.Parser );
 
 	private static CallOptions Key( string? key = TestApi.API_KEY ) => new(key is null
 																			   ? null
@@ -355,9 +355,9 @@ public sealed class OtlpGrpcIngestTests : ApiFixture
 	{
 		CallInvoker invoker = _channel.CreateCallInvoker();
 
-		await invoker.AsyncUnaryCall( LogsExport, null, Key(), Otlp.Logs( Otlp.Log( "grpc log" ) ) );
-		ExportTraceServiceResponse traces = await invoker.AsyncUnaryCall( TraceExport, null, Key(), Otlp.Traces( Otlp.Span(), Otlp.Span( spanId: [ 1 ] ) ) );
-		await invoker.AsyncUnaryCall( MetricsExport, null, Key(), Otlp.Metrics( Otlp.Gauge() ) );
+		await invoker.AsyncUnaryCall( _s_logsExport, null, Key(), Otlp.Logs( Otlp.Log( "grpc log" ) ) );
+		ExportTraceServiceResponse traces = await invoker.AsyncUnaryCall( _s_traceExport, null, Key(), Otlp.Traces( Otlp.Span(), Otlp.Span( spanId: [ 1 ] ) ) );
+		await invoker.AsyncUnaryCall( _s_metricsExport, null, Key(), Otlp.Metrics( Otlp.Gauge() ) );
 
 		await Assert.MultipleAsync( async () =>
 									{
@@ -369,9 +369,9 @@ public sealed class OtlpGrpcIngestTests : ApiFixture
 		await Task.CompletedTask;
 	}
 
-	[TestCase( null )] [TestCase( "wrong" )] public void MissingOrWrongKey_IsUnauthenticated( string? key )
+	[TestCase( null )] [TestCase( "wrong" )] public async Task MissingOrWrongKey_IsUnauthenticated( string? key )
 	{
-		RpcException? exception = Assert.ThrowsAsync<RpcException>( async () => await _channel.CreateCallInvoker().AsyncUnaryCall( LogsExport, null, Key( key ), Otlp.Logs( Otlp.Log() ) ) );
+		RpcException? exception = await Assert.ThrowsAsync<RpcException>( async () => await _channel.CreateCallInvoker().AsyncUnaryCall( _s_logsExport, null, Key( key ), Otlp.Logs( Otlp.Log() ) ) );
 
 		Assert.That( exception!.StatusCode, Is.EqualTo( StatusCode.Unauthenticated ) );
 	}
@@ -380,7 +380,7 @@ public sealed class OtlpGrpcIngestTests : ApiFixture
 	{
 		CallOptions options = Key().WithHeaders( new Metadata { { "x-api-key", TestApi.API_KEY }, { "grpc-internal-encoding-request", "gzip" } } );
 
-		await _channel.CreateCallInvoker().AsyncUnaryCall( LogsExport, null, options, Otlp.Logs( Otlp.Log( "gzip grpc" ) ) );
+		await _channel.CreateCallInvoker().AsyncUnaryCall( _s_logsExport, null, options, Otlp.Logs( Otlp.Log( "gzip grpc" ) ) );
 
 		Assert.That( await ScalarAsync<string>( """SELECT "Body" FROM "Logs" """ ), Is.EqualTo( "gzip grpc" ) );
 	}
@@ -391,7 +391,7 @@ public sealed class OtlpGrpcIngestTests : ApiFixture
 
 		try
 		{
-			RpcException? exception = Assert.ThrowsAsync<RpcException>( async () => await _channel.CreateCallInvoker().AsyncUnaryCall( LogsExport, null, Key(), Otlp.Logs( Otlp.Log() ) ) );
+			RpcException? exception = await Assert.ThrowsAsync<RpcException>( async () => await _channel.CreateCallInvoker().AsyncUnaryCall( _s_logsExport, null, Key(), Otlp.Logs( Otlp.Log() ) ) );
 
 			Assert.Multiple( () =>
 							 {
@@ -407,7 +407,7 @@ public sealed class OtlpGrpcIngestTests : ApiFixture
 		Api.Settings.Clear();
 		LogRecord huge = Otlp.Log( new string( 'x', 17 * 1024 * 1024 ) );
 
-		RpcException? exception = Assert.ThrowsAsync<RpcException>( async () => await _channel.CreateCallInvoker().AsyncUnaryCall( LogsExport, null, Key(), Otlp.Logs( huge ) ) );
+		RpcException? exception = await Assert.ThrowsAsync<RpcException>( async () => await _channel.CreateCallInvoker().AsyncUnaryCall( _s_logsExport, null, Key(), Otlp.Logs( huge ) ) );
 
 		Assert.That( exception!.StatusCode, Is.EqualTo( StatusCode.ResourceExhausted ) );
 		await Task.CompletedTask;

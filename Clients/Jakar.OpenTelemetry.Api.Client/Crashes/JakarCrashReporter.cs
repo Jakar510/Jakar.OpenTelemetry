@@ -16,9 +16,9 @@ public sealed class JakarCrashReporter( ICrashReportStore               store,
 										ILoggerFactory                  loggerFactory )
 {
 	public const            string                CATEGORY                 = "Jakar.OpenTelemetry.Crash";
-	private static readonly EventId               CrashEvent               = new(9001, "app.crash");
-	private static readonly EventId               PreviousCrashEvent       = new(9002, "app.crash.previous_session");
-	private static readonly EventId               AbnormalTerminationEvent = new(9003, "app.abnormal_termination");
+	private static readonly EventId               _s_crashEvent               = new(9001, "app.crash");
+	private static readonly EventId               _s_previousCrashEvent       = new(9002, "app.crash.previous_session");
+	private static readonly EventId               _s_abnormalTerminationEvent = new(9003, "app.abnormal_termination");
 	private readonly        JakarTelemetryOptions _options                 = options.Value;
 	private readonly        ILogger               _logger                  = loggerFactory.CreateLogger( CATEGORY );
 	private                 int                   _terminating;
@@ -79,7 +79,7 @@ public sealed class JakarCrashReporter( ICrashReportStore               store,
 			_logger.Log( report.IsTerminating
 							 ? LogLevel.Critical
 							 : LogLevel.Error,
-						 CrashEvent,
+						 _s_crashEvent,
 						 exception,
 						 "{CrashSource}: {ExceptionType}: {ExceptionMessage}",
 						 report.Source,
@@ -106,14 +106,14 @@ public sealed class JakarCrashReporter( ICrashReportStore               store,
 
 		foreach ( CrashReport report in reports )
 		{
-			using ( _logger.BeginScope( Attributes( report, previousSession: true ) ) ) { _logger.Log( LogLevel.Critical, PreviousCrashEvent, "Crash in previous session at {CrashTime:O}, {CrashSource}: {ExceptionType}: {ExceptionMessage}", report.TimestampUtc, report.Source, report.ExceptionType, report.Message ); }
+			using ( _logger.BeginScope( Attributes( report, previousSession: true ) ) ) { _logger.Log( LogLevel.Critical, _s_previousCrashEvent, "Crash in previous session at {CrashTime:O}, {CrashSource}: {ExceptionType}: {ExceptionMessage}", report.TimestampUtc, report.Source, report.ExceptionType, report.Message ); }
 
 			store.Delete( report.ID );
 		}
 
 		if ( _options.DetectAbnormalTermination &&
 			 previous is not null               &&
-			 reports.All( x => x.SessionID != previous.SessionID ) ) { _logger.Log( LogLevel.Error, AbnormalTerminationEvent, "Previous session {PreviousSessionId} (version {PreviousVersion}, started {PreviousStarted:O}) ended without a clean shutdown or crash report, possible native crash, out-of-memory kill or force quit", previous.SessionID, previous.ServiceVersion, previous.StartedUtc ); }
+			 reports.All( x => x.SessionID != previous.SessionID ) ) { _logger.Log( LogLevel.Error, _s_abnormalTerminationEvent, "Previous session {PreviousSessionId} (version {PreviousVersion}, started {PreviousStarted:O}) ended without a clean shutdown or crash report, possible native crash, out-of-memory kill or force quit", previous.SessionID, previous.ServiceVersion, previous.StartedUtc ); }
 
 		store.BeginSession( new SessionMarker( SessionID,
 											   DateTimeOffset.UtcNow,

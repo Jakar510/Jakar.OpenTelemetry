@@ -17,5 +17,5 @@ public static class AppRoles
 	public const string VIEWER = "Viewer";
 	public const string ADMIN  = "Admin";
 
-	public static readonly string[] DashboardRoles = [ VIEWER, ADMIN ];
+	public static readonly string[] s_DashboardRoles = [ VIEWER, ADMIN ];
 }

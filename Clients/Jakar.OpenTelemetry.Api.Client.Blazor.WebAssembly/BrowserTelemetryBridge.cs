@@ -12,18 +12,18 @@ namespace Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly;
 /// </summary>
 public sealed class BrowserTelemetryBridge( ILogger                logger,
 											BrowserTelemetryModule module,
-											IJakarTelemetry?       telemetry,
+											ITelemetryClient?       telemetry,
 											bool                   captureScreenshotOnError )
 {
 	public const string CATEGORY = "Jakar.OpenTelemetry.Browser";
 
-	private static readonly TimeSpan ScreenshotInterval = TimeSpan.FromMinutes( 1 );
+	private static readonly TimeSpan _s_screenshotInterval = TimeSpan.FromMinutes( 1 );
 
-	private static readonly EventId BrowserError     = new(9101, "browser.error");
-	private static readonly EventId BrowserRejection = new(9102, "browser.unhandled_rejection");
-	private static readonly EventId BrowserResource  = new(9103, "browser.resource_error");
-	private static readonly EventId BrowserCsp       = new(9104, "browser.csp_violation");
-	private static readonly EventId BrowserVital     = new(9105, "browser.web_vital");
+	private static readonly EventId _s_browserError     = new(9101, "browser.error");
+	private static readonly EventId _s_browserRejection = new(9102, "browser.unhandled_rejection");
+	private static readonly EventId _s_browserResource  = new(9103, "browser.resource_error");
+	private static readonly EventId _s_browserCsp       = new(9104, "browser.csp_violation");
+	private static readonly EventId _s_browserVital     = new(9105, "browser.web_vital");
 
 	private long _lastScreenshotTicks;
 
@@ -55,8 +55,8 @@ public sealed class BrowserTelemetryBridge( ILogger                logger,
 					using ( logger.BeginImageScope( images ) )
 					{
 						logger.LogError( kind == "error"
-											 ? BrowserError
-											 : BrowserRejection,
+											 ? _s_browserError
+											 : _s_browserRejection,
 										 "Browser {BrowserEventKind}: {ExceptionType}: {ExceptionMessage}",
 										 kind,
 										 Read( root, "type" ),
@@ -67,20 +67,20 @@ public sealed class BrowserTelemetryBridge( ILogger                logger,
 
 			case "resource":
 				attributes.Add( new KeyValuePair<string, object?>( "browser.resource.url", Read( root, "resourceUrl" ) ) );
-				using ( logger.BeginScope( attributes ) ) { logger.LogWarning( BrowserResource, "Browser {BrowserMessage}", Read( root, "message" ) ); }
+				using ( logger.BeginScope( attributes ) ) { logger.LogWarning( _s_browserResource, "Browser {BrowserMessage}", Read( root, "message" ) ); }
 
 				break;
 
 			case "csp":
 				attributes.Add( new KeyValuePair<string, object?>( "csp.directive",   Read( root, "directive" ) ) );
 				attributes.Add( new KeyValuePair<string, object?>( "csp.blocked_uri", Read( root, "blockedUri" ) ) );
-				using ( logger.BeginScope( attributes ) ) { logger.LogWarning( BrowserCsp, "Browser {BrowserMessage}", Read( root, "message" ) ); }
+				using ( logger.BeginScope( attributes ) ) { logger.LogWarning( _s_browserCsp, "Browser {BrowserMessage}", Read( root, "message" ) ); }
 
 				break;
 
 			case "vital":
 				attributes.Add( new KeyValuePair<string, object?>( "browser.vital.rating", Read( root, "rating" ) ) );
-				using ( logger.BeginScope( attributes ) ) { logger.LogInformation( BrowserVital, "Web vital {VitalName} = {VitalValue} ({VitalRating})", Read( root, "name" ), ReadNumber( root, "value" ), Read( root, "rating" ) ); }
+				using ( logger.BeginScope( attributes ) ) { logger.LogInformation( _s_browserVital, "Web vital {VitalName} = {VitalValue} ({VitalRating})", Read( root, "name" ), ReadNumber( root, "value" ), Read( root, "rating" ) ); }
 
 				break;
 		}
@@ -97,7 +97,7 @@ public sealed class BrowserTelemetryBridge( ILogger                logger,
 
 		long now  = DateTime.UtcNow.Ticks;
 		long last = Interlocked.Read( ref _lastScreenshotTicks );
-		if ( now - last                                                         < ScreenshotInterval.Ticks ||
+		if ( now - last                                                         < _s_screenshotInterval.Ticks ||
 			 Interlocked.CompareExchange( ref _lastScreenshotTicks, now, last ) != last ) { return [ ]; }
 
 		try

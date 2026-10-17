@@ -7,14 +7,14 @@ public sealed class BrowserTelemetryBridgeTests
 {
 	private FakeLogger            _logger    = null!;
 	private FakeJsRuntime         _runtime   = null!;
-	private Mock<IJakarTelemetry> _telemetry = null!;
+	private Mock<ITelemetryClient> _telemetry = null!;
 
 
 	[SetUp] public void SetUp()
 	{
 		_logger    = new FakeLogger();
 		_runtime   = new FakeJsRuntime();
-		_telemetry = new Mock<IJakarTelemetry>();
+		_telemetry = new Mock<ITelemetryClient>();
 		_telemetry.Setup( static x => x.AttachImageAsync( It.IsAny<ReadOnlyMemory<byte>>(), It.IsAny<string>(), It.IsAny<string>(), It.IsAny<CancellationToken>() ) ).Returns<ReadOnlyMemory<byte>, string, string, CancellationToken>( static ( _, name, _, _ ) => ValueTask.FromResult( ImageTag.Create( name ) ) );
 	}
 

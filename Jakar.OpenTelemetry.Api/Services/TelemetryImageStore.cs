@@ -20,7 +20,7 @@ public readonly record struct StoredImageInfo( Guid           ID,
 public sealed class TelemetryImageStore( NpgsqlDataSource dataSource )
 {
 	/// <summary> Only raster formats a browser renders without script execution; SVG is deliberately excluded. </summary>
-	public static readonly string[] AllowedContentTypes = [ "image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp" ];
+	public static readonly string[] s_AllowedContentTypes = [ "image/png", "image/jpeg", "image/webp", "image/gif", "image/bmp" ];
 
 	private const string INSERT_SQL = """
 									  INSERT INTO "Images" ("ID", "ReceivedAtUtc", "FileName", "ContentType", "Length", "Sha256", "Data")

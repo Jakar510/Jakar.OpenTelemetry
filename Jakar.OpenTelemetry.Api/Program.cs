@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Jakar.OpenTelemetry.Api.Security;
 using Jakar.OpenTelemetry.Api.Components;
 using Jakar.OpenTelemetry.Api.Data;
@@ -61,7 +62,7 @@ builder.Services.AddAuthorizationBuilder()
 				   {
 					   policy.AddAuthenticationSchemes( AppAuthSchemes.COOKIE );
 					   policy.RequireAuthenticatedUser();
-					   policy.RequireRole( AppRoles.DashboardRoles );
+					   policy.RequireRole( AppRoles.s_DashboardRoles );
 				   } );
 builder.Services.AddCascadingAuthenticationState();
 
@@ -88,7 +89,7 @@ builder.Services.AddGrpc( options =>
 
 // OTLP/HTTP: Content-Encoding gzip (plus deflate/br). Decompressed size is bounded by the endpoint's request size limit.
 builder.Services.AddRequestDecompression();
-builder.Services.AddSignalR().AddNewtonsoftJsonProtocol( static options => { options.PayloadSerializerSettings = NewtonsoftJsonDefaults.Settings; } );
+builder.Services.AddSignalR();
 builder.Services.AddRazorComponents().AddInteractiveServerComponents();
 
 builder.Services.AddCors( options =>
@@ -157,7 +158,7 @@ app.UseWhen( static context => context.Request.Path.StartsWithSegments( "/swagge
 									 return;
 								 }
 
-								 if ( !AppRoles.DashboardRoles.Any( context.User.IsInRole ) )
+								 if ( !AppRoles.s_DashboardRoles.Any( context.User.IsInRole ) )
 								 {
 									 await context.ForbidAsync( AppAuthSchemes.COOKIE );
 									 return;
@@ -190,4 +191,7 @@ await app.RunAsync();
 
 
 /// <summary> Entry point; public so integration tests can host the API with <c>WebApplicationFactory&lt;Program&gt;</c>. </summary>
-public partial class Program;
+public partial class Program
+{
+	internal static readonly ActivitySource s_InternalActivitySource = new("Jakar.OpenTelemetry.Api");
+}

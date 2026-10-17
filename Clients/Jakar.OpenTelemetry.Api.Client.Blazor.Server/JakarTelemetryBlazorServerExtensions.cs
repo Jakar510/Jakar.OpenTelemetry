@@ -46,9 +46,9 @@ public sealed class TelemetryCircuitHandler( ILogger<TelemetryCircuitHandler> lo
 {
 	public const string METER_NAME = "Jakar.OpenTelemetry.Api.Client.Blazor.Server";
 
-	private static readonly Meter               Meter       = new(METER_NAME);
-	private static readonly UpDownCounter<long> Connected   = Meter.CreateUpDownCounter<long>( "jakar.blazor.circuits.connected", "{circuit}", "Circuits with a live connection" );
-	private static readonly Counter<long>       Disconnects = Meter.CreateCounter<long>( "jakar.blazor.circuits.disconnects", "{disconnect}", "Circuit connections lost (reconnect may follow)" );
+	private static readonly Meter               _s_meter       = new(METER_NAME);
+	private static readonly UpDownCounter<long> _s_connected   = _s_meter.CreateUpDownCounter<long>( "jakar.blazor.circuits.connected", "{circuit}", "Circuits with a live connection" );
+	private static readonly Counter<long>       _s_disconnects = _s_meter.CreateCounter<long>( "jakar.blazor.circuits.disconnects", "{disconnect}", "Circuit connections lost (reconnect may follow)" );
 
 	private IReadOnlyList<KeyValuePair<string, object?>> _scope = [ ];
 
@@ -61,14 +61,14 @@ public sealed class TelemetryCircuitHandler( ILogger<TelemetryCircuitHandler> lo
 
 	public override Task OnConnectionUpAsync( Circuit circuit, CancellationToken cancellationToken )
 	{
-		Connected.Add( 1 );
+		_s_connected.Add( 1 );
 		return Task.CompletedTask;
 	}
 
 	public override Task OnConnectionDownAsync( Circuit circuit, CancellationToken cancellationToken )
 	{
-		Connected.Add( -1 );
-		Disconnects.Add( 1 );
+		_s_connected.Add( -1 );
+		_s_disconnects.Add( 1 );
 		logger.LogDebug( "Circuit {CircuitId} connection lost", circuit.Id );
 		return Task.CompletedTask;
 	}

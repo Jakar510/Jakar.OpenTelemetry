@@ -6,6 +6,10 @@
         <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.Maui/Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
         <Project Path="Clients/Jakar.OpenTelemetry.Api.Client/Jakar.OpenTelemetry.Api.Client.csproj" />
     </Folder>
+    <Folder Name="/Docs/">
+        <File Path="Docs/SPEC.md" />
+        <File Path="README.md" />
+    </Folder>
     <Folder Name="/Samples/">
         <Project Path="Samples/Jakar.OpenTelemetry.Samples.Blazor.Server/Jakar.OpenTelemetry.Samples.Blazor.Server.csproj" />
         <Project Path="Samples/Jakar.OpenTelemetry.Samples.Blazor/Jakar.OpenTelemetry.Samples.Blazor.csproj" />

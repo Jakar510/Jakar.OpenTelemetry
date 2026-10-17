@@ -12,7 +12,8 @@ public sealed class JakarTelemetryClientTests
 	private Mock<IScreenshotProvider>        _screenshots = null!;
 	private FakeHttpMessageHandler           _http        = null!;
 	private JakarTelemetryOptions            _options     = null!;
-	private FakeLogger<JakarTelemetryClient> _logger      = null!;
+	private FakeLogCollector                 _logs        = null!;
+	private ILoggerFactory                   _loggers     = null!;
 	private TelemetryImageUploader           _uploader    = null!;
 	private JakarCrashReporter               _crashes     = null!;
 
@@ -24,7 +25,8 @@ public sealed class JakarTelemetryClientTests
 		_screenshots = new Mock<IScreenshotProvider>();
 		_http        = new FakeHttpMessageHandler();
 		_options     = ClientTestOptions.Create( Path.GetTempPath() );
-		_logger      = new FakeLogger<JakarTelemetryClient>();
+		_logs        = new FakeLogCollector();
+		_loggers     = LoggerFactory.Create( builder => builder.SetMinimumLevel( LogLevel.Trace ).AddProvider( new FakeLoggerProvider( _logs ) ) );
 		_uploader    = new TelemetryImageUploader( _queue.Object, new FakeHttpClientFactory( _http ), [ ], ClientTestOptions.Wrap( _options ), new FakeLogger<TelemetryImageUploader>() );
 		_crashes     = new JakarCrashReporter( new NullCrashReportStore(), _flusher.Object, ClientTestOptions.Wrap( _options ), LoggerFactory.Create( static _ => { } ) );
 
@@ -36,10 +38,11 @@ public sealed class JakarTelemetryClientTests
 	{
 		await _uploader.DisposeAsync();
 		_http.Dispose();
+		_loggers.Dispose();
 	}
 
 
-	private JakarTelemetryClient Create( params IScreenshotProvider[] providers ) => new(_queue.Object, _uploader, _flusher.Object, _crashes, providers, ClientTestOptions.Wrap( _options ), _logger);
+	private TelemetryClient Create( params IScreenshotProvider[] providers ) => new(_queue.Object, _uploader, _flusher.Object, _crashes, providers, ClientTestOptions.Wrap( _options ), _loggers);
 
 
 	[Test] public void Crashes_ExposesReporter() => Assert.That( Create().Crashes, Is.SameAs( _crashes ) );
@@ -82,7 +85,7 @@ public sealed class JakarTelemetryClientTests
 		_screenshots.Setup( static x => x.CaptureAsync( It.IsAny<CancellationToken>() ) ).Returns( ValueTask.FromResult<CapturedImage?>( new CapturedImage( TestImages.PngOfLength( 11 ), ImageContentTypes.PNG, "a.png" ) ) );
 
 		Assert.That( await Create( _screenshots.Object ).CaptureScreenshotAsync(), Is.Null );
-		Assert.That( _logger.LatestRecord.Level,                                   Is.EqualTo( LogLevel.Warning ) );
+		Assert.That( _logs.LatestRecord.Level,                                     Is.EqualTo( LogLevel.Warning ) );
 	}
 
 	[Test] public async Task CaptureScreenshot_UsesLastRegisteredProviderAndItsFileName()
@@ -121,14 +124,14 @@ public sealed class JakarTelemetryClientTests
 		_queue.Setup( static x => x.GetDueAsync( It.IsAny<DateTimeOffset>(), It.IsAny<int>(), It.IsAny<CancellationToken>() ) ).ThrowsAsync( new IOException( "disk" ) );
 
 		Assert.That( await Create().FlushAsync(),  Is.True );
-		Assert.That( _logger.LatestRecord.Message, Is.EqualTo( "On-demand image upload pass failed" ) );
+		Assert.That( _logs.LatestRecord.Message,   Is.EqualTo( "On-demand image upload pass failed" ) );
 	}
 
-	[Test] public void Flush_Cancelled_Propagates()
+	[Test] public async Task Flush_Cancelled_Propagates()
 	{
 		_flusher.Setup( static x => x.FlushAsync( It.IsAny<TimeSpan>(), It.IsAny<CancellationToken>() ) ).ReturnsAsync( true );
 		_queue.Setup( static x => x.GetDueAsync( It.IsAny<DateTimeOffset>(), It.IsAny<int>(), It.IsAny<CancellationToken>() ) ).ThrowsAsync( new OperationCanceledException() );
 
-		Assert.CatchAsync<OperationCanceledException>( async () => await Create().FlushAsync() );
+		await Assert.CatchAsync<OperationCanceledException>( async () => await Create().FlushAsync() );
 	}
 }

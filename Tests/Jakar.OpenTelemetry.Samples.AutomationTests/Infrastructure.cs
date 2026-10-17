@@ -23,16 +23,16 @@ public sealed class AutomationSetup
 
 internal static class Paths
 {
-	public static readonly string Repository = FindRepository();
+	public static readonly string s_Repository = FindRepository();
 
 	/// <summary> Debug or Release, matching how the test assembly itself was built. </summary>
-	public static readonly string Configuration = AppContext.BaseDirectory.Contains( $"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase )
+	public static readonly string s_Configuration = AppContext.BaseDirectory.Contains( $"{Path.DirectorySeparatorChar}Release{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase )
 													  ? "Release"
 													  : "Debug";
 
-	public static string SampleProject( string name ) => Path.Combine( Repository, "Samples", name );
+	public static string SampleProject( string name ) => Path.Combine( s_Repository, "Samples", name );
 
-	public static string SampleAssembly( string name ) => Path.Combine( SampleProject( name ), "bin", Configuration, "net10.0", name + ".dll" );
+	public static string SampleAssembly( string name ) => Path.Combine( SampleProject( name ), "bin", s_Configuration, "net10.0", name + ".dll" );
 
 	private static string FindRepository()
 	{
@@ -220,22 +220,22 @@ internal static class Browsers
 	public const string CHANNEL_VARIABLE = "JAKAR_OTEL_TEST_BROWSER_CHANNEL";
 	public const string HEADED_VARIABLE  = "JAKAR_OTEL_TEST_HEADED";
 
-	private static readonly SemaphoreSlim Lock = new(1, 1);
-	private static          IPlaywright?  s_playwright;
-	private static          IBrowser?     s_browser;
+	private static readonly SemaphoreSlim _s_lock = new(1, 1);
+	private static          IPlaywright?  _s_sPlaywright;
+	private static          IBrowser?     _s_sBrowser;
 
 
 	public static async Task<IBrowser> GetAsync()
 	{
-		if ( s_browser is not null ) { return s_browser; }
+		if ( _s_sBrowser is not null ) { return _s_sBrowser; }
 
-		await Lock.WaitAsync();
+		await _s_lock.WaitAsync();
 
 		try
 		{
-			if ( s_browser is not null ) { return s_browser; }
+			if ( _s_sBrowser is not null ) { return _s_sBrowser; }
 
-			s_playwright ??= await Playwright.CreateAsync();
+			_s_sPlaywright ??= await Playwright.CreateAsync();
 			bool    headless  = Environment.GetEnvironmentVariable( HEADED_VARIABLE ) is not ("1" or "true");
 			string? requested = Environment.GetEnvironmentVariable( CHANNEL_VARIABLE );
 
@@ -248,13 +248,13 @@ internal static class Browsers
 													   "chrome"
 												   } )
 			{
-				try { return s_browser = await s_playwright.Chromium.LaunchAsync( new BrowserTypeLaunchOptions { Headless = headless, Channel = channel } ); }
+				try { return _s_sBrowser = await _s_sPlaywright.Chromium.LaunchAsync( new BrowserTypeLaunchOptions { Headless = headless, Channel = channel } ); }
 				catch ( PlaywrightException ) when ( requested is null && channel != "chrome" ) { }
 			}
 
 			throw new InvalidOperationException( "No browser available" );
 		}
-		finally { Lock.Release(); }
+		finally { _s_lock.Release(); }
 	}
 
 	/// <summary> A fresh, isolated context (own cookies and storage); console errors and page errors are collected for diagnostics. </summary>
@@ -268,10 +268,10 @@ internal static class Browsers
 
 	public static async Task DisposeAsync()
 	{
-		if ( s_browser is not null ) { await s_browser.DisposeAsync(); }
+		if ( _s_sBrowser is not null ) { await _s_sBrowser.DisposeAsync(); }
 
-		s_playwright?.Dispose();
-		s_browser    = null;
-		s_playwright = null;
+		_s_sPlaywright?.Dispose();
+		_s_sBrowser    = null;
+		_s_sPlaywright = null;
 	}
 }

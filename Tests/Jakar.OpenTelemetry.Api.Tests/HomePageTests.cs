@@ -18,7 +18,7 @@ public sealed class HomePageTests
 {
 	private const int TAKE = 250;
 
-	private static readonly DateTimeOffset T0 = new(2026, 9, 26, 12, 0, 0, TimeSpan.Zero);
+	private static readonly DateTimeOffset _s_t0 = new(2026, 9, 26, 12, 0, 0, TimeSpan.Zero);
 
 	private Bunit.BunitContext                          _context    = null!;
 	private FusionCache                                 _cache      = null!;
@@ -56,8 +56,8 @@ public sealed class HomePageTests
 		TelemetryLogRecordDto[] logs =
 			[
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000001" ),
-					T0,
-					T0.AddMinutes( 1 ),
+					_s_t0,
+					_s_t0.AddMinutes( 1 ),
 					null,
 					"alpha",
 					"Error",
@@ -74,9 +74,9 @@ public sealed class HomePageTests
 					Map( ( "user", "ann" ), ( LogTags.ATTRIBUTE_KEY, $"image:shot.png:{Guid.CreateVersion7()}" ) ),
 					"evt"),
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000002" ),
-					T0,
+					_s_t0,
 					null,
-					T0.AddMinutes( 2 ),
+					_s_t0.AddMinutes( 2 ),
 					"beta",
 					"Information",
 					9,
@@ -88,10 +88,10 @@ public sealed class HomePageTests
 					null,
 					0,
 					Map( ( "host", "web-2" ) ),
-					TelemetryJson.Empty,
+					TelemetryJson.s_Empty,
 					Map( ( "user", "bob" ), ( "{OriginalFormat}", "x" ) )),
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000003" ),
-					T0.AddMinutes( 3 ),
+					_s_t0.AddMinutes( 3 ),
 					null,
 					null,
 					null,
@@ -104,17 +104,17 @@ public sealed class HomePageTests
 					null,
 					null,
 					0,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty)
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty)
 			];
 
 		TelemetrySpanRecordDto[] spans =
 			[
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000011" ),
-					T0,
-					T0,
-					T0.AddMilliseconds( 50 ),
+					_s_t0,
+					_s_t0,
+					_s_t0.AddMilliseconds( 50 ),
 					"alpha",
 					"aaaa0000000000000000000000000001",
 					"cccc000000000001",
@@ -128,13 +128,13 @@ public sealed class HomePageTests
 					"scope",
 					"1",
 					Map( ( "host", "web-1" ) ),
-					TelemetryJson.Empty,
+					TelemetryJson.s_Empty,
 					Map( ( "http.route", "/pay" ) ),
-						[ new SpanEvent( T0, "exception", TelemetryJson.Empty ) ],
-						[ new SpanLink( "dddd0000000000000000000000000009", "eeee000000000001", "", TelemetryJson.Empty ) ],
+						[ new SpanEvent( _s_t0, "exception", TelemetryJson.s_Empty ) ],
+						[ new SpanLink( "dddd0000000000000000000000000009", "eeee000000000001", "", TelemetryJson.s_Empty ) ],
 					0x301),
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000012" ),
-					T0,
+					_s_t0,
 					null,
 					null,
 					"beta",
@@ -149,14 +149,14 @@ public sealed class HomePageTests
 					5,
 					null,
 					null,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
 					Map( ( "db.system", "postgresql" ) ),
 					null,
 					null),
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000013" ),
-					T0.AddMinutes( 5 ),
-					T0.AddMinutes( 5 ),
+					_s_t0.AddMinutes( 5 ),
+					_s_t0.AddMinutes( 5 ),
 					null,
 					"alpha",
 					"dddd0000000000000000000000000009",
@@ -170,9 +170,9 @@ public sealed class HomePageTests
 					1500,
 					null,
 					null,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
 					null,
 					null)
 			];
@@ -180,9 +180,9 @@ public sealed class HomePageTests
 		TelemetryMetricRecordDto[] metrics =
 			[
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000021" ),
-					T0,
+					_s_t0,
 					null,
-					T0.AddMinutes( 1 ),
+					_s_t0.AddMinutes( 1 ),
 					"alpha",
 					"http.requests",
 					"count",
@@ -197,15 +197,15 @@ public sealed class HomePageTests
 					null,
 					null,
 					null,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
 					Map( ( "route", "/pay" ) ),
 					Map( ( "unit.kind", "count" ) ),
 					null,
 					null,
 					9_007_199_254_740_993),
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000022" ),
-					T0,
+					_s_t0,
 					null,
 					null,
 					"beta",
@@ -222,16 +222,16 @@ public sealed class HomePageTests
 					8,
 					null,
 					null,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
 					"""{"bucketCounts":[1,2],"explicitBounds":[5]}""",
 					null),
 				new(Guid.Parse( "00000000-0000-0000-0000-000000000023" ),
-					T0,
+					_s_t0,
 					null,
-					T0.AddMinutes( 2 ),
+					_s_t0.AddMinutes( 2 ),
 					"alpha",
 					"rpc.summary",
 					null,
@@ -246,15 +246,15 @@ public sealed class HomePageTests
 					null,
 					null,
 					null,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
-					TelemetryJson.Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
+					TelemetryJson.s_Empty,
 					null,
 					new ReadOnlyDictionary<double, double>( new Dictionary<double, double> { [0.5] = 5 } ))
 			];
 
-		TelemetryOverviewDto overview = new(T0, 3, 3, 3, [ new TelemetryTimeSeriesPointDto( T0, 3 ) ], [ new TelemetryTimeSeriesPointDto( T0, 3 ) ], [ ], [ new NamedValueDto( "Error", 1 ) ], [ new NamedValueDto( "alpha", 5 ) ], [ ]);
+		TelemetryOverviewDto overview = new(_s_t0, 3, 3, 3, [ new TelemetryTimeSeriesPointDto( _s_t0, 3 ) ], [ new TelemetryTimeSeriesPointDto( _s_t0, 3 ) ], [ ], [ new NamedValueDto( "Error", 1 ) ], [ new NamedValueDto( "alpha", 5 ) ], [ ]);
 		return new TelemetrySnapshotDto( overview, logs, spans, metrics );
 	}
 
@@ -299,7 +299,7 @@ public sealed class HomePageTests
 
 	[Test] public void EmptySnapshot_ShowsGettingStarted()
 	{
-		TelemetrySnapshotDto empty = new(new TelemetryOverviewDto( T0, 0, 0, 0, [ ], [ ], [ ], [ ], [ ], [ ] ), [ ], [ ], [ ]);
+		TelemetrySnapshotDto empty = new(new TelemetryOverviewDto( _s_t0, 0, 0, 0, [ ], [ ], [ ], [ ], [ ], [ ] ), [ ], [ ], [ ]);
 
 		IRenderedComponent<Home> page = Render( empty );
 
@@ -760,7 +760,7 @@ public sealed class HomePageTests
 
 		TelemetrySnapshotDto newer = Snapshot() with { Logs = [ .. Snapshot().Logs.Take( 1 ) ] };
 		_cache.Set( TelemetryCacheKeys.Snapshot( TAKE ), newer );
-		page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0.AddMinutes( 9 ), 1, 0, 0, "Ingested 1 logs" ) ) );
+		page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0.AddMinutes( 9 ), 1, 0, 0, "Ingested 1 logs" ) ) );
 
 		page.WaitForState( () => Rows( page ) == 1 );
 		Assert.That( page.Find( ".status-detail" ).TextContent, Is.EqualTo( "12:09:00Z | Ingested 1 logs" ) );
@@ -769,7 +769,7 @@ public sealed class HomePageTests
 		Assert.That( page.Find( ".status-pill" ).TextContent, Is.EqualTo( "Paused" ) );
 
 		_cache.Set( TelemetryCacheKeys.Snapshot( TAKE ), Snapshot() );
-		page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0.AddMinutes( 10 ), 2, 0, 0, "Ingested 2 logs" ) ) );
+		page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0.AddMinutes( 10 ), 2, 0, 0, "Ingested 2 logs" ) ) );
 
 		page.WaitForState( () => page.Find( ".status-detail" ).TextContent.Contains( "Ingested 2 logs" ) );
 		Assert.That( Rows( page ), Is.EqualTo( 1 ), "paused: no refresh" );
@@ -780,7 +780,7 @@ public sealed class HomePageTests
 
 	[Test] public void LastEvent_IsShownOnFirstRender()
 	{
-		_feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "earlier" ) ).GetAwaiter().GetResult();
+		_feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, 1, 0, 0, "earlier" ) ).GetAwaiter().GetResult();
 
 		IRenderedComponent<Home> page = Render();
 
@@ -802,7 +802,7 @@ public sealed class HomePageTests
 	{
 		IRenderedComponent<Home> page = Render();
 
-		await Task.WhenAll( Enumerable.Range( 0, 5 ).Select( i => page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, i, 0, 0, $"burst {i}" ) ) ) ) );
+		await Task.WhenAll( Enumerable.Range( 0, 5 ).Select( i => page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, i, 0, 0, $"burst {i}" ) ) ) ) );
 
 		page.WaitForState( () => page.Find( ".status-pill" ).TextContent == "Live" );
 		Assert.That( Rows( page ), Is.EqualTo( 3 ) );
@@ -823,9 +823,9 @@ public sealed class HomePageTests
 							  throw new InvalidOperationException( "database offline" );
 						  } );
 
-		Task first = page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "first" ) ) );
-		await page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "second" ) ) );
-		await page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "third" ) ) );
+		Task first = page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, 1, 0, 0, "first" ) ) );
+		await page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, 1, 0, 0, "second" ) ) );
+		await page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, 1, 0, 0, "third" ) ) );
 		release.SetResult();
 		await first;
 
@@ -835,7 +835,7 @@ public sealed class HomePageTests
 	[Test] public async Task DisposeDuringRefresh_StopsQuietly()
 	{
 		IRenderedComponent<Home> page = Render();
-		_cache.Remove( TelemetryCacheKeys.Snapshot( TAKE ) );
+		await _cache.RemoveAsync( TelemetryCacheKeys.Snapshot( TAKE ) );
 
 		TaskCompletionSource started = new(TaskCreationOptions.RunContinuationsAsynchronously);
 		_factory.Setup( static x => x.CreateDbContextAsync( It.IsAny<CancellationToken>() ) )
@@ -846,11 +846,11 @@ public sealed class HomePageTests
 												 return null!;
 											 } );
 
-		Task refresh = page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "slow" ) ) );
+		Task refresh = page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, 1, 0, 0, "slow" ) ) );
 		await started.Task;
 		await _context.DisposeComponentsAsync();
 
-		Assert.DoesNotThrowAsync( () => refresh );
+		await Assert.DoesNotThrowAsync( () => refresh );
 	}
 
 	[Test] public async Task Dispose_Unsubscribes()
@@ -859,7 +859,7 @@ public sealed class HomePageTests
 
 		await _context.DisposeComponentsAsync();
 
-		Assert.DoesNotThrowAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( T0, 1, 0, 0, "after dispose" ) ) );
+		await Assert.DoesNotThrowAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, 1, 0, 0, "after dispose" ) ) );
 	}
 
 	[Test] public void TakeIsClampedToSupportedRange()
