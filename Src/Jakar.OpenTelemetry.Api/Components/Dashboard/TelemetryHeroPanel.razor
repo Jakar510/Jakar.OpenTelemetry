@@ -1,21 +1,17 @@
-<section class="hero-panel">
-    <div>
+<section class="hero-panel" title="The explorer refreshes as OTLP data is ingested (at most once per second) and pivots across logs, traces, metrics, and screenshots without leaving the page.">
+    <div class="hero-head">
         <p class="eyebrow">Live Stream</p>
-        <h2>Telemetry command surface</h2>
-        <p class="hero-copy">The dashboard refreshes as OTLP data is ingested (at most once per second) and pivots across logs, traces, metrics,
-            and screenshots without leaving the page.</p>
+        <div class="status-pill @StateClass" role="status">@StateLabel</div>
     </div>
 
-    <div class="status-stack">
-        <div class="status-pill @StateClass" role="status">@StateLabel</div>
-        <button type="button"
-                class="action-button"
-                aria-pressed="@( LiveUpdates ? "true" : "false" )"
-                @onclick="() => LiveUpdatesToggled.InvokeAsync()">
-            @( LiveUpdates ? "Pause live updates" : "Resume live updates" )
-        </button>
-        <div class="status-detail">@LastEventLabel</div>
-    </div>
+    <button type="button"
+            class="action-button small"
+            aria-pressed="@( LiveUpdates ? "true" : "false" )"
+            @onclick="() => LiveUpdatesToggled.InvokeAsync()">
+        @( LiveUpdates ? "Pause live updates" : "Resume live updates" )
+    </button>
+
+    <div class="status-detail" title="@LastEventLabel">@LastEventLabel</div>
 </section>
 
 

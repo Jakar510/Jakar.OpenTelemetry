@@ -6,18 +6,13 @@
 <PortalTabs />
 
 <div class="dashboard">
-    <TelemetryHeroPanel StateClass="@ConnectionStateClass"
-                        StateLabel="@ConnectionStateLabel"
-                        LastEventLabel="@LastEventLabel"
-                        LiveUpdates="@LiveUpdates"
-                        LiveUpdatesToggled="ToggleLiveUpdatesAsync" />
-
-    @if ( !string.IsNullOrWhiteSpace( ErrorMessage ) )
-    {
-        <section class="error-banner" role="alert">@ErrorMessage</section>
-    }
-
-    <section class="stat-grid">
+    @* The live-stream status and the totals share one row. *@
+    <section class="overview-row">
+        <TelemetryHeroPanel StateClass="@ConnectionStateClass"
+                            StateLabel="@ConnectionStateLabel"
+                            LastEventLabel="@LastEventLabel"
+                            LiveUpdates="@LiveUpdates"
+                            LiveUpdatesToggled="ToggleLiveUpdatesAsync" />
         <StatCard Label="Total Logs"
                   Value="@FormatCount( Snapshot?.Overview.TotalLogs ?? 0 )"
                   Detail="@( $"{FormatCount( VisibleLogs.Count )} loaded" )" />
@@ -31,6 +26,11 @@
                   Value="@SnapshotAgeLabel"
                   Detail="@GeneratedAtLabel" />
     </section>
+
+    @if ( !string.IsNullOrWhiteSpace( ErrorMessage ) )
+    {
+        <section class="error-banner" role="alert">@ErrorMessage</section>
+    }
 
     <section class="chart-grid">
         <PanelCard Eyebrow="Timeline"

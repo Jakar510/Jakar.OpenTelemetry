@@ -12,7 +12,7 @@
 }
 else
 {
-    <div class="table-wrap">
+    <div class="table-wrap virtual-table">
         <table class="selectable">
             <thead>
             <tr>
@@ -27,8 +27,8 @@ else
             </tr>
             </thead>
             <tbody>
-            @foreach ( TelemetryMetricRecordDto metric in Records )
-            {
+            @* Only the rows in view (plus a few) exist in the page; the rest are spacers. *@
+            <Virtualize Items="Items" Context="metric" ItemSize="46" OverscanCount="15" SpacerElement="tr">
                 <tr @key="metric.ID"
                     class="@TelemetryDashboardFormatter.RowClass( metric.ID == SelectedId )"
                     tabindex="0"
@@ -42,15 +42,18 @@ else
                     <td>@TelemetryDashboardFormatter.FormatMetricValue( metric )</td>
                     <td>@metric.Unit</td>
                     <td>@metric.AggregationTemporality</td>
-                    <td title="@TelemetryDashboardFormatter.FormatMetricMap( metric )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.FormatMetricMap( metric ), 72 )</td>
+                    <td title="@TelemetryDashboardFormatter.MetricAttributesText( metric )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.MetricAttributesText( metric ), 72 )</td>
                 </tr>
-            }
+            </Virtualize>
             </tbody>
         </table>
     </div>
 }
 
 @code {
+    /// <summary> Virtualize needs a collection with a count; the explorer passes lists. </summary>
+    private ICollection<TelemetryMetricRecordDto> Items => Records as ICollection<TelemetryMetricRecordDto> ?? Records.ToList();
+
     [Parameter] public IReadOnlyList<TelemetryMetricRecordDto> Records         { get; set; } = [ ];
     [Parameter] public Guid?                                   SelectedId      { get; set; }
     [Parameter] public EventCallback<Guid>                     SelectedChanged { get; set; }

@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 using Jakar.OpenTelemetry.Contracts;
 using Microsoft.AspNetCore.Components.Web;
@@ -7,6 +8,10 @@ namespace Jakar.OpenTelemetry.Api.Components.Dashboard;
 
 internal static class TelemetryDashboardFormatter
 {
+	// Keyed by reference and released with the snapshot that holds the records.
+	private static readonly ConditionalWeakTable<object, string>                                   _s_texts     = new();
+	private static readonly ConditionalWeakTable<TelemetryLogRecordDto, IReadOnlyList<ImageTag>> _s_imageTags = new();
+
 	private static readonly JsonWriterOptions _s_indentedOptions = new() { Indented = true, Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
 	public static string FormatCount( long                  value ) => value.ToString( "N0", CultureInfo.InvariantCulture );
@@ -74,9 +79,17 @@ internal static class TelemetryDashboardFormatter
 		catch ( JsonException ) { return json; }
 	}
 
-	public static IReadOnlyList<ImageTag> GetImageTags( TelemetryLogRecordDto log ) => log.Attributes.TryGetValue( LogTags.ATTRIBUTE_KEY, out string? tags )
-																						   ? ImageTag.ParseAll( tags )
-																						   : [ ];
+	/// <summary> Parsed once per record (records are immutable and replaced with every snapshot), not on every render. </summary>
+	public static IReadOnlyList<ImageTag> GetImageTags( TelemetryLogRecordDto log ) => _s_imageTags.GetValue( log,
+																											 static record => record.Attributes.TryGetValue( LogTags.ATTRIBUTE_KEY, out string? tags )
+																																  ? ImageTag.ParseAll( tags )
+																																  : [ ] );
+
+	/// <summary> <see cref="FormatMap{T}"/> of an attribute map, built once per map instance (the explorer shows it in every row on every render). </summary>
+	public static string AttributesText( IReadOnlyDictionary<string, string?> map ) => _s_texts.GetValue( map, static value => FormatMap( (IReadOnlyDictionary<string, string?>)value ) );
+
+	/// <summary> <see cref="FormatMetricMap"/>, built once per record. </summary>
+	public static string MetricAttributesText( TelemetryMetricRecordDto metric ) => _s_texts.GetValue( metric, static value => FormatMetricMap( (TelemetryMetricRecordDto)value ) );
 
 	public static string RowClass( bool selected ) => selected
 														  ? "selected"

@@ -1,11 +1,30 @@
-.stat-grid,
+.overview-row,
 .chart-grid {
     display: grid;
     gap: 1rem;
 }
 
-.stat-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+/* The live-stream panel, then the four totals, on one line. */
+.overview-row {
+    grid-template-columns: minmax(16rem, 1.4fr) repeat(4, minmax(0, 1fr));
+}
+
+/* Medium screens: the live-stream panel on its own line, the totals four across under it. */
+@media (max-width: 1100px) {
+    .overview-row {
+        grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+
+    /* ::deep: the panel is a child component's element, which this page's scoped styles don't reach otherwise. */
+    .overview-row ::deep .hero-panel {
+        grid-column: 1 / -1;
+    }
+}
+
+@media (max-width: 640px) {
+    .overview-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
 }
 
 .chart-grid {
@@ -17,7 +36,7 @@
 }
 
 /* Grid items default to min-width:auto, so a long nowrap label (e.g. a service name) would widen the track past the viewport. */
-.stat-grid > *,
+.overview-row > *,
 .chart-grid > * {
     min-width: 0;
 }

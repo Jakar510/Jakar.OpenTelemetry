@@ -274,9 +274,9 @@ public sealed class HomePageTests
 
 	private static IElement Select( IRenderedComponent<Home> page, string label ) => page.FindAll( "label" ).Single( x => x.TextContent.Trim().StartsWith( label, StringComparison.Ordinal ) ).QuerySelector( "select, input" )!;
 
-	private static string[] Column( IRenderedComponent<Home> page, int column ) => page.FindAll( "table.selectable tbody tr" ).Select( row => row.Children[column].TextContent.Trim() ).ToArray();
+	private static string[] Column( IRenderedComponent<Home> page, int column ) => page.FindAll( "table.selectable tbody tr[tabindex]" ).Select( row => row.Children[column].TextContent.Trim() ).ToArray();
 
-	private static int Rows( IRenderedComponent<Home> page ) => page.FindAll( "table.selectable tbody tr" ).Count;
+	private static int Rows( IRenderedComponent<Home> page ) => page.FindAll( "table.selectable tbody tr[tabindex]" ).Count;
 
 	private static void ClickTab( IRenderedComponent<Home> page, string label ) => page.FindAll( ".tab-strip button" ).Single( x => x.TextContent.Contains( label, StringComparison.Ordinal ) ).Click();
 
@@ -289,7 +289,7 @@ public sealed class HomePageTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( page.FindAll( ".stat-grid" ).Single().TextContent, Does.Contain( "Total Logs" ).And.Contain( "3 loaded" ) );
+							 Assert.That( page.FindAll( ".overview-row" ).Single().TextContent, Does.Contain( "Total Logs" ).And.Contain( "3 loaded" ) );
 							 Assert.That( Column( page, 1 ),
 										  Is.EqualTo( new[]
 														  {
@@ -355,7 +355,7 @@ public sealed class HomePageTests
 
 		Select( page, "Search" ).Input( query );
 
-		Assert.That( page.FindAll( "table.selectable tbody tr" ).Select( static x => x.Children[1].TextContent.Trim() ), Is.EqualTo( services ) );
+		Assert.That( page.FindAll( "table.selectable tbody tr[tabindex]" ).Select( static x => x.Children[1].TextContent.Trim() ), Is.EqualTo( services ) );
 	}
 
 	[Test] public void ServiceAndSeverityFilters_Combine()
@@ -503,7 +503,7 @@ public sealed class HomePageTests
 		Select( page, "Category key" ).Change( token );
 		Select( page, "Category value" ).Input( value );
 
-		Assert.That( page.FindAll( "table.selectable tbody tr" ).Select( static x => x.Children[1].TextContent.Trim() ), Is.EqualTo( services ) );
+		Assert.That( page.FindAll( "table.selectable tbody tr[tabindex]" ).Select( static x => x.Children[1].TextContent.Trim() ), Is.EqualTo( services ) );
 	}
 
 	[Test] public void CategoryFilter_BlankValue_MatchesEverything()
@@ -574,7 +574,7 @@ public sealed class HomePageTests
 						: "asc" );
 		Select( page, "Sort by" ).Change( token );
 
-		Assert.That( page.FindAll( "table.selectable tbody tr" ).Select( static x => x.Children[1].TextContent.Trim() ), Is.EqualTo( services ) );
+		Assert.That( page.FindAll( "table.selectable tbody tr[tabindex]" ).Select( static x => x.Children[1].TextContent.Trim() ), Is.EqualTo( services ) );
 	}
 
 	[Test] public void SpansTab_FiltersSortsAndResetsInvalidSort()
@@ -611,7 +611,7 @@ public sealed class HomePageTests
 
 		Select( page, "Sort direction" ).Change( "asc" );
 		Select( page, "Sort by" ).Change( "enum:Duration" );
-		Assert.That( page.Find( "table.selectable tbody tr" ).TextContent, Does.Contain( "SELECT" ) );
+		Assert.That( page.Find( "table.selectable tbody tr[tabindex]" ).TextContent, Does.Contain( "SELECT" ) );
 
 		foreach ( ( string token, string value, int rows ) in new[]
 																  {
@@ -731,7 +731,7 @@ public sealed class HomePageTests
 	{
 		IRenderedComponent<Home> page = Render();
 
-		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
+		page.FindAll( "table.selectable tbody tr[tabindex]" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
 
 		Assert.Multiple( () =>
 						 {
@@ -762,7 +762,7 @@ public sealed class HomePageTests
 		ClickTab( page, "Metrics" );
 
 		ClickButton( page, "Pause live updates" );
-		page.Find( "table.selectable tbody tr" ).Click();
+		page.Find( "table.selectable tbody tr[tabindex]" ).Click();
 		Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Metric point" ) );
 
 		page.Find( ".dialog-backdrop" ).Click();
@@ -773,7 +773,7 @@ public sealed class HomePageTests
 						 } );
 
 		ClickButton( page, "Resume live updates" );
-		page.Find( "table.selectable tbody tr" ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" } );
+		page.Find( "table.selectable tbody tr[tabindex]" ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" } );
 		ClickButton( page, "Resume live updates" ); // resumed by hand while open
 		Dialog( page ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "a" } );
 		Assert.That( page.FindAll( ".dialog" ), Has.Count.EqualTo( 1 ), "only Escape closes it" );
@@ -791,7 +791,7 @@ public sealed class HomePageTests
 		IRenderedComponent<Home> page = Render( SnapshotWithChildSpan() );
 		ClickTab( page, "Traces" );
 
-		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "child call" ) ).Click();
+		page.FindAll( "table.selectable tbody tr[tabindex]" ).Single( static x => x.TextContent.Contains( "child call" ) ).Click();
 		page.WaitForState( () => page.FindAll( ".trace-view [role=status]" ).Any( static x => x.TextContent.Contains( "couldn't be loaded" ) ) );
 
 		Assert.Multiple( () =>
@@ -842,7 +842,7 @@ public sealed class HomePageTests
 		TelemetrySnapshotDto     snapshot = Snapshot();
 		IRenderedComponent<Home> page     = Render( snapshot with { Logs = [ snapshot.Logs[0] with { SpanId = snapshot.Spans[0].SpanId }, .. snapshot.Logs.Skip( 1 ) ] } );
 
-		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
+		page.FindAll( "table.selectable tbody tr[tabindex]" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
 		ClickButton( page, "Open trace" );
 
 		Assert.Multiple( () =>
@@ -859,7 +859,7 @@ public sealed class HomePageTests
 						 {
 							 Assert.That( page.FindAll( ".dialog" ),                                        Is.Empty );
 							 Assert.That( Select( page, "Search" ).GetAttribute( "value" ),                 Is.EqualTo( "aaaa0000000000000000000000000001" ) );
-							 Assert.That( page.FindAll( "table.selectable tbody tr" ).Single().TextContent, Does.Contain( "POST /pay" ) );
+							 Assert.That( page.FindAll( "table.selectable tbody tr[tabindex]" ).Single().TextContent, Does.Contain( "POST /pay" ) );
 							 Assert.That( page.Find( ".status-pill" ).TextContent,                          Is.EqualTo( "Live" ) );
 						 } );
 	}
@@ -868,7 +868,7 @@ public sealed class HomePageTests
 	{
 		IRenderedComponent<Home> page = Render( Snapshot() with { Spans = [ ] } );
 
-		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
+		page.FindAll( "table.selectable tbody tr[tabindex]" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
 		ClickButton( page, "Open trace" );
 
 		Assert.Multiple( () =>
@@ -878,7 +878,7 @@ public sealed class HomePageTests
 						 } );
 
 		ClickButton( page, "Filter list by trace" );
-		Assert.That( page.FindAll( "table.selectable tbody tr" ).Single().TextContent, Does.Contain( "payment failed" ), "a log pivots the logs list" );
+		Assert.That( page.FindAll( "table.selectable tbody tr[tabindex]" ).Single().TextContent, Does.Contain( "payment failed" ), "a log pivots the logs list" );
 	}
 
 	[Test] public void SpanDetails_OpenLinkedTrace()
@@ -886,7 +886,7 @@ public sealed class HomePageTests
 		IRenderedComponent<Home> page = Render();
 		ClickTab( page, "Traces" );
 
-		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "POST /pay" ) ).Click();
+		page.FindAll( "table.selectable tbody tr[tabindex]" ).Single( static x => x.TextContent.Contains( "POST /pay" ) ).Click();
 		ClickButton( page, "Open linked trace" );
 
 		Assert.Multiple( () =>

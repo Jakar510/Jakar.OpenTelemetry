@@ -21,6 +21,7 @@ h1 {
 .shell-brand {
     flex: 1 1 auto;
     min-width: 0;
+    max-width: 100%; /* the one-line subtitle must not widen the page on a phone */
 }
 
 /* One line; on a narrow screen it is cut with an ellipsis (the full text is the tooltip). */
@@ -63,6 +64,10 @@ h1 {
     .shell-header {
         align-items: start;
         flex-direction: column;
+    }
+
+    .shell-brand {
+        width: 100%;
     }
 
     .shell-actions {

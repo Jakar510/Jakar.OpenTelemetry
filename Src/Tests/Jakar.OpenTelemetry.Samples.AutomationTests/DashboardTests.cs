@@ -74,7 +74,7 @@ public sealed partial class DashboardTests : LiveApiFixture
 
 	private Task WaitForInteractivityAsync() => WaitForCircuitAsync();
 
-	private ILocator LogRows => _page.Locator( "table.selectable tbody tr" );
+	private ILocator LogRows => _page.Locator( "table.selectable tbody tr[tabindex]" ); // not the virtualization spacers
 
 
 	[Test] public async Task Login_RejectsWrongPassword_ThenSignsIn()
@@ -102,7 +102,7 @@ public sealed partial class DashboardTests : LiveApiFixture
 		await WaitForInteractivityAsync();
 
 		await Assertions.Expect( LogRows ).ToHaveCountAsync( 2 );
-		await Assertions.Expect( _page.Locator( ".stat-grid" ) ).ToContainTextAsync( "Total Logs" );
+		await Assertions.Expect( _page.Locator( ".overview-row" ) ).ToContainTextAsync( "Total Logs" );
 
 		await _page.GetByPlaceholder( "Search message" ).FillAsync( "declined" );
 		await Assertions.Expect( LogRows ).ToHaveCountAsync( 1 );

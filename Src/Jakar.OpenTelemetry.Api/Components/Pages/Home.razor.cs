@@ -1,4 +1,5 @@
 using System.Globalization;
+using System.Runtime.CompilerServices;
 using Jakar.OpenTelemetry.Api.Components.Dashboard;
 using Jakar.OpenTelemetry.Api.Services;
 using Jakar.OpenTelemetry.Contracts;
@@ -18,6 +19,10 @@ public sealed partial class Home : ComponentBase, IDisposable
 	private          int                     _refreshing;
 	private          int                     _refreshPending;
 	private          bool                    _resumeAfterDetails; // the details dialog paused live updates, so closing it resumes them
+	private          ExplorerOptions?        _options;
+
+	/// <summary> Each record's searchable text, joined once per record (records are immutable; a new snapshot brings new ones). </summary>
+	private static readonly ConditionalWeakTable<object, string> _s_searchText = new();
 
 	private TelemetrySnapshotDto?          Snapshot              { get;                                set; }
 	private TelemetryTab                   ActiveTab             { get;                                set; } = TelemetryTab.Logs;
@@ -51,35 +56,54 @@ public sealed partial class Home : ComponentBase, IDisposable
 															? Snapshot?.Metrics.FirstOrDefault( x => x.ID == id )
 															: null;
 
-	private IReadOnlyList<string> ServiceOptions => Snapshot?.Logs.Select( x => x.ServiceName ).Concat( Snapshot.Spans.Select( x => x.ServiceName ) ).Concat( Snapshot.Metrics.Select( x => x.ServiceName ) ).Where( x => !string.IsNullOrWhiteSpace( x ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( x => x ).Cast<string>().ToArray() ?? [ ];
-
-	private IReadOnlyList<string> SeverityOptions => Snapshot?.Logs.Select( static x => x.SeverityText ).Where( static x => !string.IsNullOrWhiteSpace( x ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Cast<string>().ToArray() ?? [ ];
-
-	private IReadOnlyList<string> SpanKindOptions => Snapshot?.Spans.Select( static x => x.Kind ).Where( static x => !string.IsNullOrWhiteSpace( x ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Cast<string>().ToArray() ?? [ ];
-
-	private IReadOnlyList<string> MetricNameOptions => Snapshot?.Metrics.Select( static x => x.Name ).Where( static x => !string.IsNullOrWhiteSpace( x ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Cast<string>().ToArray() ?? [ ];
-
-	private IReadOnlyList<FilterOption> CategoryOptions
+	/// <summary> The filter and sort choices, built once per snapshot and tab (they scan every loaded record), not on every render. </summary>
+	private ExplorerOptions Options
 	{
 		get
 		{
-			IEnumerable<string> keys = ActiveTab switch
-										   {
-											   TelemetryTab.Logs    => Snapshot?.Logs.SelectMany( GetLogDynamicKeys )       ?? [ ],
-											   TelemetryTab.Spans   => Snapshot?.Spans.SelectMany( GetSpanDynamicKeys )     ?? [ ],
-											   TelemetryTab.Metrics => Snapshot?.Metrics.SelectMany( GetMetricDynamicKeys ) ?? [ ],
-											   _                    => [ ]
-										   };
+			if ( _options is null || !ReferenceEquals( _options.Snapshot, Snapshot ) || _options.Tab != ActiveTab )
+			{
+				IReadOnlyList<FilterOption> categories = BuildCategoryOptions();
+				_options = new ExplorerOptions( Snapshot, ActiveTab, BuildServiceOptions(), BuildSeverityOptions(), BuildSpanKindOptions(), BuildMetricNameOptions(), categories, BuildSortOptions( categories ) );
+			}
 
-			return
-				[
-					new FilterOption( ToToken( new FilterKey( FilterField.None ) ), "Any category" ),
-					.. keys.Where( static x => !x.EndsWith( "{OriginalFormat}", StringComparison.Ordinal ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Select( key => new FilterOption( ToToken( new FilterKey( FilterField.None, key ) ), key ) )
-				];
+			return _options;
 		}
 	}
 
-	private IReadOnlyList<FilterOption> SortOptions => ActiveTab switch
+	private IReadOnlyList<string>       ServiceOptions    => Options.Services;
+	private IReadOnlyList<string>       SeverityOptions   => Options.Severities;
+	private IReadOnlyList<string>       SpanKindOptions   => Options.SpanKinds;
+	private IReadOnlyList<string>       MetricNameOptions => Options.MetricNames;
+	private IReadOnlyList<FilterOption> CategoryOptions   => Options.Categories;
+	private IReadOnlyList<FilterOption> SortOptions       => Options.Sorts;
+
+	private IReadOnlyList<string> BuildServiceOptions() => Snapshot?.Logs.Select( x => x.ServiceName ).Concat( Snapshot.Spans.Select( x => x.ServiceName ) ).Concat( Snapshot.Metrics.Select( x => x.ServiceName ) ).Where( x => !string.IsNullOrWhiteSpace( x ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( x => x ).Cast<string>().ToArray() ?? [ ];
+
+	private IReadOnlyList<string> BuildSeverityOptions() => Snapshot?.Logs.Select( static x => x.SeverityText ).Where( static x => !string.IsNullOrWhiteSpace( x ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Cast<string>().ToArray() ?? [ ];
+
+	private IReadOnlyList<string> BuildSpanKindOptions() => Snapshot?.Spans.Select( static x => x.Kind ).Where( static x => !string.IsNullOrWhiteSpace( x ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Cast<string>().ToArray() ?? [ ];
+
+	private IReadOnlyList<string> BuildMetricNameOptions() => Snapshot?.Metrics.Select( static x => x.Name ).Where( static x => !string.IsNullOrWhiteSpace( x ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Cast<string>().ToArray() ?? [ ];
+
+	private IReadOnlyList<FilterOption> BuildCategoryOptions()
+	{
+		IEnumerable<string> keys = ActiveTab switch
+									   {
+										   TelemetryTab.Logs    => Snapshot?.Logs.SelectMany( GetLogDynamicKeys )       ?? [ ],
+										   TelemetryTab.Spans   => Snapshot?.Spans.SelectMany( GetSpanDynamicKeys )     ?? [ ],
+										   TelemetryTab.Metrics => Snapshot?.Metrics.SelectMany( GetMetricDynamicKeys ) ?? [ ],
+										   _                    => [ ]
+									   };
+
+		return
+			[
+				new FilterOption( ToToken( new FilterKey( FilterField.None ) ), "Any category" ),
+				.. keys.Where( static x => !x.EndsWith( "{OriginalFormat}", StringComparison.Ordinal ) ).Distinct( StringComparer.OrdinalIgnoreCase ).OrderBy( static x => x ).Select( key => new FilterOption( ToToken( new FilterKey( FilterField.None, key ) ), key ) )
+			];
+	}
+
+	private IReadOnlyList<FilterOption> BuildSortOptions( IReadOnlyList<FilterOption> categories ) => ActiveTab switch
 														   {
 															   TelemetryTab.Logs =>
 																   [
@@ -87,7 +111,7 @@ public sealed partial class Home : ComponentBase, IDisposable
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Service ) ),   "Service" ),
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Severity ) ),  "Severity" ),
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Body ) ),      "Body" ),
-																	   .. CategoryOptions.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
+																	   .. categories.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
 																   ],
 															   TelemetryTab.Spans =>
 																   [
@@ -96,7 +120,7 @@ public sealed partial class Home : ComponentBase, IDisposable
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Name ) ),     "Span name" ),
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Kind ) ),     "Kind" ),
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Duration ) ), "Duration" ),
-																	   .. CategoryOptions.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
+																	   .. categories.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
 																   ],
 															   TelemetryTab.Metrics =>
 																   [
@@ -105,7 +129,7 @@ public sealed partial class Home : ComponentBase, IDisposable
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Name ) ),      "Metric name" ),
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Value ) ),     "Value" ),
 																	   new FilterOption( ToToken( new FilterKey( FilterField.Type ) ),      "Metric type" ),
-																	   .. CategoryOptions.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
+																	   .. categories.Where( static option => option.Token.StartsWith( "custom:", StringComparison.Ordinal ) )
 																   ],
 															   _ => [ ]
 														   };
@@ -145,12 +169,17 @@ public sealed partial class Home : ComponentBase, IDisposable
 	{
 		LastEvent = update;
 
-		if ( LiveUpdates ) { await RefreshAsync(); }
+		if ( LiveUpdates ) { await RefreshAsync( showLoading: false ); }
 		else { await InvokeAsync( StateHasChanged ); }
 	}
 
-	/// <summary> Coalesces overlapping refresh requests (live events arrive at most once per second) into at most one follow-up refresh. </summary>
-	private async Task RefreshAsync()
+	private Task RefreshAsync() => RefreshAsync( showLoading: true );
+
+	/// <summary>
+	///     Coalesces overlapping refresh requests (live events arrive at most once per second) into at most one follow-up refresh. Live refreshes don't render a
+	///     "loading" state first (<paramref name="showLoading"/> false): that would re-render the whole page twice per second while data streams in.
+	/// </summary>
+	private async Task RefreshAsync( bool showLoading )
 	{
 		if ( Interlocked.Exchange( ref _refreshing, 1 ) == 1 )
 		{
@@ -166,9 +195,13 @@ public sealed partial class Home : ComponentBase, IDisposable
 
 				try
 				{
-					IsLoading    = true;
 					ErrorMessage = null;
-					await InvokeAsync( StateHasChanged );
+
+					if ( showLoading || Snapshot is null )
+					{
+						IsLoading = true;
+						await InvokeAsync( StateHasChanged );
+					}
 
 					TelemetrySnapshotDto snapshot = await Telemetry.GetSnapshotAsync( Take, _disposed.Token );
 
@@ -322,26 +355,26 @@ public sealed partial class Home : ComponentBase, IDisposable
 
 	private bool MatchesService( string? serviceName ) => SelectedService == "all" || string.Equals( serviceName, SelectedService, StringComparison.OrdinalIgnoreCase );
 
-	private bool MatchesSearch( TelemetryLogRecordDto log )
-	{
-		if ( string.IsNullOrWhiteSpace( SearchText ) ) { return true; }
+	private bool MatchesSearch( TelemetryLogRecordDto log ) => string.IsNullOrWhiteSpace( SearchText ) ||
+															   SearchContains( _s_searchText.GetValue( log,
+																									   static x => x is TelemetryLogRecordDto record
+																													   ? JoinSearchFields( record.Body, record.ServiceName, record.TraceId, record.SpanId, record.ScopeName, record.SeverityText, FormatMap( record.Attributes ), FormatMap( record.ResourceAttributes ), FormatMap( record.ScopeAttributes ) )
+																													   : string.Empty ) );
 
-		return SearchContains( log.Body ) || SearchContains( log.ServiceName ) || SearchContains( log.TraceId ) || SearchContains( log.SpanId ) || SearchContains( log.ScopeName ) || SearchContains( log.SeverityText ) || SearchContains( FormatMap( log.Attributes ) ) || SearchContains( FormatMap( log.ResourceAttributes ) ) || SearchContains( FormatMap( log.ScopeAttributes ) );
-	}
+	private bool MatchesSearch( TelemetrySpanRecordDto span ) => string.IsNullOrWhiteSpace( SearchText ) ||
+																 SearchContains( _s_searchText.GetValue( span,
+																										 static x => x is TelemetrySpanRecordDto record
+																														 ? JoinSearchFields( record.Name, record.ServiceName, record.TraceId, record.SpanId, record.ParentSpanId, record.Kind, record.StatusCode, record.StatusMessage, FormatMap( record.Attributes ), FormatMap( record.ResourceAttributes ), FormatMap( record.ScopeAttributes ) )
+																														 : string.Empty ) );
 
-	private bool MatchesSearch( TelemetrySpanRecordDto span )
-	{
-		if ( string.IsNullOrWhiteSpace( SearchText ) ) { return true; }
+	private bool MatchesSearch( TelemetryMetricRecordDto metric ) => string.IsNullOrWhiteSpace( SearchText ) ||
+																	 SearchContains( _s_searchText.GetValue( metric,
+																											 static x => x is TelemetryMetricRecordDto record
+																															 ? JoinSearchFields( record.Name, record.Description, record.ServiceName, record.Unit, record.MetricType, record.AggregationTemporality, FormatMetricMap( record ) )
+																															 : string.Empty ) );
 
-		return SearchContains( span.Name ) || SearchContains( span.ServiceName ) || SearchContains( span.TraceId ) || SearchContains( span.SpanId ) || SearchContains( span.ParentSpanId ) || SearchContains( span.Kind ) || SearchContains( span.StatusCode ) || SearchContains( span.StatusMessage ) || SearchContains( FormatMap( span.Attributes ) ) || SearchContains( FormatMap( span.ResourceAttributes ) ) || SearchContains( FormatMap( span.ScopeAttributes ) );
-	}
-
-	private bool MatchesSearch( TelemetryMetricRecordDto metric )
-	{
-		if ( string.IsNullOrWhiteSpace( SearchText ) ) { return true; }
-
-		return SearchContains( metric.Name ) || SearchContains( metric.Description ) || SearchContains( metric.ServiceName ) || SearchContains( metric.Unit ) || SearchContains( metric.MetricType ) || SearchContains( metric.AggregationTemporality ) || SearchContains( FormatMetricMap( metric ) );
-	}
+	/// <summary> The fields joined by line breaks, which a typed query can't contain, so a match never spans two fields. </summary>
+	private static string JoinSearchFields( params string?[] fields ) => string.Join( '\n', fields );
 
 	private bool MatchesCategory( TelemetryLogRecordDto log )
 	{
@@ -537,6 +570,15 @@ public sealed partial class Home : ComponentBase, IDisposable
 
 		return value.Trim().Trim( '"' ).Replace( "\\\"", "\"", StringComparison.Ordinal ).Replace( "\\n", " ", StringComparison.Ordinal );
 	}
+
+	private sealed record ExplorerOptions( TelemetrySnapshotDto?       Snapshot,
+										   TelemetryTab                Tab,
+										   IReadOnlyList<string>       Services,
+										   IReadOnlyList<string>       Severities,
+										   IReadOnlyList<string>       SpanKinds,
+										   IReadOnlyList<string>       MetricNames,
+										   IReadOnlyList<FilterOption> Categories,
+										   IReadOnlyList<FilterOption> Sorts );
 
 	private enum FilterField
 	{

@@ -12,7 +12,7 @@
 }
 else
 {
-    <div class="table-wrap">
+    <div class="table-wrap virtual-table">
         <table class="selectable">
             <thead>
             <tr>
@@ -27,8 +27,8 @@ else
             </tr>
             </thead>
             <tbody>
-            @foreach ( TelemetrySpanRecordDto span in Records )
-            {
+            @* Only the rows in view (plus a few) exist in the page; the rest are spacers. *@
+            <Virtualize Items="Items" Context="span" ItemSize="46" OverscanCount="15" SpacerElement="tr">
                 <tr @key="span.ID"
                     class="@TelemetryDashboardFormatter.RowClass( span.ID == SelectedId )"
                     tabindex="0"
@@ -42,15 +42,18 @@ else
                     <td>@TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )</td>
                     <td title="@span.StatusMessage"><span class="badge @TelemetryDashboardFormatter.StatusClass( span.StatusCode )">@( span.StatusCode ?? "Unset" )</span></td>
                     <td title="@( $"{span.TraceId} / {span.SpanId}" )">@TelemetryDashboardFormatter.Trim( span.TraceId, 16 )</td>
-                    <td title="@TelemetryDashboardFormatter.FormatMap( span.Attributes )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.FormatMap( span.Attributes ), 72 )</td>
+                    <td title="@TelemetryDashboardFormatter.AttributesText( span.Attributes )">@TelemetryDashboardFormatter.Trim( TelemetryDashboardFormatter.AttributesText( span.Attributes ), 72 )</td>
                 </tr>
-            }
+            </Virtualize>
             </tbody>
         </table>
     </div>
 }
 
 @code {
+    /// <summary> Virtualize needs a collection with a count; the explorer passes lists. </summary>
+    private ICollection<TelemetrySpanRecordDto> Items => Records as ICollection<TelemetrySpanRecordDto> ?? Records.ToList();
+
     [Parameter] public IReadOnlyList<TelemetrySpanRecordDto> Records         { get; set; } = [ ];
     [Parameter] public Guid?                                 SelectedId      { get; set; }
     [Parameter] public EventCallback<Guid>                   SelectedChanged { get; set; }
