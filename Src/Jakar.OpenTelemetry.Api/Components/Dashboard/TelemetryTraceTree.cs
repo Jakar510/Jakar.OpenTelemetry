@@ -2,41 +2,61 @@ using Jakar.OpenTelemetry.Contracts;
 
 namespace Jakar.OpenTelemetry.Api.Components.Dashboard;
 
-/// <summary> A span placed in the trace waterfall: its depth under its parent, and its bar as percentages of the trace's time range. </summary>
+/// <summary>
+///     A span placed in the trace waterfall: its depth under its parent, its bar as percentages of the trace's time range, whether it has children (it can be
+///     collapsed), and its service's color slot (services are numbered in the order they first appear in the trace).
+/// </summary>
 public sealed record TelemetryTraceRow( TelemetrySpanRecordDto Span,
 										int                    Depth,
 										double                 OffsetPercent,
-										double                 WidthPercent );
+										double                 WidthPercent,
+										bool                   HasChildren,
+										int                    ServiceIndex );
 
 
 
 /// <summary> Orders a trace's spans as a tree (each parent followed by its children, siblings by start time) and lays them out on a shared timeline. </summary>
 public sealed class TelemetryTraceTree
 {
+	/// <summary> Distinct service colors; services beyond this reuse them. </summary>
+	public const int SERVICE_COLORS = 10;
+
 	/// <summary> The narrowest bar drawn, so instant spans stay visible and clickable. </summary>
 	private const double MIN_WIDTH_PERCENT = 0.5;
 
 
-	private TelemetryTraceTree( IReadOnlyList<TelemetryTraceRow> rows, DateTimeOffset? start, double durationMilliseconds, int services, int errors )
+	private TelemetryTraceTree( IReadOnlyList<TelemetryTraceRow> rows, IReadOnlyList<string> services, DateTimeOffset? start, double durationMilliseconds, int errors )
 	{
 		Rows                 = rows;
+		Services             = services;
 		StartUtc             = start;
 		DurationMilliseconds = durationMilliseconds;
-		ServiceCount         = services;
 		ErrorCount           = errors;
+		Depth = rows.Count == 0
+					? 0
+					: rows.Max( static x => x.Depth ) + 1;
 	}
 
 
 	public IReadOnlyList<TelemetryTraceRow> Rows                 { get; }
+	public IReadOnlyList<string>            Services             { get; }
 	public DateTimeOffset?                  StartUtc             { get; }
 	public double                           DurationMilliseconds { get; }
-	public int                              ServiceCount         { get; }
 	public int                              ErrorCount           { get; }
+	public int                              ServiceCount         => Services.Count;
+
+	/// <summary> Levels in the tree (a lone span is 1). </summary>
+	public int Depth { get; }
+
+	/// <summary> The first root: what the trace is named after ("service: operation"). </summary>
+	public TelemetrySpanRecordDto? Root => Rows.Count == 0
+											   ? null
+											   : Rows[0].Span;
 
 
 	public static TelemetryTraceTree Build( IReadOnlyList<TelemetrySpanRecordDto> spans )
 	{
-		if ( spans.Count == 0 ) { return new TelemetryTraceTree( [ ], null, 0, 0, 0 ); }
+		if ( spans.Count == 0 ) { return new TelemetryTraceTree( [ ], [ ], null, 0, 0 ); }
 
 		DateTimeOffset start = spans.Min( Start );
 		DateTimeOffset end   = spans.Max( static span => Start( span ).AddMilliseconds( Math.Max( 0, span.DurationMilliseconds ) ) );
@@ -48,17 +68,17 @@ public sealed class TelemetryTraceTree
 		ILookup<string, TelemetrySpanRecordDto> children = spans.Where( x => x.ParentSpanId is not null && ids.Contains( x.ParentSpanId ) ).ToLookup( static x => x.ParentSpanId!, StringComparer.Ordinal );
 		IEnumerable<TelemetrySpanRecordDto>     roots    = spans.Where( x => x.ParentSpanId is null || !ids.Contains( x.ParentSpanId ) );
 
-		List<TelemetryTraceRow> rows    = new(spans.Count);
-		HashSet<Guid>           visited = [ ];
+		List<TelemetryTraceRow>  rows     = new(spans.Count);
+		HashSet<Guid>            visited  = [ ];
+		Dictionary<string, int>  services = new(StringComparer.Ordinal);
 
 		foreach ( TelemetrySpanRecordDto root in Ordered( roots ) ) { Add( root, 0 ); }
 
 		// Spans in a parent cycle (malformed ids) are never reached from a root; list them at the top level rather than drop them.
 		foreach ( TelemetrySpanRecordDto span in Ordered( spans.Where( x => !visited.Contains( x.ID ) ) ) ) { Add( span, 0 ); }
 
-		int services = spans.Select( static x => x.ServiceName ?? string.Empty ).Distinct( StringComparer.Ordinal ).Count();
-		int errors   = spans.Count( static x => string.Equals( x.StatusCode, "Error", StringComparison.OrdinalIgnoreCase ) );
-		return new TelemetryTraceTree( rows, start, total, services, errors );
+		int errors = spans.Count( static x => string.Equals( x.StatusCode, "Error", StringComparison.OrdinalIgnoreCase ) );
+		return new TelemetryTraceTree( rows, services.OrderBy( static x => x.Value ).Select( static x => x.Key ).ToArray(), start, total, errors );
 
 		void Add( TelemetrySpanRecordDto span, int depth )
 		{
@@ -71,13 +91,41 @@ public sealed class TelemetryTraceTree
 							   ? span.DurationMilliseconds / total * 100
 							   : 100;
 
+			string service = span.ServiceName ?? string.Empty;
+			if ( !services.TryGetValue( service, out int serviceIndex ) ) { services[service] = serviceIndex = services.Count; }
+
+			IEnumerable<TelemetrySpanRecordDto> kids = span.SpanId is null
+														   ? [ ]
+														   : Ordered( children[span.SpanId].Where( x => !visited.Contains( x.ID ) ) ).ToArray();
+
 			offset = Math.Clamp( offset, 0, 100 - MIN_WIDTH_PERCENT );
-			rows.Add( new TelemetryTraceRow( span, depth, offset, Math.Clamp( width, MIN_WIDTH_PERCENT, 100 - offset ) ) );
+			rows.Add( new TelemetryTraceRow( span, depth, offset, Math.Clamp( width, MIN_WIDTH_PERCENT, 100 - offset ), kids.Any(), serviceIndex % SERVICE_COLORS ) );
 
-			if ( span.SpanId is null ) { return; }
-
-			foreach ( TelemetrySpanRecordDto child in Ordered( children[span.SpanId] ) ) { Add( child, depth + 1 ); }
+			foreach ( TelemetrySpanRecordDto child in kids ) { Add( child, depth + 1 ); }
 		}
+	}
+
+	/// <summary> The rows left visible when the spans in <paramref name="collapsed"/> hide their descendants. </summary>
+	public IEnumerable<TelemetryTraceRow> Visible( IReadOnlySet<Guid> collapsed )
+	{
+		int hideBelow = int.MaxValue; // rows deeper than this belong to a collapsed span
+
+		foreach ( TelemetryTraceRow row in Rows )
+		{
+			if ( row.Depth > hideBelow ) { continue; }
+
+			hideBelow = collapsed.Contains( row.Span.ID )
+							? row.Depth
+							: int.MaxValue;
+
+			yield return row;
+		}
+	}
+
+	/// <summary> Timeline labels at 0, 25, 50, 75 and 100% of the trace. </summary>
+	public IEnumerable<(double Percent, double Milliseconds)> Ticks()
+	{
+		for ( int i = 0; i <= 4; i++ ) { yield return ( i * 25, DurationMilliseconds * i / 4 ); }
 	}
 
 

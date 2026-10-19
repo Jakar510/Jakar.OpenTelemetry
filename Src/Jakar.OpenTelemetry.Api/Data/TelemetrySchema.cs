@@ -191,6 +191,22 @@ public static class TelemetrySchema
 								  ALTER TABLE "Images" ALTER COLUMN "Data" SET STORAGE EXTERNAL;
 								  CREATE INDEX IF NOT EXISTS "Images_ReceivedAtUtc_brin" ON "Images" USING brin ("ReceivedAtUtc");
 
+								  -- Saved dashboards: panels, variables and defaults in "Definition" (see DashboardDefinition). Never touched by retention.
+								  CREATE TABLE IF NOT EXISTS "Dashboards"
+								  (
+								      "ID"           uuid                     NOT NULL PRIMARY KEY,
+								      "Name"         text                     NOT NULL,
+								      "Description"  text                     NULL,
+								      "Owner"        text                     NOT NULL DEFAULT '',
+								      "Visibility"   text                     NOT NULL DEFAULT 'Private',
+								      "Roles"        text[]                   NOT NULL DEFAULT '{}',
+								      "Definition"   jsonb                    NOT NULL,
+								      "IsStarter"    boolean                  NOT NULL DEFAULT false,
+								      "CreatedAtUtc" timestamp with time zone NOT NULL,
+								      "UpdatedAtUtc" timestamp with time zone NOT NULL,
+								      "Version"      integer                  NOT NULL DEFAULT 1
+								  );
+
 								  -- Screenshot page: newest error logs that reference images.
 								  CREATE INDEX IF NOT EXISTS "Logs_ImageTags_SortTimeUtc_idx" ON "Logs" ("SortTimeUtc" DESC) WHERE "AttributesJson" ? 'log.tags';
 

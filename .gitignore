@@ -9,3 +9,7 @@ riderModule.iml
 # Test run output and coverage
 [Tt]est[Rr]esults/
 coverage/
+
+# Visual Studio per-machine state
+.vs/
+*.user

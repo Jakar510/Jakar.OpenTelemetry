@@ -22,16 +22,27 @@
                     <div class="panel-head">
                         <div>
                             <p class="eyebrow">Trace</p>
-                            <h3><code class="wrap">@trace.TraceId</code></h3>
+                            <h3 class="wrap">
+                                @if ( Tree.Root is { } root )
+                                {
+                                    <span>@( root.ServiceName ?? "unknown" ): @( root.Name ?? "span" )</span>
+                                }
+                                <code class="trace-id" title="@trace.TraceId">@ShortId( trace.TraceId )</code>
+                            </h3>
                         </div>
-                        <span>
-                            @Tree.Rows.Count spans | @TelemetryDashboardFormatter.FormatDuration( Tree.DurationMilliseconds ) | @Tree.ServiceCount service(s)
-                            @if ( Tree.ErrorCount > 0 )
-                            {
-                                <span class="badge sev-error">@Tree.ErrorCount error(s)</span>
-                            }
-                        </span>
                     </div>
+
+                    <dl class="trace-stats">
+                        <div><dt>Trace start</dt><dd>@TelemetryDashboardFormatter.FormatDatePrecise( Tree.StartUtc )</dd></div>
+                        <div><dt>Duration</dt><dd>@TelemetryDashboardFormatter.FormatDuration( Tree.DurationMilliseconds )</dd></div>
+                        <div><dt>Services</dt><dd>@Tree.ServiceCount</dd></div>
+                        <div><dt>Depth</dt><dd>@Tree.Depth</dd></div>
+                        <div><dt>Total spans</dt><dd>@Tree.Rows.Count</dd></div>
+                        @if ( Tree.ErrorCount > 0 )
+                        {
+                            <div><dt>Errors</dt><dd><span class="badge sev-error">@Tree.ErrorCount</span></dd></div>
+                        }
+                    </dl>
 
                     @if ( _loadingTrace )
                     {
@@ -48,27 +59,82 @@
                     }
                     else
                     {
-                        <ol class="trace-waterfall">
-                            @foreach ( TelemetryTraceRow row in Tree.Rows )
-                            {
-                                TelemetrySpanRecordDto span = row.Span;
+                        <div class="trace-toolbar">
+                            <ul class="trace-services" aria-label="Services">
+                                @for ( int i = 0; i < Tree.Services.Count; i++ )
+                                {
+                                    <li><span class="svc-dot svc-@( i % TelemetryTraceTree.SERVICE_COLORS )"></span>@( string.IsNullOrEmpty( Tree.Services[i] ) ? "unknown" : Tree.Services[i] )</li>
+                                }
+                            </ul>
+                            <button type="button" class="action-button small" @onclick="ExpandAll" disabled="@( _collapsed.Count == 0 )">Expand all</button>
+                            <button type="button" class="action-button small" @onclick="CollapseAll">Collapse all</button>
+                        </div>
 
-                                <li @key="span.ID">
-                                    <button type="button"
-                                            class="trace-row @( span.ID == _span?.ID ? "selected" : string.Empty )"
-                                            aria-pressed="@( span.ID == _span?.ID ? "true" : "false" )"
-                                            title="@( $"{span.Name} ({span.ServiceName ?? "unknown"}) {TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )}" )"
-                                            @onclick="() => PickSpan( span )">
-                                        <span class="trace-label" style="padding-left: @( row.Depth * 0.9 )rem">
+                        @* Every span as a thin line: the shape of the whole trace at a glance. *@
+                        <div class="trace-minimap" aria-hidden="true">
+                            @for ( int i = 0; i < Tree.Rows.Count; i++ )
+                            {
+                                TelemetryTraceRow row = Tree.Rows[i];
+                                <span class="svc-@row.ServiceIndex @( row.Span.ID == _span?.ID ? "selected" : string.Empty )"
+                                      style="left: @Percent( row.OffsetPercent ); width: @Percent( row.WidthPercent ); top: @Percent( 100.0 * i / Tree.Rows.Count ); height: @Percent( 100.0 / Tree.Rows.Count )"></span>
+                            }
+                        </div>
+
+                        <div class="trace-header">
+                            <div class="trace-header-label">Service &amp; Operation</div>
+                            <div class="trace-ticks" aria-hidden="true">
+                                @foreach ( ( double percent, double milliseconds ) in Tree.Ticks() )
+                                {
+                                    <span style="left: @Percent( percent )">@TelemetryDashboardFormatter.FormatDuration( milliseconds )</span>
+                                }
+                            </div>
+                        </div>
+
+                        <ol class="trace-waterfall">
+                            @foreach ( TelemetryTraceRow row in Tree.Visible( _collapsed ) )
+                            {
+                                TelemetrySpanRecordDto span      = row.Span;
+                                bool                   selected  = span.ID == _span?.ID;
+                                bool                   error     = string.Equals( span.StatusCode, "Error", StringComparison.OrdinalIgnoreCase );
+                                bool                   collapsed = _collapsed.Contains( span.ID );
+
+                                <li @key="span.ID" class="trace-row @( selected ? "selected" : string.Empty )">
+                                    <div class="trace-label" style="padding-left: @( row.Depth * 0.9 )rem">
+                                        @if ( row.HasChildren )
+                                        {
+                                            <button type="button"
+                                                    class="trace-toggle"
+                                                    aria-expanded="@( collapsed ? "false" : "true" )"
+                                                    aria-label="@( collapsed ? "Expand" : "Collapse" ) @span.Name"
+                                                    @onclick="() => Toggle( span.ID )">@( collapsed ? "\u25B8" : "\u25BE" )</button>
+                                        }
+                                        else
+                                        {
+                                            <span class="trace-toggle" aria-hidden="true"></span>
+                                        }
+                                        <button type="button"
+                                                class="trace-select"
+                                                aria-pressed="@( selected ? "true" : "false" )"
+                                                title="@( $"{span.ServiceName ?? "unknown"}: {span.Name} ({TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )})" )"
+                                                @onclick="() => PickSpan( span )">
+                                            <span class="svc-stripe svc-@row.ServiceIndex"></span>
+                                            <span class="trace-service">@( span.ServiceName ?? "unknown" )</span>
                                             <span class="trace-name">@( span.Name ?? "span" )</span>
-                                            <span class="muted">@( span.ServiceName ?? "unknown" )</span>
-                                        </span>
-                                        <span class="trace-track">
-                                            <span class="trace-bar @TelemetryDashboardFormatter.StatusClass( span.StatusCode )"
-                                                  style="left: @Percent( row.OffsetPercent ); width: @Percent( row.WidthPercent )"></span>
-                                        </span>
-                                        <span class="trace-duration">@TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )</span>
-                                    </button>
+                                            @if ( error )
+                                            {
+                                                <span class="badge sev-error">error</span>
+                                            }
+                                        </button>
+                                    </div>
+                                    <div class="trace-track" @onclick="() => PickSpan( span )">
+                                        <span class="trace-bar svc-@row.ServiceIndex @( error ? "is-error" : string.Empty )"
+                                              style="left: @Percent( row.OffsetPercent ); width: @Percent( row.WidthPercent )"></span>
+                                        @foreach ( double mark in LogMarks( span ) )
+                                        {
+                                            <span class="trace-log-mark" style="left: @Percent( mark )"></span>
+                                        }
+                                        <span class="trace-duration" style="@DurationPosition( row )">@TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )</span>
+                                    </div>
                                 </li>
                             }
                         </ol>
@@ -140,6 +206,8 @@
     private TelemetryLogRecordDto?   _log;
     private TelemetrySpanRecordDto?  _span;
     private TelemetryMetricRecordDto? _metric;
+
+    private readonly HashSet<Guid> _collapsed = [ ];
 
     private TelemetryTraceDto? Trace { get; set; }
     private TelemetryTraceTree Tree  { get; set; } = TelemetryTraceTree.Build( [ ] );
@@ -213,6 +281,8 @@
 
     private void SetTrace( TelemetryTraceDto trace )
     {
+        if ( Trace?.TraceId != trace.TraceId ) { _collapsed.Clear(); }
+
         Trace = trace;
         Tree  = TelemetryTraceTree.Build( trace.Spans );
 
@@ -236,6 +306,46 @@
         _log    = null;
         _metric = null;
     }
+
+    private void Toggle( Guid id )
+    {
+        if ( !_collapsed.Remove( id ) ) { _collapsed.Add( id ); }
+    }
+
+    private void ExpandAll() => _collapsed.Clear();
+
+    /// <summary> Collapses the roots, so only the top level stays visible. </summary>
+    private void CollapseAll()
+    {
+        foreach ( TelemetryTraceRow row in Tree.Rows.Where( static x => x.HasChildren && x.Depth == 0 ) ) { _collapsed.Add( row.Span.ID ); }
+    }
+
+    /// <summary> Where the span's logs fall on the trace's timeline (percent), like Jaeger's log ticks. </summary>
+    private IEnumerable<double> LogMarks( TelemetrySpanRecordDto span )
+    {
+        if ( Trace is null || span.SpanId is null || Tree.StartUtc is not { } start || Tree.DurationMilliseconds <= 0 ) { yield break; }
+
+        foreach ( TelemetryLogRecordDto log in Trace.Logs )
+        {
+            if ( log.SpanId != span.SpanId || ( log.TimestampUtc ?? log.ObservedTimestampUtc ) is not { } time ) { continue; }
+
+            yield return Math.Clamp( ( time - start ).TotalMilliseconds / Tree.DurationMilliseconds * 100, 0, 100 );
+        }
+    }
+
+    /// <summary> The duration label sits right of the bar; left of it when the bar ends near the track's end; inside it when the bar spans nearly everything. </summary>
+    private static string DurationPosition( TelemetryTraceRow row )
+    {
+        double end = row.OffsetPercent + row.WidthPercent;
+
+        return end <= 80                ? $"left: calc({Percent( end )} + 0.35rem)"
+               : row.OffsetPercent >= 20 ? $"right: calc({Percent( 100 - row.OffsetPercent )} + 0.35rem)"
+                                          : $"right: calc({Percent( 100 - end )} + 0.35rem); color: var(--bg)";
+    }
+
+    private static string ShortId( string traceId ) => traceId.Length > 7
+                                                           ? traceId[..7]
+                                                           : traceId;
 
     private void PickSpan( TelemetrySpanRecordDto span )
     {

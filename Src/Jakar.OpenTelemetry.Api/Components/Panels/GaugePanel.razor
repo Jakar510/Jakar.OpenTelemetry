@@ -1,0 +1,48 @@
+@inherits PanelComponentBase
+
+@if ( Result.Series.Count == 0 )
+{
+    <p class="panel-empty">No data</p>
+}
+else
+{
+    double? value = Result.Series[0].Last;
+    double  max   = Maximum( value );
+    double  min   = Panel.Options.Min ?? 0;
+    double  share = max > min ? Math.Clamp( ( ( value ?? min ) - min ) / ( max - min ), 0, 1 ) : 0;
+
+    @* A 240 degree arc; the filled part is the value's share of [min, max]. *@
+    <svg class="gauge" viewBox="0 0 200 150" role="img" aria-label="@( $"{Panel.Title}: {Format( value )}" )">
+        <path class="gauge-track" d="@Arc( 1 )" />
+        <path class="gauge-fill" d="@Arc( share )" style="@( ColorOf( value ) is { } color ? $"stroke: {color}" : string.Empty )" />
+        <text x="100" y="100" class="gauge-value">@Format( value )</text>
+        <text x="30" y="145" class="gauge-limit">@Format( min )</text>
+        <text x="170" y="145" class="gauge-limit" text-anchor="end">@Format( max )</text>
+    </svg>
+}
+
+@code {
+    /// <summary> The configured maximum, else the highest threshold, else a round number above the value. </summary>
+    private double Maximum( double? value ) => Panel.Options.Max
+                                               ?? ( Unit == "%" ? 100d : (double?)null )
+                                               ?? ( Panel.Options.Thresholds.Count > 0 ? Panel.Options.Thresholds.Max( static x => x.Value ) * 1.25 : (double?)null )
+                                               ?? PanelChart.NiceCeiling( Math.Max( value ?? 1, 1 ) );
+
+    private static string Arc( double share )
+    {
+        const double START = 150, SWEEP = 240, RADIUS = 80;
+
+        double end = START + SWEEP * share;
+        (double x1, double y1) = Point( START );
+        (double x2, double y2) = Point( end );
+        int large = SWEEP * share > 180 ? 1 : 0;
+
+        return string.Create( System.Globalization.CultureInfo.InvariantCulture, $"M {x1:0.##} {y1:0.##} A {RADIUS} {RADIUS} 0 {large} 1 {x2:0.##} {y2:0.##}" );
+
+        static (double, double) Point( double degrees )
+        {
+            double radians = degrees * Math.PI / 180;
+            return ( 100 + RADIUS * Math.Cos( radians ), 95 + RADIUS * Math.Sin( radians ) );
+        }
+    }
+}

@@ -184,7 +184,7 @@ public sealed class TelemetryQueryService( IDbContextFactory<TelemetryDbContext>
 	}
 
 
-	private static TelemetryLogRecordDto MapLog( TelemetryLogEntity entity ) => new(entity.ID,
+	internal static TelemetryLogRecordDto MapLog( TelemetryLogEntity entity ) => new(entity.ID,
 																					entity.ReceivedAtUtc,
 																					entity.TimestampUtc,
 																					entity.ObservedTimestampUtc,
@@ -206,7 +206,7 @@ public sealed class TelemetryQueryService( IDbContextFactory<TelemetryDbContext>
 																					entity.ResourceSchemaUrl,
 																					entity.ScopeSchemaUrl);
 
-	private static TelemetrySpanRecordDto MapSpan( TelemetrySpanEntity entity ) => new(entity.ID,
+	internal static TelemetrySpanRecordDto MapSpan( TelemetrySpanEntity entity ) => new(entity.ID,
 																					   entity.ReceivedAtUtc,
 																					   entity.StartTimeUtc,
 																					   entity.EndTimeUtc,

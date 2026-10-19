@@ -1,0 +1,28 @@
+@inherits PanelComponentBase
+
+@if ( Result.Series.Count == 0 )
+{
+    <p class="panel-empty">No data</p>
+}
+else
+{
+    <div class="panel-scroll">
+        <table class="panel-table">
+            <thead>
+            <tr>
+                <th>@( string.IsNullOrWhiteSpace( Panel.Query.GroupBy ) ? "Series" : Panel.Query.GroupBy )</th>
+                <th class="number">@Panel.Query.Aggregation</th>
+            </tr>
+            </thead>
+            <tbody>
+            @foreach ( PanelSeries series in Result.Series.OrderByDescending( static x => x.Last ) )
+            {
+                <tr>
+                    <td class="wrap">@( string.IsNullOrEmpty( series.Name ) ? "(none)" : series.Name )</td>
+                    <td class="number" style="@( ColorOf( series.Last ) is { } color ? $"color: {color}" : string.Empty )">@Format( series.Last )</td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

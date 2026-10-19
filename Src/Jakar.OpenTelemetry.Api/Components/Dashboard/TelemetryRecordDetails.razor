@@ -14,10 +14,13 @@
                     <button type="button" class="action-button" @onclick="() => OpenTrace.InvokeAsync( ( TraceId, Log.SpanId ) )">Open trace</button>
                 }
 
-                <button type="button"
-                        class="action-button"
-                        title="Close this and filter the list to this trace"
-                        @onclick="() => ShowTrace.InvokeAsync( ( TraceId, Log is null ? TelemetryTab.Spans : TelemetryTab.Logs ) )">Filter list by trace</button>
+                @if ( ShowTrace.HasDelegate )
+                {
+                    <button type="button"
+                            class="action-button"
+                            title="Close this and filter the list to this trace"
+                            @onclick="() => ShowTrace.InvokeAsync( ( TraceId, Log is null ? TelemetryTab.Spans : TelemetryTab.Logs ) )">Filter list by trace</button>
+                }
             }
         </div>
     </div>

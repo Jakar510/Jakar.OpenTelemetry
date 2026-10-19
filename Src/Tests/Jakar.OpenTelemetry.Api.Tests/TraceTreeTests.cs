@@ -69,6 +69,42 @@ public sealed class TraceTreeTests
 						 } );
 	}
 
+	[Test] public void RowsKnowTheirChildrenAndServiceColor_AndTheTreeItsDepthAndRoot()
+	{
+		TelemetryTraceTree tree = TelemetryTraceTree.Build( [ Span( "c2", "root", 60, 20, service: "api" ), Span( "gc", "c1", 20, 10, service: "db" ), Span( "c1", "root", 10, 40, service: "api" ), Span( "root", null, 0, 100, service: "web" ) ] );
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( tree.Rows.Select( static x => x.HasChildren ),  Is.EqualTo( new[] { true, true, false, false } ) );
+							 Assert.That( tree.Rows.Select( static x => x.ServiceIndex ), Is.EqualTo( new[] { 0, 1, 2, 1 } ), "numbered in order of appearance" );
+							 Assert.That( tree.Services,                                  Is.EqualTo( new[] { "web", "api", "db" } ) );
+							 Assert.That( tree.Depth,                                     Is.EqualTo( 3 ) );
+							 Assert.That( tree.Root!.SpanId,                              Is.EqualTo( "root" ) );
+							 Assert.That( tree.Ticks(),                                   Is.EqualTo( new[] { ( 0d, 0d ), ( 25d, 25d ), ( 50d, 50d ), ( 75d, 75d ), ( 100d, 100d ) } ) );
+						 } );
+	}
+
+	[Test] public void Visible_HidesTheDescendantsOfCollapsedSpans()
+	{
+		TelemetryTraceTree tree = TelemetryTraceTree.Build( [ Span( "root", null, 0, 100 ), Span( "c1", "root", 10, 40 ), Span( "gc", "c1", 20, 10 ), Span( "c2", "root", 60, 20 ), Span( "other", null, 90, 5 ) ] );
+		Guid               c1   = tree.Rows.Single( static x => x.Span.SpanId == "c1" ).Span.ID;
+		Guid               root = tree.Rows.Single( static x => x.Span.SpanId == "root" ).Span.ID;
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( tree.Visible( new HashSet<Guid>() ).Select( static x => x.Span.SpanId ),     Is.EqualTo( new[] { "root", "c1", "gc", "c2", "other" } ) );
+							 Assert.That( tree.Visible( new HashSet<Guid> { c1 } ).Select( static x => x.Span.SpanId ),   Is.EqualTo( new[] { "root", "c1", "c2", "other" } ) );
+							 Assert.That( tree.Visible( new HashSet<Guid> { root } ).Select( static x => x.Span.SpanId ), Is.EqualTo( new[] { "root", "other" } ) );
+						 } );
+	}
+
+	[Test] public void ManyServices_ReuseTheColors()
+	{
+		TelemetryTraceTree tree = TelemetryTraceTree.Build( Enumerable.Range( 0, TelemetryTraceTree.SERVICE_COLORS + 2 ).Select( static i => Span( $"s{i}", null, i, 1, service: $"svc{i}" ) ).ToArray() );
+
+		Assert.That( tree.Rows.Select( static x => x.ServiceIndex ).Max(), Is.EqualTo( TelemetryTraceTree.SERVICE_COLORS - 1 ) );
+	}
+
 	[Test] public void MissingParent_IsARoot_AndCyclesAreStillListed()
 	{
 		TelemetryTraceTree tree = TelemetryTraceTree.Build( [ Span( "orphan", "gone", 5, 5 ), Span( "a", "b", 1, 1 ), Span( "b", "a", 2, 1 ), Span( null!, null, 0, 1 ) ] );

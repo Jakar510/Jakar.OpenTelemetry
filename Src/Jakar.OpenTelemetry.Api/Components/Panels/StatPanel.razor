@@ -1,0 +1,32 @@
+@inherits PanelComponentBase
+
+@* One number: the first group's value over the whole range, colored by the thresholds. With several groups, the others are listed under it. *@
+@if ( Result.Series.Count == 0 )
+{
+    <p class="panel-empty">No data</p>
+}
+else
+{
+    PanelSeries first = Result.Series[0];
+
+    <div class="stat-value" style="@ColorStyle( first.Last )">@Format( first.Last )</div>
+    @if ( Result.Series.Count > 1 )
+    {
+        <ul class="stat-others">
+            @foreach ( PanelSeries series in Result.Series.Skip( 1 ).Take( 4 ) )
+            {
+                <li><span class="muted">@SeriesName( series )</span> @Format( series.Last )</li>
+            }
+        </ul>
+    }
+    else if ( !string.IsNullOrEmpty( first.Name ) )
+    {
+        <p class="muted stat-group">@first.Name</p>
+    }
+}
+
+@code {
+    private string ColorStyle( double? value ) => ColorOf( value ) is { } color ? $"color: {color}" : string.Empty;
+
+    private static string SeriesName( PanelSeries series ) => string.IsNullOrEmpty( series.Name ) ? "(none)" : series.Name;
+}

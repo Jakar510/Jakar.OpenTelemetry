@@ -3,6 +3,7 @@ using System.Net.Http.Headers;
 using Jakar.OpenTelemetry.Contracts;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
+using OpenTelemetry;
 
 namespace Jakar.OpenTelemetry.Api.Client.Images;
 
@@ -160,7 +161,11 @@ public sealed partial class TelemetryImageUploader( ITelemetryImageQueue        
 
 		HttpResponseMessage response;
 
-		try { response = await httpClientFactory.CreateClient( HTTP_CLIENT_NAME ).SendAsync( request, timeout.Token ); }
+		try
+		{
+			using IDisposable suppress = SuppressInstrumentationScope.Begin(); // the upload's own HTTP span, metrics and HttpClient logs must not become telemetry
+			response = await httpClientFactory.CreateClient( HTTP_CLIENT_NAME ).SendAsync( request, timeout.Token );
+		}
 		catch ( Exception e ) when ( e is HttpRequestException or TaskCanceledException && !token.IsCancellationRequested )
 		{
 			await RetryLaterAsync( image, e.Message, token );

@@ -1,0 +1,532 @@
+@page "/dashboards/{Id:guid}"
+@attribute [Authorize( Policy = AppAuthPolicies.DASHBOARD_ACCESS )]
+@implements IDisposable
+@using System.Security.Claims
+@inject DashboardStore       Store
+@inject DashboardPermissions Permissions
+@inject PanelQueryService    Query
+@inject PanelTypeRegistry    Types
+@inject NavigationManager    Navigation
+@inject ILogger<DashboardPage> Logger
+
+<PageTitle>@( _record?.Name ?? "Dashboard" )</PageTitle>
+
+@if ( _notFound )
+{
+    <section class="panel-card">
+        <p class="empty-state">This dashboard doesn't exist, or isn't shared with you. <a href="dashboards">All dashboards</a></p>
+    </section>
+}
+else if ( _record is null )
+{
+    <p class="muted" role="status">Loading dashboard...</p>
+}
+else
+{
+    <section class="dash-toolbar">
+        <div class="dash-title">
+            <a class="muted" href="dashboards">Dashboards</a>
+            <h2>@_record.Name</h2>
+            @if ( _dirty )
+            {
+                <span class="badge sev-warn">unsaved</span>
+            }
+        </div>
+
+        <div class="dash-controls">
+            @foreach ( DashboardVariable variable in _definition.Variables )
+            {
+                <label>
+                    @variable.Label
+                    <select value="@Selection( variable.Key )" @onchange="args => SelectAsync( variable.Key, args.Value?.ToString() )">
+                        <option value="">All</option>
+                        @foreach ( string value in _variableValues.GetValueOrDefault( variable.Key ) ?? [ ] )
+                        {
+                            <option value="@value">@value</option>
+                        }
+                    </select>
+                </label>
+            }
+
+            <label>
+                Range
+                <select value="@_timeRange" @onchange="args => TimeRangeAsync( args.Value?.ToString() )">
+                    @foreach ( string range in DashboardDefinition.s_TimeRanges )
+                    {
+                        <option value="@range">Last @range</option>
+                    }
+                </select>
+            </label>
+            <label>
+                Refresh
+                <select value="@_refreshSeconds" @onchange="args => RefreshRate( args.Value?.ToString() )">
+                    @foreach ( int seconds in DashboardDefinition.s_RefreshRates )
+                    {
+                        <option value="@seconds">@( seconds == 0 ? "Off" : seconds < 60 ? $"{seconds}s" : $"{seconds / 60}m" )</option>
+                    }
+                </select>
+            </label>
+            <button type="button" class="action-button" @onclick="RefreshAsync" disabled="@_refreshing">Refresh</button>
+
+            @if ( _canEdit )
+            {
+                @if ( _editing )
+                {
+                    <button type="button" class="action-button" @onclick="AddPanel">Add panel</button>
+                    <button type="button" class="action-button" @onclick="() => _settings = SettingsDraft.From( _record )">Settings</button>
+                    <button type="button" class="action-button primary" @onclick="SaveAsync" disabled="@( !_dirty || _saving )">Save</button>
+                    <button type="button" class="action-button" @onclick="DiscardAsync">Done</button>
+                }
+                else
+                {
+                    <button type="button" class="action-button" @onclick="() => _editing = true">Edit</button>
+                }
+            }
+
+            @if ( _canCreate )
+            {
+                <button type="button" class="action-button" @onclick="SaveCopyAsync" disabled="@_saving">Save a copy</button>
+            }
+        </div>
+    </section>
+
+    @if ( _message is not null )
+    {
+        <p class="error-banner" role="alert">@_message</p>
+    }
+
+    @if ( _definition.Panels.Count == 0 )
+    {
+        <section class="panel-card">
+            <p class="empty-state">
+                This dashboard has no panels yet.
+                @if ( _canEdit )
+                {
+                    <button type="button" class="action-button small" @onclick="StartEditingAndAdd">Add a panel</button>
+                }
+            </p>
+        </section>
+    }
+
+    <div class="dash-grid">
+        @foreach ( DashboardPanel panel in _definition.Panels )
+        {
+            PanelTypeDescriptor? type   = Types.Find( panel.Type );
+            PanelResult?         result = _results.GetValueOrDefault( panel.ID );
+
+            <section @key="panel.ID" class="panel-card dash-panel" style="--w: @panel.Width; --h: @panel.Height">
+                <div class="dash-panel-head">
+                    <h3 title="@Describe( panel )">@panel.Title</h3>
+                    @if ( result?.Truncated == true )
+                    {
+                        <span class="badge sev-warn" title="More points matched than one panel reads; narrow the range or add filters">partial</span>
+                    }
+                    @if ( _editing )
+                    {
+                        <span class="dash-panel-tools">
+                            <button type="button" title="Move earlier" aria-label="Move @panel.Title earlier" @onclick="() => Layout( DashboardLayout.Move( _definition, panel.ID, -1 ) )">&#8249;</button>
+                            <button type="button" title="Move later" aria-label="Move @panel.Title later" @onclick="() => Layout( DashboardLayout.Move( _definition, panel.ID, 1 ) )">&#8250;</button>
+                            <button type="button" title="Narrower" aria-label="Make @panel.Title narrower" @onclick="() => Layout( DashboardLayout.Resize( _definition, panel.ID, -1, 0 ) )">&#8722;W</button>
+                            <button type="button" title="Wider" aria-label="Make @panel.Title wider" @onclick="() => Layout( DashboardLayout.Resize( _definition, panel.ID, 1, 0 ) )">+W</button>
+                            <button type="button" title="Shorter" aria-label="Make @panel.Title shorter" @onclick="() => Layout( DashboardLayout.Resize( _definition, panel.ID, 0, -1 ) )">&#8722;H</button>
+                            <button type="button" title="Taller" aria-label="Make @panel.Title taller" @onclick="() => Layout( DashboardLayout.Resize( _definition, panel.ID, 0, 1 ) )">+H</button>
+                            <button type="button" title="Edit" aria-label="Edit @panel.Title" @onclick="() => EditPanelAsync( panel )">Edit</button>
+                            <button type="button" title="Duplicate" aria-label="Duplicate @panel.Title" @onclick="() => DuplicateAsync( panel )">Copy</button>
+                            <button type="button" title="Remove" aria-label="Remove @panel.Title" @onclick="() => Layout( DashboardLayout.Remove( _definition, panel.ID ) )">&#10005;</button>
+                        </span>
+                    }
+                </div>
+                <div class="dash-panel-body">
+                    @if ( type is null )
+                    {
+                        <p class="panel-empty">Unknown panel type "@panel.Type"</p>
+                    }
+                    else if ( result is null )
+                    {
+                        <p class="panel-empty" role="status">Loading...</p>
+                    }
+                    else if ( result.Error is not null )
+                    {
+                        <p class="panel-empty">@result.Error</p>
+                    }
+                    else
+                    {
+                        <DynamicComponent Type="type.Component"
+                                          Parameters="PanelComponentBase.Parameters( panel, result, _window, EventCallback.Factory.Create<TelemetryLogRecordDto>( this, OpenLog ), EventCallback.Factory.Create<TelemetrySpanRecordDto>( this, OpenSpan ) )" />
+                    }
+                </div>
+            </section>
+        }
+    </div>
+
+    @if ( _editor is not null )
+    {
+        <PanelEditor Draft="_editor" IsNew="_editorIsNew" MetricNames="_metricNames" Apply="ApplyPanelAsync" Cancel="() => _editor = null" />
+    }
+
+    @if ( _settings is not null )
+    {
+        <div class="dialog-backdrop" @onclick="() => _settings = null">
+            <div class="dialog panel-editor" role="dialog" aria-modal="true" aria-labelledby="settings-title" @onclick:stopPropagation="true">
+                <div class="dialog-head">
+                    <h3 id="settings-title">Dashboard settings</h3>
+                    <button type="button" class="action-button" @onclick="() => _settings = null">Cancel</button>
+                </div>
+                <div class="editor-grid">
+                    <label class="wide">Name <input @bind="_settings.Name" /></label>
+                    <label class="wide">Description <input @bind="_settings.Description" /></label>
+                    @if ( _canShare )
+                    {
+                        <label>
+                            Who can see it
+                            <select @bind="_settings.Visibility">
+                                <option value="@DashboardVisibility.Private">Only the owner (and admins)</option>
+                                <option value="@DashboardVisibility.Roles">These roles</option>
+                                <option value="@DashboardVisibility.Everyone">Everyone</option>
+                            </select>
+                        </label>
+                        @if ( _settings.Visibility == DashboardVisibility.Roles )
+                        {
+                            <fieldset class="wide">
+                                <legend>Roles</legend>
+                                @foreach ( string role in AppRoles.s_DashboardRoles )
+                                {
+                                    <label class="inline">
+                                        <input type="checkbox" checked="@_settings.Roles.Contains( role )" @onchange="args => ToggleRole( role, args.Value is true )" /> @role
+                                    </label>
+                                }
+                            </fieldset>
+                        }
+                    }
+                    else
+                    {
+                        <p class="muted wide">Only admins can share dashboards; this one stays private to you.</p>
+                    }
+                    <label>
+                        Variables (keys, comma separated)
+                        <input @bind="_settings.Variables" placeholder="service, http.route" />
+                    </label>
+                </div>
+                <div class="dialog-actions">
+                    <button type="button" class="action-button danger" @onclick="DeleteAsync">@( _confirmDelete ? "Really delete it?" : "Delete dashboard" )</button>
+                    <button type="button" class="action-button primary" @onclick="ApplySettingsAsync">Apply</button>
+                </div>
+            </div>
+        </div>
+    }
+
+    @if ( _openLog is not null || _openSpan is not null )
+    {
+        <TelemetryRecordDialog Log="_openLog" Span="_openSpan" Close="CloseRecord" />
+    }
+}
+
+@code {
+    [Parameter] public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery( Name = "edit" )] public bool StartEditing { get; set; }
+
+    [CascadingParameter] public required Task<AuthenticationState> AuthenticationState { get; set; }
+
+    private readonly CancellationTokenSource            _disposed       = new();
+    private readonly Dictionary<string, PanelResult>    _results        = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, string>         _selections     = new(StringComparer.Ordinal);
+    private          Dictionary<string, IReadOnlyList<string>> _variableValues = new(StringComparer.Ordinal);
+    private          DashboardRecord?                   _record;
+    private          DashboardDefinition                _definition = new();
+    private          ClaimsPrincipal                    _user       = new();
+    private          PanelWindow                        _window;
+    private          string                             _timeRange      = "1h";
+    private          int                                _refreshSeconds = 30;
+    private          bool                               _notFound;
+    private          bool                               _canEdit;
+    private          bool                               _canCreate;
+    private          bool                               _canShare;
+    private          bool                               _editing;
+    private          bool                               _dirty;
+    private          bool                               _saving;
+    private          bool                               _refreshing;
+    private          bool                               _confirmDelete;
+    private          string?                            _message;
+    private          PanelDraft?                        _editor;
+    private          bool                               _editorIsNew;
+    private          IReadOnlyList<string>              _metricNames = [ ];
+    private          SettingsDraft?                     _settings;
+    private          TelemetryLogRecordDto?             _openLog;
+    private          TelemetrySpanRecordDto?            _openSpan;
+    private          Guid                               _loaded;
+
+    /// <summary> No refreshes while a dialog is open: what is being read or edited holds still. </summary>
+    private bool Paused => _editor is not null || _settings is not null || _openLog is not null || _openSpan is not null;
+
+
+    public void Dispose()
+    {
+        _disposed.Cancel();
+        _disposed.Dispose();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if ( _loaded == Id ) { return; }
+
+        _loaded = Id;
+        _user   = ( await AuthenticationState ).User;
+
+        try { _record = await Store.GetAsync( Id, _user, _disposed.Token ); }
+        catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException )
+        {
+            _message = $"The dashboard could not be loaded: {e.Message.TrimEnd( '.' )}";
+            return;
+        }
+
+        if ( _record is null )
+        {
+            _notFound = true;
+            return;
+        }
+
+        _definition     = _record.Definition;
+        _timeRange      = _definition.TimeRange;
+        _refreshSeconds = _definition.RefreshSeconds;
+        _canEdit        = Permissions.CanEdit( _record, _user );
+        _canCreate      = Permissions.CanCreate( _user );
+        _canShare       = DashboardPermissions.CanShare( _user );
+        _editing        = StartEditing && _canEdit;
+
+        _ = RefreshLoopAsync( _disposed.Token );
+        await RefreshAsync();
+        await LoadVariableValuesAsync();
+    }
+
+    private async Task RefreshLoopAsync( CancellationToken token )
+    {
+        try
+        {
+            while ( !token.IsCancellationRequested )
+            {
+                await Task.Delay( TimeSpan.FromSeconds( Math.Max( _refreshSeconds, 5 ) ), token );
+                if ( _refreshSeconds > 0 && !Paused ) { await InvokeAsync( RefreshAsync ); }
+            }
+        }
+        catch ( OperationCanceledException ) { }
+    }
+
+    private async Task RefreshAsync()
+    {
+        if ( _refreshing ) { return; }
+
+        _refreshing = true;
+        _window     = PanelWindow.Ending( DateTimeOffset.UtcNow, DashboardDefinition.ParseTimeRange( _timeRange ) );
+
+        try { await Task.WhenAll( _definition.Panels.Select( RunPanelAsync ) ); }
+        finally { _refreshing = false; }
+    }
+
+    private async Task RunPanelAsync( DashboardPanel panel )
+    {
+        PanelTypeDescriptor? type = Types.Find( panel.Type );
+        if ( type is null ) { return; }
+
+        try
+        {
+            _results[panel.ID] = await Query.RunAsync( panel, type.Shape, _window, Variables(), _disposed.Token );
+            await InvokeAsync( StateHasChanged );
+        }
+        catch ( OperationCanceledException ) when ( _disposed.IsCancellationRequested ) { }
+    }
+
+    private async Task LoadVariableValuesAsync()
+    {
+        Dictionary<string, IReadOnlyList<string>> values = new(StringComparer.Ordinal);
+
+        foreach ( DashboardVariable variable in _definition.Variables )
+        {
+            try { values[variable.Key] = await Query.ValuesAsync( variable.Key, _window, _disposed.Token ); }
+            catch ( OperationCanceledException ) when ( _disposed.IsCancellationRequested ) { return; }
+        }
+
+        _variableValues = values;
+    }
+
+    private List<PanelFilter> Variables() => _selections.Where( static x => !string.IsNullOrEmpty( x.Value ) ).Select( static x => new PanelFilter( x.Key, FilterOperator.Equals, x.Value ) ).ToList();
+
+    private string Selection( string key ) => _selections.GetValueOrDefault( key ) ?? string.Empty;
+
+    private Task SelectAsync( string key, string? value )
+    {
+        _selections[key] = value ?? string.Empty;
+        return RefreshAsync();
+    }
+
+    private async Task TimeRangeAsync( string? value )
+    {
+        _timeRange = DashboardDefinition.s_TimeRanges.Contains( value ) ? value! : "1h";
+        _dirty     = _editing || _dirty;
+        await RefreshAsync();
+        await LoadVariableValuesAsync();
+    }
+
+    private void RefreshRate( string? value )
+    {
+        _refreshSeconds = int.TryParse( value, out int seconds ) ? seconds : 30;
+        _dirty          = _editing || _dirty;
+    }
+
+    private void Layout( DashboardDefinition definition )
+    {
+        _definition = definition;
+        _dirty      = true;
+    }
+
+    private async Task DuplicateAsync( DashboardPanel panel )
+    {
+        Layout( DashboardLayout.Duplicate( _definition, panel.ID ) );
+        await RefreshAsync();
+    }
+
+    private void StartEditingAndAdd()
+    {
+        _editing = true;
+        AddPanel();
+    }
+
+    private void AddPanel()
+    {
+        PanelTypeDescriptor type = Types.Find( PanelTypeIds.TIME_SERIES ) ?? Types.All.First();
+        _editor      = PanelDraft.New( type );
+        _editorIsNew = true;
+        _ = LoadMetricNamesAsync();
+    }
+
+    private Task EditPanelAsync( DashboardPanel panel )
+    {
+        _editor      = PanelDraft.From( panel );
+        _editorIsNew = false;
+        return LoadMetricNamesAsync();
+    }
+
+    private async Task LoadMetricNamesAsync()
+    {
+        if ( _metricNames.Count > 0 ) { return; }
+
+        try
+        {
+            _metricNames = await Query.MetricNamesAsync( _window, _disposed.Token );
+            await InvokeAsync( StateHasChanged );
+        }
+        catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException ) { Logger.LogWarning( e, "Metric names could not be loaded" ); }
+    }
+
+    private async Task ApplyPanelAsync( DashboardPanel panel )
+    {
+        _editor = null;
+        Layout( DashboardLayout.Replace( _definition, panel ) );
+        _results.Remove( panel.ID );
+        if ( _definition.Panels.FirstOrDefault( x => x.ID == panel.ID ) is { } applied ) { await RunPanelAsync( applied ); }
+    }
+
+    private async Task SaveAsync()
+    {
+        if ( _record is null ) { return; }
+
+        _saving  = true;
+        _message = null;
+
+        try
+        {
+            ( DashboardSaveResult result, DashboardRecord? saved ) = await Store.SaveAsync( _record with { Definition = Current() }, _user, _disposed.Token );
+
+            switch ( result )
+            {
+                case DashboardSaveResult.Saved:
+                    _record = saved!;
+                    _dirty  = false;
+                    break;
+
+                case DashboardSaveResult.Conflict:
+                    _message = "Someone else saved this dashboard since you opened it. Save a copy, or reload to see their changes.";
+                    break;
+
+                default:
+                    _message = "You can't save changes to this dashboard.";
+                    break;
+            }
+        }
+        catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException ) { _message = $"The dashboard could not be saved: {e.Message.TrimEnd( '.' )}"; }
+        finally { _saving = false; }
+    }
+
+    private async Task SaveCopyAsync()
+    {
+        if ( _record is null ) { return; }
+
+        try
+        {
+            DashboardRecord? copy = await Store.CreateAsync( $"{_record.Name} (copy)", _record.Description, Current(), _user, _disposed.Token );
+            if ( copy is not null ) { Navigation.NavigateTo( $"dashboards/{copy.ID:D}?edit=true", forceLoad: false ); }
+        }
+        catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException ) { _message = $"The copy could not be saved: {e.Message.TrimEnd( '.' )}"; }
+    }
+
+    /// <summary> Leaves edit mode; unsaved changes are dropped (the stored dashboard is shown again). </summary>
+    private async Task DiscardAsync()
+    {
+        _editing = false;
+        if ( !_dirty || _record is null ) { return; }
+
+        _definition     = _record.Definition;
+        _timeRange      = _definition.TimeRange;
+        _refreshSeconds = _definition.RefreshSeconds;
+        _dirty          = false;
+        await RefreshAsync();
+    }
+
+    private async Task ApplySettingsAsync()
+    {
+        if ( _settings is null || _record is null ) { return; }
+
+        _record     = _settings.ApplyTo( _record );
+        _definition = _definition with { Variables = _settings.ParseVariables() };
+        _settings   = null;
+        _dirty      = true;
+        await LoadVariableValuesAsync();
+    }
+
+    private void ToggleRole( string role, bool enabled )
+    {
+        if ( _settings is null ) { return; }
+
+        _settings.Roles.Remove( role );
+        if ( enabled ) { _settings.Roles.Add( role ); }
+    }
+
+    private async Task DeleteAsync()
+    {
+        if ( !_confirmDelete )
+        {
+            _confirmDelete = true;
+            return;
+        }
+
+        DashboardSaveResult result = await Store.DeleteAsync( Id, _user, _disposed.Token );
+        if ( result == DashboardSaveResult.Saved ) { Navigation.NavigateTo( "dashboards" ); }
+        else { _message = "You can't delete this dashboard."; }
+    }
+
+    private DashboardDefinition Current() => _definition with { TimeRange = _timeRange, RefreshSeconds = _refreshSeconds };
+
+    private void OpenLog( TelemetryLogRecordDto log ) => _openLog = log;
+
+    private void OpenSpan( TelemetrySpanRecordDto span ) => _openSpan = span;
+
+    private void CloseRecord()
+    {
+        _openLog  = null;
+        _openSpan = null;
+    }
+
+    private static string Describe( DashboardPanel panel ) => panel.Query.Signal == TelemetrySignal.Metrics
+                                                                  ? $"{panel.Query.Aggregation} of {panel.Query.Metric}{( panel.Query.GroupBy is null ? string.Empty : $" by {panel.Query.GroupBy}" )}"
+                                                                  : $"{panel.Query.Aggregation} of {panel.Query.Signal}{( panel.Query.GroupBy is null ? string.Empty : $" by {panel.Query.GroupBy}" )}";
+}

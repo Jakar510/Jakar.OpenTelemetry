@@ -1,0 +1,22 @@
+@inherits PanelComponentBase
+
+@if ( Result.Logs.Count == 0 )
+{
+    <p class="panel-empty">No logs in this time range</p>
+}
+else
+{
+    <ol class="panel-records">
+        @foreach ( TelemetryLogRecordDto log in Result.Logs )
+        {
+            <li @key="log.ID">
+                <button type="button" class="panel-record" @onclick="() => OpenLog.InvokeAsync( log )">
+                    <span class="muted">@( ( log.TimestampUtc ?? log.ObservedTimestampUtc ?? log.ReceivedAtUtc ).ToUniversalTime().ToString( "HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture ) )</span>
+                    <span class="badge @TelemetryDashboardFormatter.SeverityClass( log.SeverityNumber )">@( log.SeverityText ?? log.SeverityNumber.ToString() )</span>
+                    <span class="muted">@( log.ServiceName ?? "unknown" )</span>
+                    <span class="panel-record-text">@TelemetryDashboardFormatter.Trim( log.Body, 200 )</span>
+                </button>
+            </li>
+        }
+    </ol>
+}

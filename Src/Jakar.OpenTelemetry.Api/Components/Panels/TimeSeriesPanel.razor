@@ -1,0 +1,57 @@
+@inherits PanelComponentBase
+
+@{
+    PanelChart chart = PanelChart.Build( Result.Series, Window, Unit, Panel.Options );
+}
+
+@if ( chart.Lines.Count == 0 )
+{
+    <p class="panel-empty">No data in this time range</p>
+}
+else
+{
+    <div class="timeseries">
+        <div class="timeseries-plot">
+            <div class="timeseries-y" aria-hidden="true">
+                @foreach ( ChartTick tick in chart.YTicks )
+                {
+                    <span style="top: @Percent( tick.Position / PanelChart.HEIGHT )">@tick.Label</span>
+                }
+            </div>
+            <svg viewBox="0 0 @PanelChart.WIDTH @PanelChart.HEIGHT" preserveAspectRatio="none" role="img" aria-label="@Panel.Title">
+                @foreach ( ChartTick tick in chart.YTicks )
+                {
+                    <line class="grid" x1="0" x2="@PanelChart.WIDTH" y1="@Invariant( tick.Position )" y2="@Invariant( tick.Position )" />
+                }
+                @foreach ( ChartLine line in chart.Lines )
+                {
+                    <g class="svc-@line.ColorIndex">
+                        <title>@( string.IsNullOrEmpty( line.Name ) ? Panel.Title : line.Name )</title>
+                        @foreach ( ChartSegment segment in line.Segments )
+                        {
+                            <polyline class="series @( segment.IsDot ? "dot" : string.Empty )" points="@segment.Points" />
+                        }
+                    </g>
+                }
+            </svg>
+        </div>
+        <div class="timeseries-x" aria-hidden="true">
+            @foreach ( ChartTick tick in chart.XTicks )
+            {
+                <span style="left: @Percent( tick.Position / PanelChart.WIDTH )">@tick.Label</span>
+            }
+        </div>
+        <ul class="legend">
+            @foreach ( ChartLine line in chart.Lines )
+            {
+                <li><span class="svc-dot svc-@line.ColorIndex"></span>@( string.IsNullOrEmpty( line.Name ) ? Panel.Title : line.Name ) <strong>@Format( line.Last )</strong></li>
+            }
+        </ul>
+    </div>
+}
+
+@code {
+    private static string Percent( double fraction ) => Invariant( fraction * 100 ) + "%";
+
+    private static string Invariant( double value ) => value.ToString( "0.##", System.Globalization.CultureInfo.InvariantCulture );
+}

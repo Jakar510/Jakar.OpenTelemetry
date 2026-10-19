@@ -1,0 +1,103 @@
+@page "/dashboards"
+@attribute [Authorize( Policy = AppAuthPolicies.DASHBOARD_ACCESS )]
+@using System.Security.Claims
+@inject DashboardStore       Store
+@inject DashboardPermissions Permissions
+@inject NavigationManager    Navigation
+
+<PageTitle>Dashboards</PageTitle>
+
+<section class="panel-card">
+    <div class="panel-head">
+        <div>
+            <p class="eyebrow">Dashboards</p>
+            <h3>Your dashboards</h3>
+        </div>
+        @if ( _user is not null && Permissions.CanCreate( _user ) )
+        {
+            <button type="button" class="action-button primary" @onclick="CreateAsync" disabled="@_creating">New dashboard</button>
+        }
+    </div>
+
+    @if ( _error is not null )
+    {
+        <p class="error-banner" role="alert">@_error</p>
+    }
+
+    @if ( _dashboards is null )
+    {
+        <p class="muted" role="status">Loading dashboards...</p>
+    }
+    else if ( _dashboards.Count == 0 )
+    {
+        <p class="empty-state">No dashboards are shared with you yet.</p>
+    }
+    else
+    {
+        <ul class="dashboard-list">
+            @foreach ( DashboardRecord dashboard in _dashboards )
+            {
+                <li @key="dashboard.ID">
+                    <a class="dashboard-card" href="@( $"dashboards/{dashboard.ID:D}" )">
+                        <span class="dashboard-card-head">
+                            <strong>@dashboard.Name</strong>
+                            @if ( dashboard.IsStarter )
+                            {
+                                <span class="badge sev-info">starter</span>
+                            }
+                            <span class="badge">@VisibilityLabel( dashboard )</span>
+                        </span>
+                        @if ( !string.IsNullOrWhiteSpace( dashboard.Description ) )
+                        {
+                            <span class="muted">@dashboard.Description</span>
+                        }
+                        <span class="muted small">@dashboard.Definition.Panels.Count panels | updated @dashboard.UpdatedAtUtc.ToUniversalTime().ToString( "yyyy-MM-dd HH:mm" )Z@( string.IsNullOrEmpty( dashboard.Owner ) ? string.Empty : $" | {dashboard.Owner}" )</span>
+                    </a>
+                </li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    [CascadingParameter] public required Task<AuthenticationState> AuthenticationState { get; set; }
+
+    private IReadOnlyList<DashboardRecord>? _dashboards;
+    private ClaimsPrincipal?                _user;
+    private string?                         _error;
+    private bool                            _creating;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _user = ( await AuthenticationState ).User;
+
+        try { _dashboards = await Store.ListAsync( _user, CancellationToken.None ); }
+        catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException )
+        {
+            _dashboards = [ ];
+            _error      = $"Dashboards could not be loaded: {e.Message.TrimEnd( '.' )}";
+        }
+    }
+
+    private async Task CreateAsync()
+    {
+        if ( _user is null ) { return; }
+
+        _creating = true;
+
+        try
+        {
+            DashboardRecord? created = await Store.CreateAsync( "New dashboard", null, new DashboardDefinition(), _user, CancellationToken.None );
+            if ( created is not null ) { Navigation.NavigateTo( $"dashboards/{created.ID:D}?edit=true" ); }
+        }
+        catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException ) { _error = $"The dashboard could not be created: {e.Message.TrimEnd( '.' )}"; }
+        finally { _creating = false; }
+    }
+
+    private static string VisibilityLabel( DashboardRecord dashboard ) => dashboard.Visibility switch
+                                                                          {
+                                                                              DashboardVisibility.Everyone => "everyone",
+                                                                              DashboardVisibility.Roles    => string.Join( ", ", dashboard.Roles ),
+                                                                              _                            => "private"
+                                                                          };
+}

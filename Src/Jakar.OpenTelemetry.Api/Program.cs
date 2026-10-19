@@ -1,6 +1,8 @@
 using System.Diagnostics;
 using Jakar.OpenTelemetry.Api.Security;
 using Jakar.OpenTelemetry.Api.Components;
+using Jakar.OpenTelemetry.Api.Components.Panels;
+using Jakar.OpenTelemetry.Api.Dashboards;
 using Jakar.OpenTelemetry.Api.Data;
 using Jakar.OpenTelemetry.Api.Endpoints;
 using Jakar.OpenTelemetry.Api.Grpc;
@@ -123,6 +125,12 @@ builder.Services.AddSingleton<TelemetryImageStore>();
 builder.Services.AddSingleton<TelemetryImageReceiver>();
 builder.Services.AddSingleton<OtlpHttpReceiver>();
 builder.Services.AddSingleton<TelemetryQueryService>();
+builder.Services.Configure<DashboardOptions>( builder.Configuration.GetSection( DashboardOptions.SECTION_NAME ) );
+builder.Services.AddSingleton( static sp => sp.GetRequiredService<IOptions<DashboardOptions>>().Value );
+builder.Services.AddSingleton<DashboardPermissions>();
+builder.Services.AddSingleton<DashboardStore>();
+builder.Services.AddSingleton<PanelQueryService>();
+builder.Services.AddBuiltInDashboardPanels();
 builder.Services.AddHostedService<TelemetryChangeBroadcaster>();
 builder.Services.AddHostedService<TelemetryRetentionService>();
 
@@ -137,6 +145,7 @@ if ( configuredUrls.Length > 0 )
 }
 
 await TelemetrySchema.EnsureAsync( app.Services.GetRequiredService<NpgsqlDataSource>(), app.Lifetime.ApplicationStopping );
+await app.Services.GetRequiredService<DashboardStore>().EnsureStartersAsync( DashboardStarters.All( DateTimeOffset.UtcNow ), app.Lifetime.ApplicationStopping );
 
 // OTLP exporters do not follow redirects, so ingest is never redirected to HTTPS.
 app.UseWhen( static context => !AppSecurityHelpers.IsOtlpIngestRequest( context.Request.Path ), static branch => branch.UseHttpsRedirection() );

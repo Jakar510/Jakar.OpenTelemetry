@@ -1,0 +1,27 @@
+@inherits PanelComponentBase
+
+@if ( Result.Series.Count == 0 )
+{
+    <p class="panel-empty">No data</p>
+}
+else
+{
+    double max = Math.Max( Result.Series.Max( static x => Math.Abs( x.Last ?? 0 ) ), double.Epsilon );
+
+    <ol class="bars">
+        @for ( int i = 0; i < Result.Series.Count; i++ )
+        {
+            PanelSeries series = Result.Series[i];
+            string?     color  = ColorOf( series.Last );
+
+            <li>
+                <span class="bar-label" title="@series.Name">@( string.IsNullOrEmpty( series.Name ) ? "(none)" : series.Name )</span>
+                <span class="bar-track">
+                    <span class="bar-fill svc-@( i % PanelChart.COLORS )"
+                          style="width: @( ( Math.Abs( series.Last ?? 0 ) / max * 100 ).ToString( "0.##", System.Globalization.CultureInfo.InvariantCulture ) )%@( color is null ? string.Empty : $"; background: {color}" )"></span>
+                </span>
+                <span class="bar-value">@Format( series.Last )</span>
+            </li>
+        }
+    </ol>
+}

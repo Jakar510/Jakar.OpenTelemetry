@@ -1,0 +1,145 @@
+@inject PanelTypeRegistry Types
+
+@* Edits a copy of the panel; nothing changes until Apply. *@
+<div class="dialog-backdrop" @onclick="() => Cancel.InvokeAsync()">
+    <div class="dialog panel-editor" role="dialog" aria-modal="true" aria-labelledby="panel-editor-title" @onclick:stopPropagation="true" @onkeydown="OnKeyDown">
+        <div class="dialog-head">
+            <h3 id="panel-editor-title">@( IsNew ? "Add panel" : "Edit panel" )</h3>
+            <button type="button" class="action-button" @onclick="() => Cancel.InvokeAsync()">Cancel</button>
+        </div>
+
+        <div class="editor-grid">
+            <label>Title <input @bind="Draft.Title" /></label>
+            <label>
+                Type
+                <select @bind="Draft.Type" @bind:after="TypeChanged">
+                    @foreach ( PanelTypeDescriptor type in Types.All )
+                    {
+                        <option value="@type.ID">@type.Label</option>
+                    }
+                </select>
+            </label>
+            <label>Width (of 12) <input type="number" min="1" max="@DashboardPanel.MAX_WIDTH" @bind="Draft.Width" /></label>
+            <label>Height <input type="number" min="1" max="@DashboardPanel.MAX_HEIGHT" @bind="Draft.Height" /></label>
+
+            <label>
+                Data
+                <select @bind="Draft.Signal">
+                    @foreach ( TelemetrySignal signal in Enum.GetValues<TelemetrySignal>().Where( x => Type?.Signals.Contains( x ) ?? true ) )
+                    {
+                        <option value="@signal">@signal</option>
+                    }
+                </select>
+            </label>
+
+            @if ( Draft.Signal == TelemetrySignal.Metrics )
+            {
+                <label class="wide">
+                    Metric
+                    <input list="panel-editor-metrics" @bind="Draft.Metric" placeholder="http.server.request.duration" />
+                    <datalist id="panel-editor-metrics">
+                        @foreach ( string name in MetricNames )
+                        {
+                            <option value="@name"></option>
+                        }
+                    </datalist>
+                </label>
+            }
+
+            @if ( Type?.Shape != PanelShape.Records )
+            {
+                <label>
+                    Aggregation
+                    <select @bind="Draft.Aggregation">
+                        @foreach ( PanelAggregation aggregation in Enum.GetValues<PanelAggregation>() )
+                        {
+                            <option value="@aggregation">@aggregation</option>
+                        }
+                    </select>
+                </label>
+                <label>Group by <input list="panel-editor-keys" @bind="Draft.GroupBy" placeholder="service, http.route, ..." /></label>
+            }
+
+            <label>@( Type?.Shape == PanelShape.Records ? "Rows" : "Most groups" ) <input type="number" min="1" max="500" @bind="Draft.Limit" /></label>
+        </div>
+
+        <datalist id="panel-editor-keys">
+            @foreach ( string key in s_Keys )
+            {
+                <option value="@key"></option>
+            }
+        </datalist>
+
+        <fieldset>
+            <legend>Filters</legend>
+            @foreach ( FilterDraft filter in Draft.Filters )
+            {
+                <div class="editor-row">
+                    <input list="panel-editor-keys" @bind="filter.Key" placeholder="key" aria-label="Filter key" />
+                    <select @bind="filter.Operator" aria-label="Filter operator">
+                        @foreach ( FilterOperator op in Enum.GetValues<FilterOperator>() )
+                        {
+                            <option value="@op">@op</option>
+                        }
+                    </select>
+                    <input @bind="filter.Value" placeholder="value" aria-label="Filter value" />
+                    <button type="button" class="action-button small" @onclick="() => Draft.Filters.Remove( filter )" aria-label="Remove filter">Remove</button>
+                </div>
+            }
+            <button type="button" class="action-button small" @onclick="() => Draft.Filters.Add( new FilterDraft() )">Add filter</button>
+        </fieldset>
+
+        @if ( Type?.Shape != PanelShape.Records )
+        {
+            <fieldset>
+                <legend>Display</legend>
+                <div class="editor-grid">
+                    <label>Unit <input @bind="Draft.Unit" placeholder="from the metric" /></label>
+                    <label>Decimals <input type="number" min="0" max="6" @bind="Draft.Decimals" /></label>
+                    <label>Min <input type="number" step="any" @bind="Draft.Min" /></label>
+                    <label>Max <input type="number" step="any" @bind="Draft.Max" /></label>
+                </div>
+                <p class="muted">Thresholds color a value by the highest one it reaches.</p>
+                @foreach ( ThresholdDraft threshold in Draft.Thresholds )
+                {
+                    <div class="editor-row">
+                        <input type="number" step="any" @bind="threshold.Value" aria-label="Threshold value" />
+                        <select @bind="threshold.Color" aria-label="Threshold color">
+                            @foreach ( string color in PanelFormat.ColorNames )
+                            {
+                                <option value="@color">@color</option>
+                            }
+                        </select>
+                        <button type="button" class="action-button small" @onclick="() => Draft.Thresholds.Remove( threshold )" aria-label="Remove threshold">Remove</button>
+                    </div>
+                }
+                <button type="button" class="action-button small" @onclick="() => Draft.Thresholds.Add( new ThresholdDraft() )">Add threshold</button>
+            </fieldset>
+        }
+
+        <div class="dialog-actions">
+            <button type="button" class="action-button primary" @onclick="() => Apply.InvokeAsync( Draft.ToPanel() )">Apply</button>
+        </div>
+    </div>
+</div>
+
+@code {
+    /// <summary> Keys every signal understands, offered as suggestions (any attribute key works). </summary>
+    private static readonly string[] s_Keys = [ "service", "scope", "severity", "name", "kind", "status", "http.route", "http.request.method", "http.response.status_code", "server.address", "error.type", "gc.heap.generation", "cpu.mode", "resource.service.instance.id", "resource.deployment.environment.name" ];
+
+    [Parameter] public required PanelDraft                Draft       { get; set; }
+    [Parameter] public          bool                      IsNew       { get; set; }
+    [Parameter] public          IReadOnlyList<string>     MetricNames { get; set; } = [ ];
+    [Parameter] public          EventCallback<DashboardPanel> Apply   { get; set; }
+    [Parameter] public          EventCallback             Cancel      { get; set; }
+
+    private PanelTypeDescriptor? Type => Types.Find( Draft.Type );
+
+    /// <summary> Keeps the data source valid for the new type (logs panels read logs, traces panels spans). </summary>
+    private void TypeChanged()
+    {
+        if ( Type is { } type && !type.Signals.Contains( Draft.Signal ) ) { Draft.Signal = type.Signals.First(); }
+    }
+
+    private Task OnKeyDown( KeyboardEventArgs args ) => args.Key == "Escape" ? Cancel.InvokeAsync() : Task.CompletedTask;
+}

@@ -793,17 +793,37 @@ public sealed class HomePageTests
 							 Assert.That( TraceRows( page ),                                           Is.EqualTo( new[] { "POST /pay", "child call" } ), "parent first" );
 							 Assert.That( page.Find( ".trace-row.selected" ).TextContent,              Does.Contain( "child call" ), "the clicked span" );
 							 Assert.That( page.Find( ".record-details h3" ).TextContent,               Is.EqualTo( "child call" ) );
-							 Assert.That( page.Find( ".trace-view .panel-head" ).TextContent,          Does.Contain( "aaaa0000000000000000000000000001" ).And.Contain( "2 spans" ).And.Contain( "1 error(s)" ) );
+							 Assert.That( page.Find( ".trace-view h3" ).TextContent,                   Does.Contain( "alpha: POST /pay" ).And.Contain( "aaaa000" ) );
+							 Assert.That( page.Find( ".trace-view h3 code" ).GetAttribute( "title" ), Is.EqualTo( "aaaa0000000000000000000000000001" ) );
+							 Assert.That( page.Find( ".trace-stats" ).TextContent.Replace( " ", string.Empty ),
+										  Does.Contain( "Services1" ).And.Contain( "Depth2" ).And.Contain( "Totalspans2" ).And.Contain( "Errors1" ) );
+							 Assert.That( page.FindAll( ".trace-minimap span" ),                       Has.Count.EqualTo( 2 ) );
+							 Assert.That( page.FindAll( ".trace-log-mark" ),                           Is.Empty, "the log is on another span" );
 							 Assert.That( page.FindAll( ".trace-view tbody tr" ).Single().TextContent, Does.Contain( "payment failed" ), "the trace's logs" );
 						 } );
 
-		page.FindAll( ".trace-row" )[0].Click();
+		ClickButton( page, "Collapse all" );
+		Assert.That( TraceRows( page ), Is.EqualTo( new[] { "POST /pay" } ), "children hidden" );
+
+		page.Find( ".trace-toggle[aria-expanded=false]" ).Click();
+		Assert.That( TraceRows( page ), Is.EqualTo( new[] { "POST /pay", "child call" } ) );
+
+		page.Find( ".trace-toggle[aria-expanded=true]" ).Click();
+		ClickButton( page, "Expand all" );
+		Assert.That( TraceRows( page ), Has.Length.EqualTo( 2 ) );
+
+		page.FindAll( ".trace-select" )[0].Click();
 		Assert.That( page.Find( ".record-details h3" ).TextContent, Is.EqualTo( "POST /pay" ) );
+
+		page.FindAll( ".trace-track" )[1].Click();
+		Assert.That( page.Find( ".record-details h3" ).TextContent, Is.EqualTo( "child call" ), "clicking the timeline selects too" );
+
+		page.FindAll( ".trace-select" )[0].Click();
 
 		page.Find( ".trace-view tbody tr" ).Click();
 		Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Log record" ) );
 
-		page.FindAll( ".trace-row" )[1].Click();
+		page.FindAll( ".trace-select" )[1].Click();
 		page.Find( ".trace-view tbody tr" ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "x" } );
 		Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Span" ), "only activation keys select" );
 
@@ -821,8 +841,10 @@ public sealed class HomePageTests
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( TraceRows( page ),       Is.EqualTo( new[] { "POST /pay" } ) );
-							 Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Span" ) );
+							 Assert.That( TraceRows( page ),                     Is.EqualTo( new[] { "POST /pay" } ) );
+							 Assert.That( DetailsEyebrow( page ),               Is.EqualTo( "Span" ) );
+							 Assert.That( page.FindAll( ".trace-log-mark" ),     Has.Count.EqualTo( 1 ), "the log written inside the span" );
+							 Assert.That( page.FindAll( ".trace-toggle[aria-expanded]" ), Is.Empty, "nothing to collapse" );
 						 } );
 
 		ClickButton( page, "Filter list by trace" );

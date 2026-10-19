@@ -1,0 +1,22 @@
+@inherits PanelComponentBase
+
+@if ( Result.Spans.Count == 0 )
+{
+    <p class="panel-empty">No traces in this time range</p>
+}
+else
+{
+    <ol class="panel-records">
+        @foreach ( TelemetrySpanRecordDto span in Result.Spans )
+        {
+            <li @key="span.ID">
+                <button type="button" class="panel-record" @onclick="() => OpenSpan.InvokeAsync( span )">
+                    <span class="muted">@( ( span.StartTimeUtc ?? span.ReceivedAtUtc ).ToUniversalTime().ToString( "HH:mm:ss", System.Globalization.CultureInfo.InvariantCulture ) )</span>
+                    <span class="badge @TelemetryDashboardFormatter.StatusClass( span.StatusCode )">@( span.StatusCode ?? "Unset" )</span>
+                    <span class="panel-record-text"><strong>@( span.ServiceName ?? "unknown" )</strong> @span.Name</span>
+                    <span class="muted">@TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )</span>
+                </button>
+            </li>
+        }
+    </ol>
+}

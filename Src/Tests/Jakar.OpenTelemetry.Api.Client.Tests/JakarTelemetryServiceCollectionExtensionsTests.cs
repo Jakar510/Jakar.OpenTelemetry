@@ -260,6 +260,21 @@ public sealed class JakarTelemetryServiceCollectionExtensionsTests
 	#endregion
 
 
+	[TestCase( "https://telemetry.test/v1/logs",                                                 true )]
+	[TestCase( "https://TELEMETRY.test:443/v1/images/0193",                                      true )]
+	[TestCase( "https://telemetry.test/opentelemetry.proto.collector.logs.v1.LogsService/Export", true )]
+	[TestCase( "https://images.test/v1/images/0193",                                             true,  TestName = "IsTelemetryRequest_ImageEndpoint" )]
+	[TestCase( "https://telemetry.test/api/orders",                                              false, TestName = "IsTelemetryRequest_OtherPathOnTheSameServer" )]
+	[TestCase( "https://telemetry.test:8443/v1/logs",                                            false, TestName = "IsTelemetryRequest_OtherPort" )]
+	[TestCase( "https://example.com/v1/logs",                                                    false, TestName = "IsTelemetryRequest_OtherServer" )]
+	[TestCase( null,                                                                             false, TestName = "IsTelemetryRequest_NoUri" )]
+	public void IsTelemetryRequest( string? uri, bool expected )
+	{
+		JakarTelemetryOptions options = ClientTestOptions.Create( _temp.Path, static o => o.ImageEndpoint = new Uri( "https://images.test/" ) );
+
+		Assert.That( JakarTelemetryServiceCollectionExtensions.IsTelemetryRequest( uri is null ? null : new Uri( uri ), options ), Is.EqualTo( expected ) );
+	}
+
 	[Test] public async Task AddJakarOpenTelemetry_RegistersHostedService()
 	{
 		HostApplicationBuilder builder = Host.CreateEmptyApplicationBuilder( new HostApplicationBuilderSettings() );

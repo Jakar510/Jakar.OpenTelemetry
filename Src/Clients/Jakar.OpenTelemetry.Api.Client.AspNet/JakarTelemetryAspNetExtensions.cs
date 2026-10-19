@@ -31,7 +31,17 @@ public static class JakarTelemetryAspNetExtensions
 									   openTelemetry =>
 									   {
 										   openTelemetry.WithTracing( static tracing => tracing.AddAspNetCoreInstrumentation( static aspNet => aspNet.RecordException = true ) );
-										   openTelemetry.WithMetrics( static metrics => metrics.AddAspNetCoreInstrumentation().AddMeter( "Microsoft.AspNetCore.Server.Kestrel", "Microsoft.AspNetCore.Http.Connections", "Microsoft.AspNetCore.Diagnostics", "Microsoft.AspNetCore.RateLimiting" ) );
+										   // AddAspNetCoreInstrumentation subscribes Hosting, Kestrel, Routing, Diagnostics, RateLimiting and Http.Connections; the rest are the meters
+										   // ASP.NET Core 10 added (each only reports when the app uses that feature).
+										   openTelemetry.WithMetrics( static metrics => metrics.AddAspNetCoreInstrumentation()
+																							   .AddMeter( "Microsoft.AspNetCore.Server.Kestrel",
+																										  "Microsoft.AspNetCore.Http.Connections",
+																										  "Microsoft.AspNetCore.Diagnostics",
+																										  "Microsoft.AspNetCore.RateLimiting",
+																										  "Microsoft.AspNetCore.MemoryPool",
+																										  "Microsoft.AspNetCore.Authentication",
+																										  "Microsoft.AspNetCore.Authorization",
+																										  "Microsoft.AspNetCore.Identity" ) );
 										   configureOpenTelemetry?.Invoke( openTelemetry );
 									   } );
 

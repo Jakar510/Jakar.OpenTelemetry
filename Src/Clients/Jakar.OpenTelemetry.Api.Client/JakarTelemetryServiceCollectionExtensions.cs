@@ -95,7 +95,11 @@ public static class JakarTelemetryServiceCollectionExtensions
 				openTelemetry.WithTracing( tracing =>
 										   {
 											   tracing.AddSource( INSTRUMENTATION_NAME, options.AppName ).AddSource( [ .. options.ActivitySources ] );
-											   tracing.AddHttpClientInstrumentation( static http => http.RecordException = true );
+											   tracing.AddHttpClientInstrumentation( http =>
+																					 {
+																						 http.RecordException = true;
+																						 http.FilterHttpRequestMessage = request => !IsTelemetryRequest( request.RequestUri, options );
+																					 } );
 											   tracing.AddOtlpExporter( exporter => ConfigureExporter( exporter, options, "v1/traces" ) );
 										   } );
 			}
@@ -124,6 +128,20 @@ public static class JakarTelemetryServiceCollectionExtensions
 	/// <summary> Logs failed calls made through this client (transport errors and 5xx). </summary>
 	public static IHttpClientBuilder AddJakarTelemetryHandler( this IHttpClientBuilder builder ) => builder.AddHttpMessageHandler<TelemetryHttpMessageHandler>();
 
+
+	/// <summary>
+	///     An export or image upload to Jakar.OpenTelemetry.Api (<c>/v1/...</c> over HTTP, <c>/opentelemetry.proto...</c> over gRPC). The SDK and this client suppress
+	///     instrumentation around them, but some platform handlers (Android's, the browser's) lose that, and a traced export would itself be exported, forever.
+	/// </summary>
+	internal static bool IsTelemetryRequest( Uri? uri, JakarTelemetryOptions options )
+	{
+		if ( uri is null ) { return false; }
+
+		bool sameServer = SameAuthority( uri, options.Endpoint ) || SameAuthority( uri, options.ImageEndpoint );
+		return sameServer && ( uri.AbsolutePath.StartsWith( "/v1/", StringComparison.Ordinal ) || uri.AbsolutePath.StartsWith( "/opentelemetry.proto.", StringComparison.Ordinal ) );
+
+		static bool SameAuthority( Uri uri, Uri? endpoint ) => endpoint is not null && Uri.Compare( uri, endpoint, UriComponents.SchemeAndServer, UriFormat.Unescaped, StringComparison.OrdinalIgnoreCase ) == 0;
+	}
 
 	private static void ConfigureResource( ResourceBuilder resource, JakarTelemetryOptions options )
 	{
