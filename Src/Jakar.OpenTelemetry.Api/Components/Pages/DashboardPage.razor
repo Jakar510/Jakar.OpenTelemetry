@@ -11,10 +11,12 @@
 
 <PageTitle>@( _record?.Name ?? "Dashboard" )</PageTitle>
 
+<PortalTabs Version="@( _record is null ? null : (object)( _record.ID, _record.Name, _record.Version ) )" />
+
 @if ( _notFound )
 {
     <section class="panel-card">
-        <p class="empty-state">This dashboard doesn't exist, or isn't shared with you. <a href="dashboards">All dashboards</a></p>
+        <p class="empty-state">This dashboard doesn't exist, or isn't shared with you. <a href="">Back to the explorer</a></p>
     </section>
 }
 else if ( _record is null )
@@ -25,8 +27,14 @@ else
 {
     <section class="dash-toolbar">
         <div class="dash-title">
-            <a class="muted" href="dashboards">Dashboards</a>
-            <h2>@_record.Name</h2>
+            @if ( _editing )
+            {
+                <input class="dash-name" value="@_record.Name" @onchange="Rename" aria-label="Dashboard name" maxlength="120" />
+            }
+            else
+            {
+                <h2>@_record.Name</h2>
+            }
             @if ( _dirty )
             {
                 <span class="badge sev-warn">unsaved</span>
@@ -74,8 +82,16 @@ else
                 {
                     <button type="button" class="action-button" @onclick="AddPanel">Add panel</button>
                     <button type="button" class="action-button" @onclick="() => _settings = SettingsDraft.From( _record )">Settings</button>
-                    <button type="button" class="action-button primary" @onclick="SaveAsync" disabled="@( !_dirty || _saving )">Save</button>
-                    <button type="button" class="action-button" @onclick="DiscardAsync">Done</button>
+                    @* Leaving edit mode never drops changes silently: with unsaved changes the choice is Save or Discard. *@
+                    @if ( _dirty )
+                    {
+                        <button type="button" class="action-button primary" @onclick="SaveAsync" disabled="@_saving">Save</button>
+                        <button type="button" class="action-button" @onclick="DiscardAsync">Discard changes</button>
+                    }
+                    else
+                    {
+                        <button type="button" class="action-button" @onclick="DiscardAsync">Done</button>
+                    }
                 }
                 else
                 {
@@ -233,6 +249,7 @@ else
     private readonly Dictionary<string, string>         _selections     = new(StringComparer.Ordinal);
     private          Dictionary<string, IReadOnlyList<string>> _variableValues = new(StringComparer.Ordinal);
     private          DashboardRecord?                   _record;
+    private          DashboardRecord?                   _stored; // as last loaded or saved: what Discard goes back to
     private          DashboardDefinition                _definition = new();
     private          ClaimsPrincipal                    _user       = new();
     private          PanelWindow                        _window;
@@ -285,6 +302,8 @@ else
             _notFound = true;
             return;
         }
+
+        _stored = _record;
 
         _definition     = _record.Definition;
         _timeRange      = _definition.TimeRange;
@@ -352,6 +371,15 @@ else
     private List<PanelFilter> Variables() => _selections.Where( static x => !string.IsNullOrEmpty( x.Value ) ).Select( static x => new PanelFilter( x.Key, FilterOperator.Equals, x.Value ) ).ToList();
 
     private string Selection( string key ) => _selections.GetValueOrDefault( key ) ?? string.Empty;
+
+    /// <summary> The name is edited in place while editing; like every other change it is stored on Save. </summary>
+    private void Rename( ChangeEventArgs args )
+    {
+        if ( _record is null ) { return; }
+
+        _record = _record with { Name = DashboardStore.CleanName( args.Value?.ToString() ) };
+        _dirty  = true;
+    }
 
     private Task SelectAsync( string key, string? value )
     {
@@ -440,7 +468,7 @@ else
             switch ( result )
             {
                 case DashboardSaveResult.Saved:
-                    _record = saved!;
+                    _record = _stored = saved!;
                     _dirty  = false;
                     break;
 
@@ -469,13 +497,14 @@ else
         catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException ) { _message = $"The copy could not be saved: {e.Message.TrimEnd( '.' )}"; }
     }
 
-    /// <summary> Leaves edit mode; unsaved changes are dropped (the stored dashboard is shown again). </summary>
+    /// <summary> Leaves edit mode; unsaved changes (Discard) are dropped and the stored dashboard is shown again. </summary>
     private async Task DiscardAsync()
     {
         _editing = false;
-        if ( !_dirty || _record is null ) { return; }
+        if ( !_dirty || _stored is null ) { return; }
 
-        _definition     = _record.Definition;
+        _record         = _stored; // name and sharing too, not only the panels
+        _definition     = _stored.Definition;
         _timeRange      = _definition.TimeRange;
         _refreshSeconds = _definition.RefreshSeconds;
         _dirty          = false;
@@ -510,7 +539,7 @@ else
         }
 
         DashboardSaveResult result = await Store.DeleteAsync( Id, _user, _disposed.Token );
-        if ( result == DashboardSaveResult.Saved ) { Navigation.NavigateTo( "dashboards" ); }
+        if ( result == DashboardSaveResult.Saved ) { Navigation.NavigateTo( "" ); }
         else { _message = "You can't delete this dashboard."; }
     }
 

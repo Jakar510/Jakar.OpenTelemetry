@@ -234,7 +234,18 @@ public sealed class SmallServicesTests
 
 	[Test] public void TelemetryCacheKeys_AreScopedPerTake() => Assert.That( TelemetryCacheKeys.Snapshot( 250 ), Is.EqualTo( "telemetry:snapshot:250" ) );
 
-	[Test] public void PortalConfiguration_Defaults() => Assert.That( new PortalConfiguration().DefaultTake, Is.EqualTo( 250 ) );
+	[Test] public void PortalConfiguration_Defaults()
+	{
+		PortalConfiguration portal = new();
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( portal.DefaultTake,                                                    Is.EqualTo( 250 ) );
+							 Assert.That( ( portal.Title, portal.Eyebrow ),                                      Is.EqualTo( ( "Portal", "Jakar OpenTelemetry" ) ) );
+							 Assert.That( portal.Subtitle,                                                       Does.StartWith( "Live telemetry" ) );
+							 Assert.That( new[] { portal.ShowTitle, portal.ShowEyebrow, portal.ShowSubtitle },   Has.All.True );
+						 } );
+	}
 
 	[Test] public void RetentionOptions_IsValid()
 	{

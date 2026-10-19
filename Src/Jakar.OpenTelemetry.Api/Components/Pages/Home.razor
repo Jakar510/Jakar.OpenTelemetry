@@ -1,7 +1,9 @@
 @page "/"
 @attribute [Authorize(Policy = AppAuthPolicies.DASHBOARD_ACCESS)]
 
-<PageTitle>Telemetry Portal</PageTitle>
+<PageTitle>@Configuration.Value.Title</PageTitle>
+
+<PortalTabs />
 
 <div class="dashboard">
     <TelemetryHeroPanel StateClass="@ConnectionStateClass"

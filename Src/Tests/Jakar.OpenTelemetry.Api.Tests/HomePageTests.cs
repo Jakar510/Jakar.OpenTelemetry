@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using AngleSharp.Dom;
 using Jakar.OpenTelemetry.Api.Components.Pages;
+using Jakar.OpenTelemetry.Api.Dashboards;
 using Jakar.OpenTelemetry.Api.Data;
 using Jakar.OpenTelemetry.Api.Services;
 using Jakar.OpenTelemetry.Contracts;
@@ -39,6 +40,11 @@ public sealed class HomePageTests
 		_context.Services.AddSingleton( new TelemetryQueryService( _factory.Object, new TelemetryImageStore( _dataSource ), _cache ) );
 		_context.Services.AddSingleton( _feed );
 		_context.Services.AddSingleton( Options.Create( new PortalConfiguration { DefaultTake = TAKE } ) );
+
+		// The portal tabs list dashboards; with the database offline only the explorer tab shows.
+		DashboardPermissions permissions = new(new DashboardOptions());
+		_context.Services.AddSingleton( permissions );
+		_context.Services.AddSingleton( new DashboardStore( _dataSource, permissions ) );
 	}
 
 	[TearDown] public async Task TearDown()
@@ -996,6 +1002,18 @@ public sealed class HomePageTests
 		await _context.DisposeComponentsAsync();
 
 		await Assert.DoesNotThrowAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, 1, 0, 0, "after dispose" ) ) );
+	}
+
+	[Test] public void PortalTabs_ExplorerFirst_WithoutTheDatabase()
+	{
+		IRenderedComponent<Home> page = Render();
+
+		page.WaitForState( () => page.FindAll( ".portal-tab" ).Count > 0 );
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.FindAll( ".portal-tab" ).Select( static x => x.TextContent.Trim() ), Is.EqualTo( new[] { "Explorer", "Screenshots" } ), "no dashboards (offline) and no New tab (a viewer without rights)" );
+							 Assert.That( page.Find( ".portal-tab" ).GetAttribute( "href" ),                        Is.Empty.Or.EqualTo( "/" ) );
+						 } );
 	}
 
 	[Test] public void TakeIsClampedToSupportedRange()

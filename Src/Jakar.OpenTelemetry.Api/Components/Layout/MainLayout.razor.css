@@ -18,13 +18,22 @@ h1 {
     letter-spacing: -0.06rem;
 }
 
+.shell-brand {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+/* One line; on a narrow screen it is cut with an ellipsis (the full text is the tooltip). */
 .shell-copy {
-    max-width: 30rem;
-    margin: 0;
+    margin: 0.25rem 0 0;
+    overflow: hidden;
     color: var(--muted);
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .shell-actions {
+    flex: 0 0 auto;
     display: flex;
     flex-wrap: wrap;
     align-items: center;

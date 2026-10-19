@@ -45,7 +45,7 @@ public static class JakarTelemetryServiceCollectionExtensions
 			JakarTelemetryOptions options = new();
 			configuration.GetSection( JakarTelemetryOptions.SECTION_NAME ).Bind( options );
 			configure?.Invoke( options );
-			if ( string.IsNullOrWhiteSpace( options.AppName ) ) { options.AppName = options.ServiceName; } // until AppName replaces ServiceName (Docs/SPEC.md)
+			if ( string.IsNullOrWhiteSpace( options.AppName ) ) { options.AppName = options.ServiceName; } // until AppName replaces ServiceName (Docs/SPEC-Client-Redesign.md)
 			options.Validate();
 
 			services.AddSingleton( options );

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.Build.NoTargets/3.7.134">
+
+    <!--
+      The repository's documentation, shown in the solution as a project: every file in Docs/ appears on its own, so new documents need no
+      solution edit. Builds nothing and is never packed.
+    -->
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <IsPackable>false</IsPackable>
+        <EnableDefaultItems>false</EnableDefaultItems>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="**/*" Exclude="bin/**;obj/**;$(MSBuildProjectFile)" />
+        <None Include="../README.md" Link="README.md" />
+    </ItemGroup>
+
+</Project>

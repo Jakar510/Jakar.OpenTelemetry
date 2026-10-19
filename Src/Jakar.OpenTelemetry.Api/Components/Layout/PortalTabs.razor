@@ -1,0 +1,68 @@
+@using System.Security.Claims
+@inject DashboardStore       Store
+@inject DashboardPermissions Permissions
+@inject NavigationManager    Navigation
+
+@* The portal's views: the live explorer first (the default at "/"), the screenshots, then every dashboard the user can see. *@
+<nav class="portal-tabs" aria-label="Views">
+    <NavLink class="portal-tab" href="" Match="NavLinkMatch.All">Explorer</NavLink>
+    <NavLink class="portal-tab" href="screenshots">Screenshots</NavLink>
+
+    @foreach ( DashboardRecord dashboard in _dashboards )
+    {
+        <NavLink @key="dashboard.ID" class="portal-tab" href="@( $"dashboards/{dashboard.ID:D}" )" title="@dashboard.Description">@dashboard.Name</NavLink>
+    }
+
+    @if ( _canCreate )
+    {
+        <button type="button" class="portal-tab portal-tab-new" @onclick="CreateAsync" disabled="@_creating" aria-label="New dashboard" title="New dashboard">+ New</button>
+    }
+</nav>
+
+@if ( _error is not null )
+{
+    <p class="error-banner" role="alert">@_error</p>
+}
+
+@code {
+    [CascadingParameter] public Task<AuthenticationState>? AuthenticationState { get; set; }
+
+    /// <summary> Changes when a dashboard is renamed, created or deleted, so the tabs reload (the page passes its record's version). </summary>
+    [Parameter] public object? Version { get; set; }
+
+    private IReadOnlyList<DashboardRecord> _dashboards = [ ];
+    private ClaimsPrincipal                _user       = new();
+    private object?                        _loadedVersion;
+    private bool                           _loaded;
+    private bool                           _canCreate;
+    private bool                           _creating;
+    private string?                        _error;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if ( _loaded && Equals( _loadedVersion, Version ) ) { return; }
+
+        _loaded        = true;
+        _loadedVersion = Version;
+        _user          = AuthenticationState is null ? new ClaimsPrincipal() : ( await AuthenticationState ).User;
+        _canCreate     = Permissions.CanCreate( _user );
+
+        // Without the database the explorer still works; the dashboard tabs just aren't listed.
+        try { _dashboards = await Store.ListAsync( _user, CancellationToken.None ); }
+        catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException or TimeoutException ) { _dashboards = [ ]; }
+    }
+
+    private async Task CreateAsync()
+    {
+        _creating = true;
+        _error    = null;
+
+        try
+        {
+            DashboardRecord? created = await Store.CreateAsync( "New dashboard", null, new DashboardDefinition(), _user, CancellationToken.None );
+            if ( created is not null ) { Navigation.NavigateTo( $"dashboards/{created.ID:D}?edit=true" ); }
+        }
+        catch ( Exception e ) when ( e is Npgsql.NpgsqlException or InvalidOperationException ) { _error = $"The dashboard could not be created: {e.Message.TrimEnd( '.' )}"; }
+        finally { _creating = false; }
+    }
+}
