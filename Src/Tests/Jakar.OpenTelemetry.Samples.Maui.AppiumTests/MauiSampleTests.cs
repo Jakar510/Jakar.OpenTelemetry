@@ -118,15 +118,29 @@ public abstract class MauiSampleTests
 																																														 } );
 
 
-	[Test] public async Task TracedOperation_ExportsSpanAndCorrelatedLog()
+	[Test] public async Task TracedOperation_ExportsTheCheckoutTraceAndCorrelatedLog()
 	{
 		Tap( "TracedOperationButton" );
-		WaitForStatus( "Traced operation " );
+		WaitForStatus( "Traced checkout " );
 		Tap( "FlushButton" );
 		WaitForStatus( "Telemetry flushed" );
 
-		await Telemetry.WaitForAsync( "Spans", $"""{APP_LOGS} AND "Name" = 'sample.operation' AND "AttributesJson"->>'sample.platform' = @os""",                     parameters: Os );
-		await Telemetry.WaitForAsync( "Logs",  $"""{APP_LOGS} AND "Body" = 'Sample traced operation finished' AND "TraceId" IS NOT NULL""",                          parameters: Os );
+		await Telemetry.WaitForAsync( "Spans", $"""{APP_LOGS} AND "Name" = 'sample.checkout' AND "AttributesJson"->>'sample.platform' = @os""",                      parameters: Os );
+		await Telemetry.WaitForAsync( "Logs",  $"""{APP_LOGS} AND "Body" LIKE 'Sample checkout finished:%' AND "TraceId" IS NOT NULL""",                             parameters: Os );
+
+		// Root + cart.load + inventory.reserve (3 parallel checks) + pricing.calculate (discount) + payment.authorize + order.confirm/release: 10 spans in one trace.
+		const string ROOT = $"""{APP_LOGS} AND "Name" = 'sample.checkout' AND "AttributesJson"->>'sample.platform' = @os""";
+		await Telemetry.WaitForAsync( "Spans", $"""{APP_LOGS} AND "TraceId" = (SELECT "TraceId" FROM "Spans" WHERE {ROOT} ORDER BY "SortTimeUtc" DESC LIMIT 1)""", minimum: 10, parameters: Os );
+
+		// Child spans added context to the root (and removed some again): the final tags, and the history as events.
+		Assert.That( await Telemetry.CountAsync( "Spans",
+												 $"""
+												  {ROOT} AND "AttributesJson" ? 'cart.items' AND "AttributesJson" ? 'payment.status'
+												     AND NOT "AttributesJson" ? 'order.pending_discount' AND NOT "AttributesJson" ? 'inventory.hold_token'
+												     AND "EventsJson"::text LIKE '%context.added%' AND "EventsJson"::text LIKE '%context.removed%'
+												  """,
+												 Os ),
+					 Is.GreaterThan( 0 ) );
 		await Telemetry.WaitForAsync( "Logs",  $"""{APP_LOGS} AND "ResourceAttributesJson" ? 'device.model.identifier' AND "ResourceAttributesJson" ? 'app.name'""", parameters: Os );
 	}
 
@@ -174,7 +188,7 @@ public abstract class MauiSampleTests
 	[Test] public async Task KilledApp_IsReportedAsAbnormalTerminationOnNextLaunch()
 	{
 		Tap( "TracedOperationButton" );
-		WaitForStatus( "Traced operation " );
+		WaitForStatus( "Traced checkout " );
 
 		await KillAsync();
 		await RelaunchAsync();

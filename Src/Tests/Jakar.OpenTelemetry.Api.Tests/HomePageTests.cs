@@ -1004,6 +1004,74 @@ public sealed class HomePageTests
 		await Assert.DoesNotThrowAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0, 1, 0, 0, "after dispose" ) ) );
 	}
 
+	[Test] public void Breakdown_RowsFilterTheTable_AndClickingAgainClears()
+	{
+		IRenderedComponent<Home> page = Render();
+		ClickTab( page, "Traces" );
+
+		page.FindAll( ".breakdown-row" ).Single( static x => x.TextContent.Contains( "Error" ) ).Click();
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.Find( ".tab-strip button.active, .tab-strip button[aria-selected=true]" ).TextContent, Does.Contain( "Logs" ), "a severity opens the logs" );
+							 Assert.That( Column( page, 2 ),                                         Is.EqualTo( new[] { "Error" } ) );
+							 Assert.That( page.Find( ".breakdown-row.selected" ).TextContent,        Does.Contain( "Error" ) );
+							 Assert.That( page.Find( ".breakdown-caption" ).TextContent,             Does.Contain( "3 most recent logs" ) );
+						 } );
+
+		page.Find( ".breakdown-row.selected" ).Click();
+		Assert.That( Rows( page ), Is.EqualTo( 3 ), "clicking the selected row clears the filter" );
+
+		page.FindAll( ".breakdown-switch button" ).Single( static x => x.TextContent == "Service" ).Click();
+		page.FindAll( ".breakdown-row" ).Single( static x => x.TextContent.Contains( "alpha" ) ).Click();
+		Assert.That( Column( page, 1 ), Is.EqualTo( new[] { "alpha" } ) );
+
+		page.FindAll( ".breakdown-switch button" ).Single( static x => x.TextContent == "Metric" ).Click();
+		Assert.That( page.Find( ".breakdown-card .chart-empty" ).TextContent, Is.EqualTo( "Nothing loaded yet." ) );
+	}
+
+	[Test] public void Breakdown_MetricRow_OpensTheMetricsTab_AndPlaceholdersDontFilter()
+	{
+		TelemetrySnapshotDto snapshot = Snapshot();
+		IRenderedComponent<Home> page = Render( snapshot with { Overview = snapshot.Overview with { MetricBreakdown = [ new NamedValueDto( "latency", 1 ), new NamedValueDto( "unnamed", 1 ) ], SeverityBreakdown = [ new NamedValueDto( "Unknown", 1 ) ] } } );
+
+		Assert.That( page.Find( ".breakdown-row" ).HasAttribute( "disabled" ), Is.True, "records without a severity can't be filtered on" );
+
+		page.FindAll( ".breakdown-switch button" ).Single( static x => x.TextContent == "Metric" ).Click();
+		page.FindAll( ".breakdown-row" ).Single( static x => x.TextContent.Contains( "latency" ) ).Click();
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( Column( page, 2 ),                       Is.EqualTo( new[] { "latency" } ) );
+							 Assert.That( page.Find( ".breakdown-caption" ).TextContent, Does.Contain( "3 most recent metric points" ) );
+						 } );
+	}
+
+	[Test] public void Activity_OneChartForEverySignal_WithToggles()
+	{
+		IRenderedComponent<Home> page = Render();
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.FindAll( ".activity-chip" ).Select( static x => x.TextContent.Split( (char[]?)null, StringSplitOptions.RemoveEmptyEntries )[0] ), Is.EqualTo( new[] { "Logs", "Spans", "Metrics" } ) );
+							 Assert.That( page.FindAll( ".activity-line" ),                                                             Has.Count.EqualTo( 2 ), "the fixture has no metric timeline" );
+							 Assert.That( page.FindAll( ".panel-card" ).First( static x => x.TextContent.Contains( "Activity" ) ).TextContent, Does.Contain( "log scale" ) );
+						 } );
+
+		page.FindAll( ".activity-chip" )[0].Click();
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.FindAll( ".activity-chip" )[0].GetAttribute( "aria-pressed" ), Is.EqualTo( "false" ) );
+							 Assert.That( page.FindAll( ".activity-line" ),                                  Has.Count.EqualTo( 1 ) );
+						 } );
+
+		page.FindAll( ".activity-chip" )[1].Click();
+		Assert.That( page.Find( ".activity-chart .chart-empty" ).TextContent, Is.EqualTo( "Every series is hidden." ) );
+
+		page.FindAll( ".activity-chip" )[0].Click();
+		Assert.That( page.FindAll( ".activity-line" ), Has.Count.EqualTo( 1 ) );
+	}
+
 	[Test] public void PortalTabs_ExplorerFirst_WithoutTheDatabase()
 	{
 		IRenderedComponent<Home> page = Render();

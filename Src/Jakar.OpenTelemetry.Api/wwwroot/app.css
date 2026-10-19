@@ -642,6 +642,8 @@ body:has(.dialog-backdrop) {
 .svc-8 { --svc: #34d399; }
 .svc-9 { --svc: #fb923c; }
 
+/* Trace operations and services set --op / --svc inline: a hue from a hash of the name, so a name has the same color in every trace. */
+
 .trace-view h3 .trace-id {
     margin-left: 0.5rem;
     color: var(--muted);
@@ -714,7 +716,7 @@ body:has(.dialog-backdrop) {
     position: absolute;
     min-height: 1px;
     max-height: 0.35rem;
-    background: var(--svc);
+    background: var(--op);
     opacity: 0.65;
 }
 
@@ -723,11 +725,21 @@ body:has(.dialog-backdrop) {
     outline: 1px solid var(--accent);
 }
 
-/* Label column | timeline column, shared by the header and every row. */
+/*
+  Service | operation | timeline: one grid for the header and every row (each row is a subgrid), so a column is as wide as its longest value in the
+  trace, up to a cap. Dragging a header divider sets --trace-service-width / --trace-operation-width on <html> (portal.js), which wins over the default.
+*/
+.trace-waterfall {
+    display: grid;
+    grid-template-columns: var(--trace-service-width, fit-content(26rem)) var(--trace-operation-width, fit-content(26rem)) minmax(14rem, 1fr);
+    overflow-x: auto;
+}
+
 .trace-header,
 .trace-row {
     display: grid;
-    grid-template-columns: minmax(12rem, 2fr) minmax(0, 3fr);
+    grid-column: 1 / -1;
+    grid-template-columns: subgrid;
     align-items: center;
 }
 
@@ -738,9 +750,40 @@ body:has(.dialog-backdrop) {
     color: var(--muted);
 }
 
-.trace-header-label {
+.trace-header-cell {
+    position: relative;
+    padding-right: 0.75rem;
     font-weight: 600;
     color: var(--text);
+    white-space: nowrap;
+}
+
+/* The column divider: a wide hit area with a thin visible line. */
+.trace-resizer {
+    position: absolute;
+    top: -0.35rem;
+    right: -0.3rem;
+    bottom: -0.35rem;
+    width: 0.6rem;
+    cursor: col-resize;
+    touch-action: none;
+}
+
+.trace-resizer::after {
+    content: "";
+    position: absolute;
+    top: 0.2rem;
+    bottom: 0.2rem;
+    left: 50%;
+    width: 1px;
+    background: var(--panel-border);
+}
+
+.trace-resizer:hover::after,
+.trace-resizer:focus-visible::after,
+.trace-resizer.dragging::after {
+    width: 2px;
+    background: var(--accent);
 }
 
 .trace-ticks {
@@ -770,6 +813,16 @@ body:has(.dialog-backdrop) {
     padding: 0;
 }
 
+.trace-service-cell {
+    display: flex;
+    gap: 0.45rem;
+    align-items: center;
+    align-self: stretch;
+    min-width: 0;
+    padding: 0 0.75rem 0 0.35rem;
+    cursor: pointer;
+}
+
 .trace-row {
     border-bottom: 1px solid rgba(255, 255, 255, 0.04);
 }
@@ -788,6 +841,7 @@ body:has(.dialog-backdrop) {
     align-items: center;
     gap: 0.2rem;
     min-width: 0;
+    padding-right: 0.5rem;
 }
 
 .trace-toggle {
@@ -818,25 +872,29 @@ body:has(.dialog-backdrop) {
 .svc-stripe {
     flex: 0 0 3px;
     align-self: stretch;
+    margin: 0.35rem 0;
     border-radius: 2px;
     background: var(--svc);
 }
 
-/* The operation matters more than a long service name: the service gives way first. */
-.trace-service {
-    flex: 0 1 auto;
-    max-width: 55%;
+/* Full values unless the column is narrower (then cut with an ellipsis; the tooltip has it all). */
+.trace-service,
+.trace-name {
+    min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .trace-name {
     flex: 1 1 auto;
-    min-width: 3rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    color: var(--muted);
-    font-size: 0.82rem;
+}
+
+.op-dot {
+    flex: 0 0 0.55rem;
+    height: 0.55rem;
+    border-radius: 50%;
+    background: var(--op);
 }
 
 /* Grid lines at 25% steps, matching the tick labels. */
@@ -855,7 +913,7 @@ body:has(.dialog-backdrop) {
     height: 0.75rem;
     transform: translateY(-50%);
     border-radius: 3px;
-    background: var(--svc);
+    background: var(--op);
 }
 
 .trace-bar.is-error {
@@ -907,15 +965,9 @@ body:has(.dialog-backdrop) {
         padding: 0.75rem 1rem 1rem;
     }
 
-    /* Label over the timeline. */
-    .trace-header,
-    .trace-row {
-        grid-template-columns: minmax(0, 1fr);
-    }
-
-    .trace-ticks,
-    .trace-track {
-        margin-left: 1.4rem;
+    /* Narrower default columns on a phone; the waterfall scrolls sideways when the timeline needs the room. */
+    .trace-waterfall {
+        grid-template-columns: var(--trace-service-width, fit-content(9rem)) var(--trace-operation-width, fit-content(11rem)) minmax(10rem, 1fr);
     }
 
     /* Time and severity on one line, the body under them. */
@@ -945,6 +997,238 @@ body:has(.dialog-backdrop) {
 .action-button.danger {
     border-color: rgba(255, 92, 122, 0.55);
     color: #ffc2cd;
+}
+
+/* ---------- explorer overview: activity chart and breakdown ---------- */
+
+.chart-empty {
+    display: grid;
+    place-items: center;
+    min-height: 8rem;
+    margin: 0;
+    border-radius: 1rem;
+    background: rgba(3, 8, 18, 0.65);
+    color: var(--muted);
+}
+
+.activity-logs    { --series: #ffb84d; }
+.activity-spans   { --series: #62d6ff; }
+.activity-metrics { --series: #6cf0a8; }
+
+.activity-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin: 0 0 0.6rem;
+    padding: 0;
+    list-style: none;
+}
+
+.activity-chip {
+    display: inline-flex;
+    gap: 0.4rem;
+    align-items: center;
+    padding: 0.25rem 0.7rem;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text);
+    font: inherit;
+    font-size: 0.82rem;
+    cursor: pointer;
+}
+
+.activity-chip strong {
+    color: var(--muted);
+    font-weight: 600;
+}
+
+.activity-chip.off {
+    opacity: 0.45;
+}
+
+.activity-swatch {
+    width: 0.7rem;
+    height: 0.2rem;
+    border-radius: 999px;
+    background: var(--series);
+}
+
+.activity-plot {
+    position: relative;
+    height: 9.5rem;
+    margin: 0.4rem 0 0 2.6rem;
+}
+
+.activity-plot svg {
+    display: block;
+    width: 100%;
+    height: 100%;
+    overflow: visible;
+}
+
+.activity-plot .grid {
+    stroke: rgba(255, 255, 255, 0.07);
+    vector-effect: non-scaling-stroke;
+}
+
+.activity-line {
+    fill: none;
+    stroke: var(--series);
+    stroke-width: 2;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+}
+
+.activity-line.dot {
+    stroke-width: 7;
+    stroke-linecap: round;
+}
+
+.activity-y span {
+    position: absolute;
+    right: calc(100% + 0.4rem);
+    transform: translateY(-50%);
+    color: var(--muted);
+    font-size: 0.7rem;
+}
+
+.activity-x {
+    position: relative;
+    height: 1.1rem;
+    margin: 0.2rem 0 0 2.6rem;
+    color: var(--muted);
+    font-size: 0.72rem;
+}
+
+.activity-x span {
+    position: absolute;
+    transform: translateX(-50%);
+    white-space: nowrap;
+}
+
+.activity-x span:first-child:not(:only-child) {
+    transform: none;
+}
+
+.activity-x span:last-child:not(:only-child) {
+    transform: translateX(-100%);
+}
+
+.breakdown-card {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    min-height: 0;
+}
+
+.breakdown-head {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.breakdown-switch {
+    display: inline-flex;
+    padding: 0.15rem;
+    border: 1px solid var(--panel-border);
+    border-radius: 999px;
+}
+
+.breakdown-switch button {
+    padding: 0.2rem 0.7rem;
+    border: 0;
+    border-radius: 999px;
+    background: transparent;
+    color: var(--muted);
+    font: inherit;
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.breakdown-switch button.active {
+    background: rgba(255, 184, 77, 0.16);
+    color: var(--text);
+}
+
+.breakdown-caption {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.78rem;
+}
+
+.breakdown-list {
+    display: grid;
+    gap: 0.15rem;
+    margin: 0;
+    padding: 0;
+    overflow: auto;
+    list-style: none;
+}
+
+/* Name | share bar | count | percent, one compact line per value. */
+.breakdown-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 4.5rem auto 2.6rem;
+    gap: 0.5rem;
+    align-items: center;
+    width: 100%;
+    padding: 0.3rem 0.45rem;
+    border: 0;
+    border-radius: 0.5rem;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    font-size: 0.84rem;
+    text-align: left;
+    cursor: pointer;
+}
+
+.breakdown-row:hover:not(:disabled),
+.breakdown-row:focus-visible {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.breakdown-row.selected {
+    background: rgba(255, 184, 77, 0.12);
+    box-shadow: inset 3px 0 0 var(--accent);
+}
+
+.breakdown-row:disabled {
+    cursor: default;
+    opacity: 0.7;
+}
+
+.breakdown-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.breakdown-bar {
+    height: 0.35rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+}
+
+.breakdown-bar span {
+    display: block;
+    height: 100%;
+    min-width: 2px;
+    border-radius: 999px;
+    background: var(--accent);
+}
+
+.breakdown-count {
+    font-variant-numeric: tabular-nums;
+}
+
+.breakdown-share {
+    color: var(--muted);
+    font-variant-numeric: tabular-nums;
+    text-align: right;
 }
 
 /* ---------- portal tabs ---------- */

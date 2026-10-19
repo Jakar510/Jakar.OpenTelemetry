@@ -21,13 +21,19 @@ internal static class TelemetryDashboardFormatter
 																									 ? "none"
 																									 : string.Join( ", ", map.Select( pair => $"{pair.Key}={CleanJson( pair.Value )}" ) );
 
-	public static string FormatDuration( double milliseconds ) => milliseconds switch
-																	  {
-																		  >= 60_000 => $"{milliseconds / 60_000:0.##} min",
-																		  >= 1_000  => $"{milliseconds / 1_000:0.###} s",
-																		  >= 1      => $"{milliseconds:0.###} ms",
-																		  _         => $"{milliseconds * 1_000:0.###} µs"
-																	  };
+	/// <summary> A duration in its natural unit, with up to <paramref name="decimals"/> decimals (fewer for ruler labels, which sit side by side). </summary>
+	public static string FormatDuration( double milliseconds, int decimals = 3 )
+	{
+		string format = "0." + new string( '#', Math.Clamp( decimals, 0, 6 ) );
+
+		return milliseconds switch
+			   {
+				   >= 60_000 => ( milliseconds / 60_000 ).ToString( "0.##", CultureInfo.InvariantCulture ) + " min",
+				   >= 1_000  => ( milliseconds / 1_000 ).ToString( format, CultureInfo.InvariantCulture ) + " s",
+				   >= 1      => milliseconds.ToString( format, CultureInfo.InvariantCulture ) + " ms",
+				   _         => ( milliseconds * 1_000 ).ToString( format, CultureInfo.InvariantCulture ) + " µs"
+			   };
+	}
 
 	/// <summary> Integer points keep their exact int64 value; doubles are shown with up to 6 decimals. </summary>
 	public static string FormatMetricValue( TelemetryMetricRecordDto metric ) => metric.IntValue is { } exact

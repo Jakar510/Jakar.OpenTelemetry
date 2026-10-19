@@ -1,7 +1,19 @@
 .overview-row,
-.chart-grid {
+.overview-charts {
     display: grid;
     gap: 1rem;
+}
+
+/* The activity chart wide, the breakdown beside it; stacked on narrower screens. */
+.overview-charts {
+    grid-template-columns: minmax(0, 2fr) minmax(18rem, 1fr);
+    align-items: stretch;
+}
+
+@media (max-width: 980px) {
+    .overview-charts {
+        grid-template-columns: minmax(0, 1fr);
+    }
 }
 
 /* The live-stream panel, then the four totals, on one line. */
@@ -27,9 +39,6 @@
     }
 }
 
-.chart-grid {
-    grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
-}
 
 .table-card {
     overflow: hidden;
@@ -37,6 +46,6 @@
 
 /* Grid items default to min-width:auto, so a long nowrap label (e.g. a service name) would widen the track past the viewport. */
 .overview-row > *,
-.chart-grid > * {
+.overview-charts > * {
     min-width: 0;
 }

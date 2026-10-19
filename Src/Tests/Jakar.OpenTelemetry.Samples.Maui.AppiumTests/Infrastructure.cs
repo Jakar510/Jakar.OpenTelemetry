@@ -173,7 +173,7 @@ internal sealed class TelemetryDatabase( string connectionString ) : IAsyncDispo
 		return (long)( await command.ExecuteScalarAsync() )!;
 	}
 
-	public async Task WaitForAsync( string table, string where, TimeSpan? timeout = null, params (string Name, object Value)[] parameters )
+	public async Task WaitForAsync( string table, string where, long minimum = 1, TimeSpan? timeout = null, params (string Name, object Value)[] parameters )
 	{
 		using CancellationTokenSource limit = new(timeout ?? TimeSpan.FromSeconds( 60 ));
 		long                          count = 0;
@@ -181,12 +181,12 @@ internal sealed class TelemetryDatabase( string connectionString ) : IAsyncDispo
 		while ( !limit.IsCancellationRequested )
 		{
 			count = await CountAsync( table, where, parameters );
-			if ( count > 0 ) { return; }
+			if ( count >= minimum ) { return; }
 
 			await Task.Delay( 500, CancellationToken.None );
 		}
 
-		Assert.Fail( $"Expected a row in {table} where {where}. Latest logs:{Environment.NewLine}{await LatestLogsAsync()}" );
+		Assert.Fail( $"Expected at least {minimum} row(s) in {table} where {where}, found {count}. Latest logs:{Environment.NewLine}{await LatestLogsAsync()}" );
 	}
 
 	/// <summary> Diagnostics for a failed wait: the newest log records with their crash/exception attributes. </summary>

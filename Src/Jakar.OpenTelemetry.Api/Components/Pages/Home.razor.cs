@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Runtime.CompilerServices;
+using Jakar.OpenTelemetry.Api.Components.Charts;
 using Jakar.OpenTelemetry.Api.Components.Dashboard;
 using Jakar.OpenTelemetry.Api.Services;
 using Jakar.OpenTelemetry.Contracts;
@@ -133,6 +134,18 @@ public sealed partial class Home : ComponentBase, IDisposable
 																   ],
 															   _ => [ ]
 														   };
+
+	/// <summary> The activity chart's series: when the most recently loaded records of each signal arrived (10 minute buckets). </summary>
+	private IReadOnlyList<ActivitySeries> ActivitySeries =>
+	[
+		new("Logs",    "activity-logs",    Snapshot?.Overview.LogTimeline    ?? [ ]),
+		new("Spans",   "activity-spans",   Snapshot?.Overview.SpanTimeline   ?? [ ]),
+		new("Metrics", "activity-metrics", Snapshot?.Overview.MetricTimeline ?? [ ])
+	];
+
+	private string ActivityMeta => Snapshot is null
+									   ? "10 minute buckets"
+									   : $"Most recent {FormatCount( Math.Max( Snapshot.Logs.Count, Math.Max( Snapshot.Spans.Count, Snapshot.Metrics.Count ) ) )} of each | 10 minute buckets | log scale";
 
 	private string ConnectionStateClass => LiveUpdates
 											   ? "online"
@@ -271,6 +284,40 @@ public sealed partial class Home : ComponentBase, IDisposable
 		EnsureValidSort();
 		ApplyFilters();
 		return CloseDetailsAsync();
+	}
+
+	/// <summary> From the breakdown: show the logs of one severity ("all" clears it). </summary>
+	private Task FilterSeverityAsync( string severity )
+	{
+		SwitchTab( TelemetryTab.Logs );
+		SelectedSeverity = severity;
+		return FiltersChangedAsync();
+	}
+
+	/// <summary> From the breakdown: one service, on whichever tab is open ("all" clears it). </summary>
+	private Task FilterServiceAsync( string service )
+	{
+		SelectedService = service;
+		return FiltersChangedAsync();
+	}
+
+	/// <summary> From the breakdown: the points of one metric ("all" clears it). </summary>
+	private Task FilterMetricAsync( string metric )
+	{
+		SwitchTab( TelemetryTab.Metrics );
+		SelectedMetricName = metric;
+		return FiltersChangedAsync();
+	}
+
+	private void SwitchTab( TelemetryTab tab )
+	{
+		if ( ActiveTab == tab ) { return; }
+
+		ActiveTab        = tab;
+		SelectedRecordId = null;
+		SelectedCategory = new FilterKey( FilterField.None );
+		CategoryValue    = string.Empty;
+		EnsureValidSort();
 	}
 
 	private Task SetActiveTabAsync( TelemetryTab tab )

@@ -1,0 +1,77 @@
+@* Logs, spans and metrics on one log-scale chart; the legend chips show or hide each series. *@
+@{
+    ActivityChartModel chart = ActivityChartModel.Build( Series.Where( x => !_hidden.Contains( x.Name ) ).ToArray() );
+}
+
+<div class="activity-chart">
+    <ul class="activity-legend" aria-label="Series">
+        @foreach ( ActivitySeries series in Series )
+        {
+            bool shown = !_hidden.Contains( series.Name );
+
+            <li>
+                <button type="button"
+                        class="activity-chip @series.CssClass @( shown ? string.Empty : "off" )"
+                        aria-pressed="@( shown ? "true" : "false" )"
+                        title="@( shown ? $"Hide {series.Name}" : $"Show {series.Name}" )"
+                        @onclick="() => Toggle( series.Name )">
+                    <span class="activity-swatch"></span>
+                    @series.Name
+                    <strong>@ActivityChartModel.Count( series.Points.Sum( static x => x.Value ) )</strong>
+                </button>
+            </li>
+        }
+    </ul>
+
+    @if ( chart.Lines.Count == 0 )
+    {
+        <p class="chart-empty">@( Series.Any( static x => x.Points.Count > 0 ) ? "Every series is hidden." : EmptyMessage )</p>
+    }
+    else
+    {
+        <div class="activity-plot">
+            <div class="activity-y" aria-hidden="true">
+                @foreach ( ActivityTick tick in chart.YTicks )
+                {
+                    <span style="top: @Percent( tick.Position / ActivityChartModel.HEIGHT )">@tick.Label</span>
+                }
+            </div>
+            <svg viewBox="0 0 @ActivityChartModel.WIDTH @ActivityChartModel.HEIGHT" preserveAspectRatio="none" role="img" aria-label="@AriaLabel( chart )">
+                @foreach ( ActivityTick tick in chart.YTicks )
+                {
+                    <line class="grid" x1="0" x2="@ActivityChartModel.WIDTH" y1="@Invariant( tick.Position )" y2="@Invariant( tick.Position )" />
+                }
+                @foreach ( ActivityLine line in chart.Lines )
+                {
+                    <polyline class="activity-line @line.CssClass @( line.IsDot ? "dot" : string.Empty )" points="@line.Points">
+                        <title>@line.Name: @ActivityChartModel.Count( line.Total )</title>
+                    </polyline>
+                }
+            </svg>
+        </div>
+        <div class="activity-x" aria-hidden="true">
+            @foreach ( ActivityTick tick in chart.XTicks )
+            {
+                <span style="left: @Percent( tick.Position / ActivityChartModel.WIDTH )">@tick.Label</span>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public IReadOnlyList<ActivitySeries> Series       { get; set; } = [ ];
+    [Parameter] public string                        EmptyMessage { get; set; } = "No telemetry yet.";
+
+    private readonly HashSet<string> _hidden = new(StringComparer.Ordinal);
+
+    private void Toggle( string name )
+    {
+        if ( !_hidden.Remove( name ) ) { _hidden.Add( name ); }
+    }
+
+    private static string AriaLabel( ActivityChartModel chart ) => "Activity: " + string.Join( ", ", chart.Lines.Select( static x => $"{x.Name} {ActivityChartModel.Count( x.Total )}" ) );
+
+    private static string Percent( double fraction ) => Invariant( fraction * 100 ) + "%";
+
+    private static string Invariant( double value ) => value.ToString( "0.##", System.Globalization.CultureInfo.InvariantCulture );
+}

@@ -32,56 +32,26 @@
         <section class="error-banner" role="alert">@ErrorMessage</section>
     }
 
-    <section class="chart-grid">
-        <PanelCard Eyebrow="Timeline"
-                   Title="Logs"
-                   Meta="10 minute buckets">
-            <LineChart
-                Points="@( Snapshot?.Overview.LogTimeline ?? [ ] )"
-                Stroke="#ffb84d"
-                EmptyMessage="No log samples yet." />
+    @* One activity chart for every signal, and a compact breakdown that filters the table below. *@
+    <section class="overview-charts">
+        <PanelCard Eyebrow="Activity"
+                   Title="Logs, spans and metrics"
+                   Meta="@ActivityMeta">
+            <ActivityChart Series="@ActivitySeries" EmptyMessage="Telemetry appears here as it arrives." />
         </PanelCard>
 
-        <PanelCard Eyebrow="Timeline"
-                   Title="Spans"
-                   Meta="10 minute buckets">
-            <LineChart
-                Points="@( Snapshot?.Overview.SpanTimeline ?? [ ] )"
-                Stroke="#62d6ff"
-                EmptyMessage="No spans yet." />
-        </PanelCard>
-
-        <PanelCard Eyebrow="Timeline"
-                   Title="Metrics"
-                   Meta="10 minute buckets">
-            <LineChart Points="@( Snapshot?.Overview.MetricTimeline ?? [ ] )"
-                       Stroke="#6cf0a8"
-                       EmptyMessage="No metric points yet." />
-        </PanelCard>
-
-        <PanelCard Eyebrow="Breakdown"
-                   Title="Severities"
-                   Meta="Recent log window">
-            <BarChart Items="@( Snapshot?.Overview.SeverityBreakdown ?? [ ] )"
-                      BarColor="#ff7a59"
-                      EmptyMessage="Severity buckets appear when logs arrive." />
-        </PanelCard>
-
-        <PanelCard Eyebrow="Breakdown"
-                   Title="Services"
-                   Meta="Across all signals">
-            <BarChart Items="@( Snapshot?.Overview.ServiceBreakdown ?? [ ] )"
-                      BarColor="#7f86ff"
-                      EmptyMessage="Service names appear from resource attributes." />
-        </PanelCard>
-
-        <PanelCard Eyebrow="Breakdown"
-                   Title="Metrics"
-                   Meta="Named series">
-            <BarChart Items="@( Snapshot?.Overview.MetricBreakdown ?? [ ] )"
-                      BarColor="#49dcb1"
-                      EmptyMessage="Metric names appear when points arrive." />
-        </PanelCard>
+        <TelemetryBreakdownCard Severities="@( Snapshot?.Overview.SeverityBreakdown ?? [ ] )"
+                                Services="@( Snapshot?.Overview.ServiceBreakdown ?? [ ] )"
+                                Metrics="@( Snapshot?.Overview.MetricBreakdown ?? [ ] )"
+                                LoadedLogs="@( Snapshot?.Logs.Count ?? 0 )"
+                                LoadedSpans="@( Snapshot?.Spans.Count ?? 0 )"
+                                LoadedMetrics="@( Snapshot?.Metrics.Count ?? 0 )"
+                                SelectedSeverity="@SelectedSeverity"
+                                SelectedService="@SelectedService"
+                                SelectedMetricName="@SelectedMetricName"
+                                SeveritySelected="FilterSeverityAsync"
+                                ServiceSelected="FilterServiceAsync"
+                                MetricSelected="FilterMetricAsync" />
     </section>
 
     <TelemetryExplorerPanel IsLoading="@IsLoading"

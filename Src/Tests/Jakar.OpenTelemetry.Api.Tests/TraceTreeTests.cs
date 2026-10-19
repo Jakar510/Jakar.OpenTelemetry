@@ -76,7 +76,8 @@ public sealed class TraceTreeTests
 		Assert.Multiple( () =>
 						 {
 							 Assert.That( tree.Rows.Select( static x => x.HasChildren ),  Is.EqualTo( new[] { true, true, false, false } ) );
-							 Assert.That( tree.Rows.Select( static x => x.ServiceIndex ), Is.EqualTo( new[] { 0, 1, 2, 1 } ), "numbered in order of appearance" );
+							 Assert.That( tree.Rows.Select( static x => x.ServiceColor ),   Is.EqualTo( new[] { "web", "api", "db", "api" }.Select( TelemetryTraceTree.ColorOf ) ), "the color follows the service's name" );
+							 Assert.That( tree.Rows.Select( static x => x.OperationColor ), Is.EqualTo( tree.Rows.Select( static x => TelemetryTraceTree.ColorOf( x.Span.Name ) ) ) );
 							 Assert.That( tree.Services,                                  Is.EqualTo( new[] { "web", "api", "db" } ) );
 							 Assert.That( tree.Depth,                                     Is.EqualTo( 3 ) );
 							 Assert.That( tree.Root!.SpanId,                              Is.EqualTo( "root" ) );
@@ -98,11 +99,18 @@ public sealed class TraceTreeTests
 						 } );
 	}
 
-	[Test] public void ManyServices_ReuseTheColors()
+	[Test] public void Colors_AreStableAndInRange()
 	{
-		TelemetryTraceTree tree = TelemetryTraceTree.Build( Enumerable.Range( 0, TelemetryTraceTree.SERVICE_COLORS + 2 ).Select( static i => Span( $"s{i}", null, i, 1, service: $"svc{i}" ) ).ToArray() );
+		string[] names = Enumerable.Range( 0, 200 ).Select( static i => $"operation.{i}" ).ToArray();
 
-		Assert.That( tree.Rows.Select( static x => x.ServiceIndex ).Max(), Is.EqualTo( TelemetryTraceTree.SERVICE_COLORS - 1 ) );
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( names.Select( TelemetryTraceTree.ColorOf ),                   Has.All.Match( @"^hsl\(\d{1,3} 72% (52|62|72)%\)$" ) );
+							 Assert.That( names.Select( TelemetryTraceTree.ColorOf ).Distinct().Count(), Is.GreaterThan( 150 ), "200 names spread over hue and lightness" );
+							 Assert.That( TelemetryTraceTree.ColorOf( "inventory.check" ),               Is.Not.EqualTo( TelemetryTraceTree.ColorOf( "inventory.reserve" ) ) );
+							 Assert.That( TelemetryTraceTree.ColorOf( null ),                           Is.EqualTo( TelemetryTraceTree.ColorOf( string.Empty ) ) );
+							 Assert.That( TelemetryTraceTree.ColorOf( "sample.checkout" ),              Is.EqualTo( "hsl(336 72% 52%)" ), "fixed across processes (string.GetHashCode is not)" );
+						 } );
 	}
 
 	[Test] public void MissingParent_IsARoot_AndCyclesAreStillListed()

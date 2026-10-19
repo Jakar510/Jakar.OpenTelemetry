@@ -1,0 +1,132 @@
+@using System.Globalization
+
+@* What the most recent records are made of, one dimension at a time. A row filters the explorer below (click again to clear). *@
+<section class="panel-card breakdown-card" aria-label="Breakdown">
+    <div class="breakdown-head">
+        <p class="eyebrow">Breakdown</p>
+        <div class="breakdown-switch" role="tablist" aria-label="Break down by">
+            @foreach ( ( Dimension dimension, string label ) in s_Dimensions )
+            {
+                <button type="button"
+                        role="tab"
+                        aria-selected="@( _dimension == dimension ? "true" : "false" )"
+                        class="@( _dimension == dimension ? "active" : string.Empty )"
+                        @onclick="() => _dimension = dimension">@label</button>
+            }
+        </div>
+    </div>
+
+    <p class="breakdown-caption">@Caption</p>
+
+    @if ( Items.Count == 0 )
+    {
+        <p class="chart-empty">Nothing loaded yet.</p>
+    }
+    else
+    {
+        <ol class="breakdown-list">
+            @foreach ( NamedValueDto item in Items )
+            {
+                bool   selected  = string.Equals( item.Name, Selected, StringComparison.OrdinalIgnoreCase );
+                bool   clickable = !s_Placeholders.Contains( item.Name );
+                double share     = Total > 0 ? item.Value / Total : 0;
+
+                <li>
+                    <button type="button"
+                            class="breakdown-row @( selected ? "selected" : string.Empty )"
+                            aria-pressed="@( selected ? "true" : "false" )"
+                            disabled="@( !clickable )"
+                            title="@( !clickable ? item.Name : selected ? $"Show every {Noun}" : $"Show only {item.Name}" )"
+                            @onclick="() => SelectAsync( item.Name )">
+                        <span class="breakdown-name">@item.Name</span>
+                        <span class="breakdown-bar" aria-hidden="true"><span style="width: @( ( share * 100 ).ToString( "0.#", CultureInfo.InvariantCulture ) )%"></span></span>
+                        <span class="breakdown-count">@item.Value.ToString( "N0", CultureInfo.InvariantCulture )</span>
+                        <span class="breakdown-share">@share.ToString( "0%", CultureInfo.InvariantCulture )</span>
+                    </button>
+                </li>
+            }
+        </ol>
+    }
+</section>
+
+@code {
+    private static readonly (Dimension Dimension, string Label)[] s_Dimensions = [ ( Dimension.Severity, "Severity" ), ( Dimension.Service, "Service" ), ( Dimension.Metric, "Metric" ) ];
+
+    /// <summary> Buckets for records without the value; there is nothing to filter on. </summary>
+    private static readonly HashSet<string> s_Placeholders = new(StringComparer.Ordinal) { "Unknown", "unnamed" };
+
+    [Parameter] public IReadOnlyList<NamedValueDto> Severities { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<NamedValueDto> Services   { get; set; } = [ ];
+    [Parameter] public IReadOnlyList<NamedValueDto> Metrics    { get; set; } = [ ];
+
+    /// <summary> How many records of each signal are loaded: the shares are of these. </summary>
+    [Parameter] public int LoadedLogs    { get; set; }
+    [Parameter] public int LoadedSpans   { get; set; }
+    [Parameter] public int LoadedMetrics { get; set; }
+
+    /// <summary> The explorer's current filters ("all" when none), so the matching row shows as selected. </summary>
+    [Parameter] public string SelectedSeverity { get; set; } = "all";
+    [Parameter] public string SelectedService    { get; set; } = "all";
+    [Parameter] public string SelectedMetricName { get; set; } = "all";
+
+    /// <summary> A row was clicked: the value to filter on, or "all" to clear. </summary>
+    [Parameter] public EventCallback<string> SeveritySelected { get; set; }
+    [Parameter] public EventCallback<string> ServiceSelected  { get; set; }
+    [Parameter] public EventCallback<string> MetricSelected   { get; set; }
+
+    private Dimension _dimension = Dimension.Severity;
+
+    private IReadOnlyList<NamedValueDto> Items => _dimension switch
+                                                  {
+                                                      Dimension.Service => Services,
+                                                      Dimension.Metric  => Metrics,
+                                                      _                 => Severities
+                                                  };
+
+    private int Total => _dimension switch
+                         {
+                             Dimension.Service => LoadedLogs + LoadedSpans + LoadedMetrics,
+                             Dimension.Metric  => LoadedMetrics,
+                             _                 => LoadedLogs
+                         };
+
+    private string Selected => _dimension switch
+                               {
+                                   Dimension.Service => SelectedService,
+                                   Dimension.Metric  => SelectedMetricName,
+                                   _                 => SelectedSeverity
+                               };
+
+    private string Noun => _dimension switch
+                           {
+                               Dimension.Service => "service",
+                               Dimension.Metric  => "metric",
+                               _                 => "severity"
+                           };
+
+    private string Caption => _dimension switch
+                              {
+                                  Dimension.Service => $"Services among the {LoadedLogs + LoadedSpans + LoadedMetrics:N0} most recent records. Click one to filter the table.",
+                                  Dimension.Metric  => $"Metrics among the {LoadedMetrics:N0} most recent metric points. Click one to show it in the table.",
+                                  _                 => $"Severities of the {LoadedLogs:N0} most recent logs. Click one to filter the logs."
+                              };
+
+    private Task SelectAsync( string name )
+    {
+        string value = string.Equals( name, Selected, StringComparison.OrdinalIgnoreCase ) ? "all" : name;
+
+        return _dimension switch
+               {
+                   Dimension.Service => ServiceSelected.InvokeAsync( value ),
+                   Dimension.Metric  => MetricSelected.InvokeAsync( value ),
+                   _                 => SeveritySelected.InvokeAsync( value )
+               };
+    }
+
+    private enum Dimension
+    {
+        Severity,
+        Service,
+        Metric
+    }
+}

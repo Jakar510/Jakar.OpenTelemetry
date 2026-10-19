@@ -63,7 +63,7 @@
                             <ul class="trace-services" aria-label="Services">
                                 @for ( int i = 0; i < Tree.Services.Count; i++ )
                                 {
-                                    <li><span class="svc-dot svc-@( i % TelemetryTraceTree.SERVICE_COLORS )"></span>@( string.IsNullOrEmpty( Tree.Services[i] ) ? "unknown" : Tree.Services[i] )</li>
+                                    <li><span class="svc-dot" style="--svc: @TelemetryTraceTree.ColorOf( Tree.Services[i] )"></span>@( string.IsNullOrEmpty( Tree.Services[i] ) ? "unknown" : Tree.Services[i] )</li>
                                 }
                             </ul>
                             <button type="button" class="action-button small" @onclick="ExpandAll" disabled="@( _collapsed.Count == 0 )">Expand all</button>
@@ -75,30 +75,46 @@
                             @for ( int i = 0; i < Tree.Rows.Count; i++ )
                             {
                                 TelemetryTraceRow row = Tree.Rows[i];
-                                <span class="svc-@row.ServiceIndex @( row.Span.ID == _span?.ID ? "selected" : string.Empty )"
-                                      style="left: @Percent( row.OffsetPercent ); width: @Percent( row.WidthPercent ); top: @Percent( 100.0 * i / Tree.Rows.Count ); height: @Percent( 100.0 / Tree.Rows.Count )"></span>
+                                <span class="@( row.Span.ID == _span?.ID ? "selected" : string.Empty )"
+                                      style="--op: @row.OperationColor; left: @Percent( row.OffsetPercent ); width: @Percent( row.WidthPercent ); top: @Percent( 100.0 * i / Tree.Rows.Count ); height: @Percent( 100.0 / Tree.Rows.Count )"></span>
                             }
                         </div>
 
-                        <div class="trace-header">
-                            <div class="trace-header-label">Service &amp; Operation</div>
-                            <div class="trace-ticks" aria-hidden="true">
-                                @foreach ( ( double percent, double milliseconds ) in Tree.Ticks() )
-                                {
-                                    <span style="left: @Percent( percent )">@TelemetryDashboardFormatter.FormatDuration( milliseconds )</span>
-                                }
-                            </div>
-                        </div>
-
+                        @*
+                          One grid for the header and every row (rows are subgrids), so the Service and Operation columns size to their longest value across the
+                          whole trace (up to a cap). The handles in the header drag those widths; portal.js applies and remembers them.
+                        *@
                         <ol class="trace-waterfall">
+                            <li class="trace-header">
+                                <div class="trace-header-cell">
+                                    Service
+                                    <span class="trace-resizer" data-resize="--trace-service-width" role="separator" aria-orientation="vertical" aria-label="Resize the service column" tabindex="0" title="Drag to resize (double-click resets)"></span>
+                                </div>
+                                <div class="trace-header-cell">
+                                    Operation
+                                    <span class="trace-resizer" data-resize="--trace-operation-width" role="separator" aria-orientation="vertical" aria-label="Resize the operation column" tabindex="0" title="Drag to resize (double-click resets)"></span>
+                                </div>
+                                <div class="trace-ticks" aria-hidden="true">
+                                    @foreach ( ( double percent, double milliseconds ) in Tree.Ticks() )
+                                    {
+                                        <span style="left: @Percent( percent )">@TelemetryDashboardFormatter.FormatDuration( milliseconds, 1 )</span>
+                                    }
+                                </div>
+                            </li>
+
                             @foreach ( TelemetryTraceRow row in Tree.Visible( _collapsed ) )
                             {
                                 TelemetrySpanRecordDto span      = row.Span;
                                 bool                   selected  = span.ID == _span?.ID;
                                 bool                   error     = string.Equals( span.StatusCode, "Error", StringComparison.OrdinalIgnoreCase );
                                 bool                   collapsed = _collapsed.Contains( span.ID );
+                                string                 service   = span.ServiceName ?? "unknown";
 
                                 <li @key="span.ID" class="trace-row @( selected ? "selected" : string.Empty )">
+                                    <div class="trace-service-cell" title="@service" @onclick="() => PickSpan( span )">
+                                        <span class="svc-stripe" style="--svc: @row.ServiceColor"></span>
+                                        <span class="trace-service">@service</span>
+                                    </div>
                                     <div class="trace-label" style="padding-left: @( row.Depth * 0.9 )rem">
                                         @if ( row.HasChildren )
                                         {
@@ -115,10 +131,9 @@
                                         <button type="button"
                                                 class="trace-select"
                                                 aria-pressed="@( selected ? "true" : "false" )"
-                                                title="@( $"{span.ServiceName ?? "unknown"}: {span.Name} ({TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )})" )"
+                                                title="@( $"{service}: {span.Name} ({TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )})" )"
                                                 @onclick="() => PickSpan( span )">
-                                            <span class="svc-stripe svc-@row.ServiceIndex"></span>
-                                            <span class="trace-service">@( span.ServiceName ?? "unknown" )</span>
+                                            <span class="op-dot" style="--op: @row.OperationColor"></span>
                                             <span class="trace-name">@( span.Name ?? "span" )</span>
                                             @if ( error )
                                             {
@@ -127,8 +142,8 @@
                                         </button>
                                     </div>
                                     <div class="trace-track" @onclick="() => PickSpan( span )">
-                                        <span class="trace-bar svc-@row.ServiceIndex @( error ? "is-error" : string.Empty )"
-                                              style="left: @Percent( row.OffsetPercent ); width: @Percent( row.WidthPercent )"></span>
+                                        <span class="trace-bar @( error ? "is-error" : string.Empty )"
+                                              style="--op: @row.OperationColor; left: @Percent( row.OffsetPercent ); width: @Percent( row.WidthPercent )"></span>
                                         @foreach ( double mark in LogMarks( span ) )
                                         {
                                             <span class="trace-log-mark" style="left: @Percent( mark )"></span>

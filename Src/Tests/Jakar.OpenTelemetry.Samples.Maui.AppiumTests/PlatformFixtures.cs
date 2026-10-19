@@ -278,11 +278,11 @@ public sealed class AndroidSampleTests : MauiSampleTests
 		await RelaunchAsync();
 		WaitForElement( "FlushButton" );
 		Tap( "TracedOperationButton" );
-		WaitForStatus( "Traced operation " );
+		WaitForStatus( "Traced checkout " );
 		Tap( "FlushButton" );
 		WaitForStatus( "Telemetry flushed" );
 
-		await Telemetry.WaitForAsync( "Logs", """ "ResourceAttributesJson"->>'os.name' = 'Android' AND "Body" = 'Sample traced operation finished'""" );
+		await Telemetry.WaitForAsync( "Logs", """ "ResourceAttributesJson"->>'os.name' = 'Android' AND "Body" LIKE 'Sample checkout finished:%'""" );
 		Assert.That( await Telemetry.CountAsync( "Logs", """ "Body" LIKE '%without a clean shutdown%'""" ), Is.Zero, "a backgrounded app killed by the OS is not a crash" );
 	}
 }

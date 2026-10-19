@@ -4,23 +4,21 @@ namespace Jakar.OpenTelemetry.Api.Components.Dashboard;
 
 /// <summary>
 ///     A span placed in the trace waterfall: its depth under its parent, its bar as percentages of the trace's time range, whether it has children (it can be
-///     collapsed), and its service's color slot (services are numbered in the order they first appear in the trace).
+///     collapsed), and the colors of its service and its operation (<see cref="TelemetryTraceTree.ColorOf"/>: the same name always gets the same color).
 /// </summary>
 public sealed record TelemetryTraceRow( TelemetrySpanRecordDto Span,
 										int                    Depth,
 										double                 OffsetPercent,
 										double                 WidthPercent,
 										bool                   HasChildren,
-										int                    ServiceIndex );
+										string                 ServiceColor,
+										string                 OperationColor );
 
 
 
 /// <summary> Orders a trace's spans as a tree (each parent followed by its children, siblings by start time) and lays them out on a shared timeline. </summary>
 public sealed class TelemetryTraceTree
 {
-	/// <summary> Distinct service colors; services beyond this reuse them. </summary>
-	public const int SERVICE_COLORS = 10;
-
 	/// <summary> The narrowest bar drawn, so instant spans stay visible and clickable. </summary>
 	private const double MIN_WIDTH_PERCENT = 0.5;
 
@@ -92,14 +90,14 @@ public sealed class TelemetryTraceTree
 							   : 100;
 
 			string service = span.ServiceName ?? string.Empty;
-			if ( !services.TryGetValue( service, out int serviceIndex ) ) { services[service] = serviceIndex = services.Count; }
+			if ( !services.ContainsKey( service ) ) { services[service] = services.Count; }
 
 			IEnumerable<TelemetrySpanRecordDto> kids = span.SpanId is null
 														   ? [ ]
 														   : Ordered( children[span.SpanId].Where( x => !visited.Contains( x.ID ) ) ).ToArray();
 
 			offset = Math.Clamp( offset, 0, 100 - MIN_WIDTH_PERCENT );
-			rows.Add( new TelemetryTraceRow( span, depth, offset, Math.Clamp( width, MIN_WIDTH_PERCENT, 100 - offset ), kids.Any(), serviceIndex % SERVICE_COLORS ) );
+			rows.Add( new TelemetryTraceRow( span, depth, offset, Math.Clamp( width, MIN_WIDTH_PERCENT, 100 - offset ), kids.Any(), ColorOf( service ), ColorOf( span.Name ) ) );
 
 			foreach ( TelemetrySpanRecordDto child in kids ) { Add( child, depth + 1 ); }
 		}
@@ -128,6 +126,37 @@ public sealed class TelemetryTraceTree
 		for ( int i = 0; i <= 4; i++ ) { yield return ( i * 25, DurationMilliseconds * i / 4 ); }
 	}
 
+
+	/// <summary>
+	///     The CSS color of a service or operation, from the name alone: the same name has the same color in every trace, every session and on every server. The
+	///     hue comes from the whole color wheel and the lightness from one of three levels, so two names rarely look alike.
+	/// </summary>
+	public static string ColorOf( string? name )
+	{
+		uint hash = Hash( name );
+		return $"hsl({hash % 360} 72% {s_Lightness[( hash >> 9 ) % 3]}%)";
+	}
+
+	private static readonly int[] s_Lightness = [ 52, 62, 72 ];
+
+	/// <summary> FNV-1a with a final mix (<see cref="string.GetHashCode()"/> changes with every process; plain FNV leaves similar names with similar hues). </summary>
+	internal static uint Hash( string? name )
+	{
+		uint hash = 2166136261;
+
+		foreach ( char c in name ?? string.Empty )
+		{
+			hash ^= c;
+			hash *= 16777619;
+		}
+
+		hash ^= hash >> 16;
+		hash *= 0x85ebca6b;
+		hash ^= hash >> 13;
+		hash *= 0xc2b2ae35;
+		hash ^= hash >> 16;
+		return hash;
+	}
 
 	private static DateTimeOffset Start( TelemetrySpanRecordDto span ) => span.StartTimeUtc ?? span.ReceivedAtUtc;
 
