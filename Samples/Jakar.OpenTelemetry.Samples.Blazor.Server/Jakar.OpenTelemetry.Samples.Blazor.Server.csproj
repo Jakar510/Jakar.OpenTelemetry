@@ -8,7 +8,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client.Blazor.Server\Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
+        <ProjectReference Include="..\..\Src\Clients\Jakar.OpenTelemetry.Api.Client.Blazor.Server\Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
     </ItemGroup>
 
 </Project>

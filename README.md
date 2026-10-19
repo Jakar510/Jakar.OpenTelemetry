@@ -12,9 +12,9 @@ It currently includes:
   - exposes minimal API snapshot endpoints
   - publishes live updates over SignalR
   - serves an interactive Blazor dashboard and an error screenshots page
-- `Jakar.OpenTelemetry.Contracts`
+- `Src/Jakar.OpenTelemetry.Contracts`
   Shared DTOs and contracts used between the API, UI and clients (including the `image:{file-name}:{id}` tag format)
-- `Clients/Jakar.OpenTelemetry.Api.Client` (+ `.AspNet`, `.Blazor.WebAssembly`, `.Blazor.Server`, `.Maui`)
+- `Src/Clients/Jakar.OpenTelemetry.Api.Client` (+ `.AspNet`, `.Blazor.WebAssembly`, `.Blazor.Server`, `.Maui`)
   Durable client libraries: OTLP export, crash reports and screenshot uploads, optimized per platform (see [Client Libraries](#client-libraries))
 - `Samples/*`
   One runnable sample per client package (see [Samples](#samples)); `Jakar.OpenTelemetry.Source` is the ASP.NET Core one
@@ -41,14 +41,16 @@ It currently includes:
 
 ```text
 Jakar.OpenTelemetry.slnx
-|- Jakar.OpenTelemetry.Api
-|- Jakar.OpenTelemetry.Contracts
-|- Clients/
-|  |- Jakar.OpenTelemetry.Api.Client
-|  |- Jakar.OpenTelemetry.Api.Client.AspNet
-|  |- Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly
-|  |- Jakar.OpenTelemetry.Api.Client.Blazor.Server
-|  \- Jakar.OpenTelemetry.Api.Client.Maui
+|- Src/
+|  |- Jakar.OpenTelemetry.Api
+|  |- Jakar.OpenTelemetry.Contracts
+|  |- Clients/
+|  |  |- Jakar.OpenTelemetry.Api.Client
+|  |  |- Jakar.OpenTelemetry.Api.Client.AspNet
+|  |  |- Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly
+|  |  |- Jakar.OpenTelemetry.Api.Client.Blazor.Server
+|  |  \- Jakar.OpenTelemetry.Api.Client.Maui
+|  \- Tests/
 \- Samples/
    |- Jakar.OpenTelemetry.Source                      (ASP.NET Core)
    |- Jakar.OpenTelemetry.Samples.Console             (generic client)
@@ -143,7 +145,7 @@ Default target:
 
 Primary development settings live in:
 
-- [appsettings.Development.json](W:/WorkSpace/Jakar.OpenTelemetry/Jakar.OpenTelemetry.Api/appsettings.Development.json:1)
+- [appsettings.Development.json](Src/Jakar.OpenTelemetry.Api/appsettings.Development.json)
 
 Default development URLs:
 
@@ -202,7 +204,7 @@ Example auth settings:
 
 Sample source settings live in:
 
-- [appsettings.json](W:/WorkSpace/Jakar.OpenTelemetry/Samples/Jakar.OpenTelemetry.Source/appsettings.json:1)
+- [appsettings.json](Samples/Jakar.OpenTelemetry.Source/appsettings.json)
 
 Default values:
 
@@ -231,7 +233,7 @@ On startup the API runs an idempotent schema script (`Data/TelemetrySchema.cs`) 
 ### 2. Build the solution
 
 ```powershell
-dotnet build W:\WorkSpace\Jakar.OpenTelemetry\Jakar.OpenTelemetry.slnx
+dotnet build Jakar.OpenTelemetry.slnx
 ```
 
 ### 3. Run the API
@@ -502,7 +504,7 @@ Each sample points at the API's development endpoint and dev API key; run the AP
 
 - The dashboard is part of `Jakar.OpenTelemetry.Api`; there is no separate portal project anymore.
 - The current UI is server-rendered Blazor with interactive server components.
-- Jakar.Json reads and writes `IReadOnlyDictionary<,>` but not `ReadOnlyDictionary<,>`, so the DTOs' attribute and quantile dictionaries use the converters in `Jakar.OpenTelemetry.Contracts/JsonConverters.cs`.
+- Jakar.Json reads and writes `IReadOnlyDictionary<,>` but not `ReadOnlyDictionary<,>`, so the DTOs' attribute and quantile dictionaries use the converters in `Src/Jakar.OpenTelemetry.Contracts/JsonConverters.cs`.
 - The API currently supports PostgreSQL only.
 
 ## Verification

@@ -18,13 +18,13 @@
 ## Running
 
 ```powershell
-./Tests/run-tests.ps1                    # unit + integration with the coverage report (coverage/index.html) and gate
-./Tests/run-tests.ps1 -Suite unit        # no Docker or PostgreSQL needed
-./Tests/run-tests.ps1 -Suite automation
-./Tests/run-tests.ps1 -Suite appium
+./Src/Tests/run-tests.ps1                    # unit + integration with the coverage report (coverage/index.html) and gate
+./Src/Tests/run-tests.ps1 -Suite unit        # no Docker or PostgreSQL needed
+./Src/Tests/run-tests.ps1 -Suite automation
+./Src/Tests/run-tests.ps1 -Suite appium
 ```
 
-Plain `dotnet test Tests/<project>` works too. Coverage excludes the samples, Razor markup (`*.razor`) and generated protobuf/source-generated code (`Tests/coverage.runsettings`); the few members that only run inside a browser or on a device are marked `[ExcludeFromCodeCoverage]` and are exercised by the automation suites.
+Plain `dotnet test Src/Tests/<project>` works too. Coverage excludes the samples, Razor markup (`*.razor`) and generated protobuf/source-generated code (`Src/Tests/coverage.runsettings`); the few members that only run inside a browser or on a device are marked `[ExcludeFromCodeCoverage]` and are exercised by the automation suites.
 
 ## PostgreSQL
 
@@ -43,7 +43,7 @@ Every fixture gets its own throwaway database (`jakar_otel_test_*`), dropped at 
 | `JAKAR_OTEL_TEST_BROWSER_CHANNEL` | `msedge` or `chrome` to use an installed browser |
 | `JAKAR_OTEL_TEST_HEADED` | `1` to watch the browser |
 
-Without a channel, Playwright's own Chromium is used (`pwsh Tests/Jakar.OpenTelemetry.Samples.AutomationTests/bin/Debug/net10.0/playwright.ps1 install chromium`), falling back to an installed Edge or Chrome. The WebAssembly sample is published to `%TEMP%/jakar-otel-tests/wasm-sample` on first run.
+Without a channel, Playwright's own Chromium is used (`pwsh Src/Tests/Jakar.OpenTelemetry.Samples.AutomationTests/bin/Debug/net10.0/playwright.ps1 install chromium`), falling back to an installed Edge or Chrome. The WebAssembly sample is published to `%TEMP%/jakar-otel-tests/wasm-sample` on first run.
 
 ## Appium (MAUI sample)
 

@@ -56,12 +56,14 @@ public static class JakarTelemetryServiceCollectionExtensions
 			services.TryAddSingleton<ITelemetryFlusher, OpenTelemetrySdkFlusher>();
 			services.TryAddSingleton<JakarCrashReporter>();
 			services.TryAddSingleton<TelemetryImageUploader>();
+			services.TryAddSingleton<PersistedExportReplayer>();
 			services.TryAddSingleton<JakarTelemetryRuntime>();
 			services.TryAddSingleton<ITelemetryClient, TelemetryClient>();
 			services.TryAddTransient<TelemetryHttpMessageHandler>();
 
 			// Per-request timeouts are enforced by the uploader, so large images on slow links are not cut off by HttpClient's default.
-			services.AddHttpClient( TelemetryImageUploader.HTTP_CLIENT_NAME, static client => client.Timeout = Timeout.InfiniteTimeSpan );
+			services.AddHttpClient( TelemetryImageUploader.HTTP_CLIENT_NAME,  static client => client.Timeout = Timeout.InfiniteTimeSpan );
+			services.AddHttpClient( PersistedExportReplayer.HTTP_CLIENT_NAME, static client => client.Timeout = Timeout.InfiniteTimeSpan );
 
 			return options;
 		}
@@ -70,7 +72,7 @@ public static class JakarTelemetryServiceCollectionExtensions
 		{
 			if ( options.PersistFailedExports )
 			{
-				string directory = Path.Combine( options.ResolveStorageDirectory(), "otlp" );
+				string directory = Path.Combine( options.ResolveStorageDirectory(), PersistedExportReplayer.DIRECTORY_NAME );
 				Directory.CreateDirectory( directory );
 				configuration.AddInMemoryCollection( [ new KeyValuePair<string, string?>( OTLP_RETRY_KEY, "disk" ), new KeyValuePair<string, string?>( OTLP_RETRY_DIRECTORY_KEY, directory ) ] );
 			}

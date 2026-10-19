@@ -1,0 +1,264 @@
+@using Jakar.OpenTelemetry.Api.Services
+@implements IDisposable
+
+<div class="dialog-backdrop" @onclick="() => Close.InvokeAsync()">
+    <div class="dialog @( Trace is null ? string.Empty : "has-trace" )"
+         role="dialog"
+         aria-modal="true"
+         aria-labelledby="record-details-title"
+         tabindex="-1"
+         @ref="_dialog"
+         @onclick:stopPropagation="true"
+         @onkeydown="OnKeyDown">
+        <div class="dialog-head">
+            <p class="eyebrow">Live updates are paused while this is open</p>
+            <button type="button" class="action-button" @onclick="() => Close.InvokeAsync()" aria-label="Close details">Close</button>
+        </div>
+
+        <div class="dialog-body">
+            @if ( Trace is { } trace )
+            {
+                <section class="trace-view" aria-label="Trace">
+                    <div class="panel-head">
+                        <div>
+                            <p class="eyebrow">Trace</p>
+                            <h3><code class="wrap">@trace.TraceId</code></h3>
+                        </div>
+                        <span>
+                            @Tree.Rows.Count spans | @TelemetryDashboardFormatter.FormatDuration( Tree.DurationMilliseconds ) | @Tree.ServiceCount service(s)
+                            @if ( Tree.ErrorCount > 0 )
+                            {
+                                <span class="badge sev-error">@Tree.ErrorCount error(s)</span>
+                            }
+                        </span>
+                    </div>
+
+                    @if ( _loadingTrace )
+                    {
+                        <p class="muted" role="status">Loading the whole trace...</p>
+                    }
+                    else if ( _traceError is not null )
+                    {
+                        <p class="muted" role="status">@_traceError</p>
+                    }
+
+                    @if ( Tree.Rows.Count == 0 )
+                    {
+                        <p class="empty-state">No spans of this trace have been received.</p>
+                    }
+                    else
+                    {
+                        <ol class="trace-waterfall">
+                            @foreach ( TelemetryTraceRow row in Tree.Rows )
+                            {
+                                TelemetrySpanRecordDto span = row.Span;
+
+                                <li @key="span.ID">
+                                    <button type="button"
+                                            class="trace-row @( span.ID == _span?.ID ? "selected" : string.Empty )"
+                                            aria-pressed="@( span.ID == _span?.ID ? "true" : "false" )"
+                                            title="@( $"{span.Name} ({span.ServiceName ?? "unknown"}) {TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )}" )"
+                                            @onclick="() => PickSpan( span )">
+                                        <span class="trace-label" style="padding-left: @( row.Depth * 0.9 )rem">
+                                            <span class="trace-name">@( span.Name ?? "span" )</span>
+                                            <span class="muted">@( span.ServiceName ?? "unknown" )</span>
+                                        </span>
+                                        <span class="trace-track">
+                                            <span class="trace-bar @TelemetryDashboardFormatter.StatusClass( span.StatusCode )"
+                                                  style="left: @Percent( row.OffsetPercent ); width: @Percent( row.WidthPercent )"></span>
+                                        </span>
+                                        <span class="trace-duration">@TelemetryDashboardFormatter.FormatDuration( span.DurationMilliseconds )</span>
+                                    </button>
+                                </li>
+                            }
+                        </ol>
+                    }
+
+                    @if ( trace.Logs.Count > 0 )
+                    {
+                        <details class="attribute-group" open>
+                            <summary>Logs in this trace <span class="muted">(@trace.Logs.Count)</span></summary>
+                            <div class="table-wrap">
+                                <table class="selectable">
+                                    <tbody>
+                                    @foreach ( TelemetryLogRecordDto log in trace.Logs )
+                                    {
+                                        <tr @key="log.ID"
+                                            class="@TelemetryDashboardFormatter.RowClass( log.ID == _log?.ID )"
+                                            tabindex="0"
+                                            aria-selected="@( log.ID == _log?.ID ? "true" : "false" )"
+                                            @onclick="() => PickLog( log )"
+                                            @onkeydown="args => OnLogKeyDown( args, log )">
+                                            <td>@TelemetryDashboardFormatter.FormatDate( log.TimestampUtc ?? log.ObservedTimestampUtc ?? log.ReceivedAtUtc )</td>
+                                            <td><span class="badge @TelemetryDashboardFormatter.SeverityClass( log.SeverityNumber )">@( log.SeverityText ?? log.SeverityNumber.ToString() )</span></td>
+                                            <td>@TelemetryDashboardFormatter.Trim( log.Body, 120 )</td>
+                                        </tr>
+                                    }
+                                    </tbody>
+                                </table>
+                            </div>
+                        </details>
+                    }
+                </section>
+            }
+
+            @if ( _log is not null || _span is not null || _metric is not null )
+            {
+                <TelemetryRecordDetails Log="_log"
+                                        Span="_span"
+                                        Metric="_metric"
+                                        ShowTrace="ShowTrace"
+                                        OpenTrace="args => OpenTraceAsync( args.TraceId, args.SpanId )" />
+            }
+        </div>
+    </div>
+</div>
+
+@code {
+    [Inject] public required TelemetryQueryService Telemetry { get; init; }
+
+    /// <summary> The record that was clicked; opening a span opens its whole trace. </summary>
+    [Parameter] public TelemetryLogRecordDto? Log { get; set; }
+
+    [Parameter] public TelemetrySpanRecordDto?   Span   { get; set; }
+    [Parameter] public TelemetryMetricRecordDto? Metric { get; set; }
+
+    /// <summary> What the dashboard already has loaded, shown at once while the whole trace loads (and kept if it can't be loaded). </summary>
+    [Parameter] public IReadOnlyList<TelemetrySpanRecordDto> KnownSpans { get; set; } = [ ];
+
+    [Parameter] public IReadOnlyList<TelemetryLogRecordDto>              KnownLogs { get; set; } = [ ];
+    [Parameter] public EventCallback                                     Close     { get; set; }
+    [Parameter] public EventCallback<(string TraceId, TelemetryTab Tab)> ShowTrace { get; set; }
+
+    private ElementReference         _dialog;
+    private CancellationTokenSource? _loading;
+    private Guid?                    _opened;
+    private bool                     _focused;
+    private bool                     _loadingTrace;
+    private string?                  _traceError;
+    private string?                  _wantedSpanId;
+    private TelemetryLogRecordDto?   _log;
+    private TelemetrySpanRecordDto?  _span;
+    private TelemetryMetricRecordDto? _metric;
+
+    private TelemetryTraceDto? Trace { get; set; }
+    private TelemetryTraceTree Tree  { get; set; } = TelemetryTraceTree.Build( [ ] );
+
+
+    public void Dispose()
+    {
+        _loading?.Cancel();
+        _loading?.Dispose();
+    }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        Guid? opened = Log?.ID ?? Span?.ID ?? Metric?.ID;
+        if ( opened == _opened ) { return; }
+
+        _opened = opened;
+        _log    = Log;
+        _span   = Span;
+        _metric = Metric;
+        Trace   = null;
+
+        if ( Span is { TraceId: { } traceId } span ) { await OpenTraceAsync( traceId, span.SpanId ); }
+    }
+
+    protected override async Task OnAfterRenderAsync( bool firstRender )
+    {
+        if ( _focused ) { return; }
+
+        _focused = true;
+
+        try { await _dialog.FocusAsync(); } // Escape closes it, so keyboard focus must start inside
+        catch ( Exception e ) when ( e is JSException or JSDisconnectedException or InvalidOperationException ) { }
+    }
+
+    /// <summary> Shows the trace from what is loaded right away, then replaces it with every span and log of the trace from the database. </summary>
+    private async Task OpenTraceAsync( string traceId, string? spanId )
+    {
+        _loading?.Cancel();
+        _loading?.Dispose();
+        _loading = new CancellationTokenSource();
+        CancellationToken token = _loading.Token;
+
+        // A linked trace replaces the current one; a log keeps its details while its own trace opens around it.
+        if ( _span?.TraceId != traceId ) { _span = null; }
+
+        if ( _log?.TraceId != traceId ) { _log = null; }
+
+        _metric       = null;
+        _wantedSpanId = spanId;
+        SetTrace( new TelemetryTraceDto( traceId,
+                                         KnownSpans.Where( x => x.TraceId == traceId ).ToArray(),
+                                         KnownLogs.Where( x => x.TraceId == traceId ).OrderBy( static x => x.TimestampUtc ?? x.ObservedTimestampUtc ?? x.ReceivedAtUtc ).ToArray() ) );
+
+        _loadingTrace = true;
+        _traceError   = null;
+        StateHasChanged();
+
+        try
+        {
+            TelemetryTraceDto loaded = await Telemetry.GetTraceAsync( traceId, token );
+            if ( token.IsCancellationRequested ) { return; }
+
+            if ( loaded.Spans.Count > 0 || loaded.Logs.Count > 0 ) { SetTrace( loaded ); }
+        }
+        catch ( OperationCanceledException ) when ( token.IsCancellationRequested ) { return; }
+        catch ( Exception e ) { _traceError = $"Showing only the spans already loaded: the whole trace couldn't be loaded ({e.Message.TrimEnd( '.' )})."; }
+
+        _loadingTrace = false;
+    }
+
+    private void SetTrace( TelemetryTraceDto trace )
+    {
+        Trace = trace;
+        Tree  = TelemetryTraceTree.Build( trace.Spans );
+
+        // The fresh copies of what is selected (the database has the trace's latest spans).
+        if ( _span is { } span ) { _span = trace.Spans.FirstOrDefault( x => x.ID == span.ID ) ?? span; }
+
+        if ( _log is { } log ) { _log = trace.Logs.FirstOrDefault( x => x.ID == log.ID ) ?? log; }
+
+        // The span the trace was opened for, once it is there (it may only arrive with the database copy); with nothing selected, the trace's first span.
+        if ( _wantedSpanId is not null && trace.Spans.FirstOrDefault( x => x.SpanId == _wantedSpanId ) is { } wanted )
+        {
+            SelectSpan( wanted );
+            _wantedSpanId = null;
+        }
+        else if ( _span is null && _log is null && Tree.Rows.Count > 0 ) { SelectSpan( Tree.Rows[0].Span ); }
+    }
+
+    private void SelectSpan( TelemetrySpanRecordDto span )
+    {
+        _span   = span;
+        _log    = null;
+        _metric = null;
+    }
+
+    private void PickSpan( TelemetrySpanRecordDto span )
+    {
+        _wantedSpanId = null; // the user's choice wins over the span the trace was opened for
+        SelectSpan( span );
+    }
+
+    private void PickLog( TelemetryLogRecordDto log )
+    {
+        _wantedSpanId = null;
+        _log          = log;
+        _span         = null;
+        _metric       = null;
+    }
+
+    private void OnLogKeyDown( KeyboardEventArgs args, TelemetryLogRecordDto log )
+    {
+        if ( TelemetryDashboardFormatter.IsActivationKey( args ) ) { PickLog( log ); }
+    }
+
+    private Task OnKeyDown( KeyboardEventArgs args ) => args.Key == "Escape"
+                                                            ? Close.InvokeAsync()
+                                                            : Task.CompletedTask;
+
+    private static string Percent( double value ) => value.ToString( "0.###", System.Globalization.CultureInfo.InvariantCulture ) + "%";
+}

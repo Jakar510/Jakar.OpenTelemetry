@@ -130,11 +130,13 @@
 
     @if ( SelectedLog is not null || SelectedSpan is not null || SelectedMetric is not null )
     {
-        <TelemetryRecordDetails Log="SelectedLog"
-                                Span="SelectedSpan"
-                                Metric="SelectedMetric"
-                                Close="CloseDetails"
-                                ShowTrace="args => ShowTrace( args.TraceId, args.Tab )" />
+        <TelemetryRecordDialog Log="SelectedLog"
+                               Span="SelectedSpan"
+                               Metric="SelectedMetric"
+                               KnownSpans="@( Snapshot?.Spans ?? [ ] )"
+                               KnownLogs="@( Snapshot?.Logs ?? [ ] )"
+                               Close="CloseDetailsAsync"
+                               ShowTrace="args => ShowTraceAsync( args.TraceId, args.Tab )" />
     }
 
     @if ( !IsLoading && Snapshot is null or { Overview: { TotalLogs: 0, TotalSpans: 0, TotalMetrics: 0 } } )

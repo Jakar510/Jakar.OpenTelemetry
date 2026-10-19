@@ -71,7 +71,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client.Maui\Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
+		<ProjectReference Include="..\..\Src\Clients\Jakar.OpenTelemetry.Api.Client.Maui\Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
 	</ItemGroup>
 
 </Project>

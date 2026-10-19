@@ -44,6 +44,7 @@ public sealed class JakarTelemetryRuntime( IServiceProvider                servi
 		catch ( Exception e ) { logger.LogWarning( e, "Could not replay crash reports from previous sessions" ); }
 
 		uploader.Start();
+		services.GetService<PersistedExportReplayer>()?.Start(); // logs and spans saved by earlier sessions, before the SDK's own retry (a minute in)
 		return Task.CompletedTask;
 	}
 

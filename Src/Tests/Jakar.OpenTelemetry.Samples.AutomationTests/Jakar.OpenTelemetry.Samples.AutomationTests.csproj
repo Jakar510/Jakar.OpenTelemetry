@@ -16,9 +16,9 @@
     <ItemGroup>
         <ProjectReference Include="..\Jakar.OpenTelemetry.Testing\Jakar.OpenTelemetry.Testing.csproj" />
         <!-- Built before the tests run; launched as separate processes. -->
-        <ProjectReference Include="..\..\Samples\Jakar.OpenTelemetry.Samples.Console\Jakar.OpenTelemetry.Samples.Console.csproj" ReferenceOutputAssembly="false" />
-        <ProjectReference Include="..\..\Samples\Jakar.OpenTelemetry.Source\Jakar.OpenTelemetry.Source.csproj" ReferenceOutputAssembly="false" />
-        <ProjectReference Include="..\..\Samples\Jakar.OpenTelemetry.Samples.Blazor.Server\Jakar.OpenTelemetry.Samples.Blazor.Server.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Samples\Jakar.OpenTelemetry.Samples.Console\Jakar.OpenTelemetry.Samples.Console.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Samples\Jakar.OpenTelemetry.Source\Jakar.OpenTelemetry.Source.csproj" ReferenceOutputAssembly="false" />
+        <ProjectReference Include="..\..\..\Samples\Jakar.OpenTelemetry.Samples.Blazor.Server\Jakar.OpenTelemetry.Samples.Blazor.Server.csproj" ReferenceOutputAssembly="false" />
     </ItemGroup>
 
     <ItemGroup>

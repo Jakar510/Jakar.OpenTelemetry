@@ -119,6 +119,26 @@ public sealed class TelemetryQueryServiceTests : ApiFixture
 		finally { await ExecuteAsync( """ANALYZE "Logs" """ ); }
 	}
 
+	[Test] public async Task Trace_ReturnsEverySpanAndLogOfThatTraceOnly()
+	{
+		byte[] other = Convert.FromHexString( "ffffffffffffffffffffffffffffffff" );
+
+		await Ingest.IngestSpansAsync( Otlp.Traces( Otlp.Span( "child", spanId: Convert.FromHexString( "b1b2b3b4b5b6b7b8" ) ), Otlp.Span( "root" ), Otlp.Span( "elsewhere", other ) ), CancellationToken.None );
+		await Ingest.IngestLogsAsync( Otlp.Logs( Otlp.Log( "inside" ) ),                                                                                                       CancellationToken.None );
+
+		TelemetryTraceDto trace   = await Query.GetTraceAsync( "0102030405060708090a0b0c0d0e0f10", CancellationToken.None );
+		TelemetryTraceDto unknown = await Query.GetTraceAsync( "00000000000000000000000000000000", CancellationToken.None );
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( trace.TraceId,                             Is.EqualTo( "0102030405060708090a0b0c0d0e0f10" ) );
+							 Assert.That( trace.Spans.Select( static x => x.Name ), Is.EquivalentTo( new[] { "child", "root" } ) );
+							 Assert.That( trace.Logs.Single().Body,                 Is.EqualTo( "inside" ) );
+							 Assert.That( unknown.Spans,                            Is.Empty );
+							 Assert.That( unknown.Logs,                             Is.Empty );
+						 } );
+	}
+
 	[Test] public async Task ScreenshotLogs_FilterByErrorServiceAndLog_WithUploadState()
 	{
 		ImageTag uploaded = ImageTag.Create( "uploaded.png" );

@@ -706,25 +706,151 @@ public sealed class HomePageTests
 		}
 	}
 
-	[Test] public void SelectingARow_ShowsDetails_AndPivotsToTheWholeTrace()
+	private static IElement Dialog( IRenderedComponent<Home> page ) => page.Find( ".dialog" );
+
+	private static string[] TraceRows( IRenderedComponent<Home> page ) => page.FindAll( ".trace-row .trace-name" ).Select( static x => x.TextContent.Trim() ).ToArray();
+
+	private static string DetailsEyebrow( IRenderedComponent<Home> page ) => page.Find( ".record-details .eyebrow" ).TextContent.Trim();
+
+	private static TelemetrySnapshotDto SnapshotWithChildSpan()
+	{
+		TelemetrySnapshotDto   snapshot = Snapshot();
+		TelemetrySpanRecordDto root     = snapshot.Spans[0];
+		TelemetrySpanRecordDto child    = root with { ID = Guid.Parse( "00000000-0000-0000-0000-000000000014" ), SpanId = "cccc00000000000a", ParentSpanId = root.SpanId, Name = "child call", StartTimeUtc = _s_t0.AddMilliseconds( 10 ), DurationMilliseconds = 5, StatusCode = "Ok", EventsJson = null, LinksJson = null };
+		return snapshot with { Spans = [ .. snapshot.Spans, child ] };
+	}
+
+
+	[Test] public void SelectingARow_OpensTheDialogAndPausesUntilClosed()
 	{
 		IRenderedComponent<Home> page = Render();
 
 		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
-		Assert.That( page.Find( ".details-card" ).TextContent, Does.Contain( "Log record" ) );
-
-		ClickButton( page, "Whole trace" );
 
 		Assert.Multiple( () =>
 						 {
-							 Assert.That( page.FindAll( ".details-card" ),                                  Is.Empty );
-							 Assert.That( Select( page, "Search" ).GetAttribute( "value" ),                 Is.EqualTo( "aaaa0000000000000000000000000001" ) );
-							 Assert.That( page.FindAll( "table.selectable tbody tr" ).Single().TextContent, Does.Contain( "POST /pay" ) );
+							 Assert.That( DetailsEyebrow( page ),                  Is.EqualTo( "Log record" ) );
+							 Assert.That( page.Find( ".status-pill" ).TextContent, Is.EqualTo( "Paused" ) );
+							 Assert.That( page.FindAll( ".trace-view" ),           Is.Empty, "a log opens on its own" );
 						 } );
 
+		TelemetrySnapshotDto newer = Snapshot() with { Logs = [ .. Snapshot().Logs.Take( 1 ) ] };
+		_cache.Set( TelemetryCacheKeys.Snapshot( TAKE ), newer );
+		page.InvokeAsync( () => _feed.PublishAsync( new TelemetryRealtimeEventDto( _s_t0.AddMinutes( 9 ), 1, 0, 0, "Ingested 1 logs" ) ) );
+		page.WaitForState( () => page.Find( ".status-detail" ).TextContent.Contains( "Ingested 1 logs" ) );
+		Assert.That( Rows( page ), Is.EqualTo( 3 ), "no new rows while it is open" );
+
+		ClickButton( page, "Close" );
+
+		page.WaitForState( () => Rows( page ) == 1 );
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.FindAll( ".dialog" ),               Is.Empty );
+							 Assert.That( page.Find( ".status-pill" ).TextContent, Is.EqualTo( "Live" ), "closing resumes what the dialog paused" );
+						 } );
+	}
+
+	[Test] public void ClosingTheDialog_KeepsAPauseTheUserChose()
+	{
+		IRenderedComponent<Home> page = Render();
+		ClickTab( page, "Metrics" );
+
+		ClickButton( page, "Pause live updates" );
 		page.Find( "table.selectable tbody tr" ).Click();
-		ClickButton( page, "Related logs" );
-		Assert.That( page.FindAll( "table.selectable tbody tr" ).Single().TextContent, Does.Contain( "payment failed" ) );
+		Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Metric point" ) );
+
+		page.Find( ".dialog-backdrop" ).Click();
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.FindAll( ".dialog" ),               Is.Empty, "clicking outside closes it" );
+							 Assert.That( page.Find( ".status-pill" ).TextContent, Is.EqualTo( "Paused" ) );
+						 } );
+
+		ClickButton( page, "Resume live updates" );
+		page.Find( "table.selectable tbody tr" ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" } );
+		ClickButton( page, "Resume live updates" ); // resumed by hand while open
+		Dialog( page ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "a" } );
+		Assert.That( page.FindAll( ".dialog" ), Has.Count.EqualTo( 1 ), "only Escape closes it" );
+
+		Dialog( page ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Escape" } );
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.FindAll( ".dialog" ),               Is.Empty );
+							 Assert.That( page.Find( ".status-pill" ).TextContent, Is.EqualTo( "Live" ) );
+						 } );
+	}
+
+	[Test] public void Span_OpensItsWholeTrace_AndOtherSpansAndLogsAreSelectable()
+	{
+		IRenderedComponent<Home> page = Render( SnapshotWithChildSpan() );
+		ClickTab( page, "Traces" );
+
+		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "child call" ) ).Click();
+		page.WaitForState( () => page.FindAll( ".trace-view [role=status]" ).Any( static x => x.TextContent.Contains( "couldn't be loaded" ) ) );
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( TraceRows( page ),                                           Is.EqualTo( new[] { "POST /pay", "child call" } ), "parent first" );
+							 Assert.That( page.Find( ".trace-row.selected" ).TextContent,              Does.Contain( "child call" ), "the clicked span" );
+							 Assert.That( page.Find( ".record-details h3" ).TextContent,               Is.EqualTo( "child call" ) );
+							 Assert.That( page.Find( ".trace-view .panel-head" ).TextContent,          Does.Contain( "aaaa0000000000000000000000000001" ).And.Contain( "2 spans" ).And.Contain( "1 error(s)" ) );
+							 Assert.That( page.FindAll( ".trace-view tbody tr" ).Single().TextContent, Does.Contain( "payment failed" ), "the trace's logs" );
+						 } );
+
+		page.FindAll( ".trace-row" )[0].Click();
+		Assert.That( page.Find( ".record-details h3" ).TextContent, Is.EqualTo( "POST /pay" ) );
+
+		page.Find( ".trace-view tbody tr" ).Click();
+		Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Log record" ) );
+
+		page.FindAll( ".trace-row" )[1].Click();
+		page.Find( ".trace-view tbody tr" ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "x" } );
+		Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Span" ), "only activation keys select" );
+
+		page.Find( ".trace-view tbody tr" ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" } );
+		Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Log record" ) );
+	}
+
+	[Test] public void Log_OpenTrace_SelectsItsSpan_AndFilterListPivots()
+	{
+		TelemetrySnapshotDto     snapshot = Snapshot();
+		IRenderedComponent<Home> page     = Render( snapshot with { Logs = [ snapshot.Logs[0] with { SpanId = snapshot.Spans[0].SpanId }, .. snapshot.Logs.Skip( 1 ) ] } );
+
+		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
+		ClickButton( page, "Open trace" );
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( TraceRows( page ),       Is.EqualTo( new[] { "POST /pay" } ) );
+							 Assert.That( DetailsEyebrow( page ), Is.EqualTo( "Span" ) );
+						 } );
+
+		ClickButton( page, "Filter list by trace" );
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.FindAll( ".dialog" ),                                        Is.Empty );
+							 Assert.That( Select( page, "Search" ).GetAttribute( "value" ),                 Is.EqualTo( "aaaa0000000000000000000000000001" ) );
+							 Assert.That( page.FindAll( "table.selectable tbody tr" ).Single().TextContent, Does.Contain( "POST /pay" ) );
+							 Assert.That( page.Find( ".status-pill" ).TextContent,                          Is.EqualTo( "Live" ) );
+						 } );
+	}
+
+	[Test] public void Log_WithoutKnownSpan_KeepsTheLogWhileTheTraceOpens()
+	{
+		IRenderedComponent<Home> page = Render( Snapshot() with { Spans = [ ] } );
+
+		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "payment failed" ) ).Click();
+		ClickButton( page, "Open trace" );
+
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( page.Find( ".trace-view .empty-state" ).TextContent, Does.Contain( "No spans" ) );
+							 Assert.That( DetailsEyebrow( page ),                              Is.EqualTo( "Log record" ) );
+						 } );
+
+		ClickButton( page, "Filter list by trace" );
+		Assert.That( page.FindAll( "table.selectable tbody tr" ).Single().TextContent, Does.Contain( "payment failed" ), "a log pivots the logs list" );
 	}
 
 	[Test] public void SpanDetails_OpenLinkedTrace()
@@ -735,23 +861,11 @@ public sealed class HomePageTests
 		page.FindAll( "table.selectable tbody tr" ).Single( static x => x.TextContent.Contains( "POST /pay" ) ).Click();
 		ClickButton( page, "Open linked trace" );
 
-		Assert.That( page.FindAll( "table.selectable tbody tr" ).Single().TextContent, Does.Contain( "linked" ) );
-	}
-
-	[Test] public void SelectingTwice_OrClose_HidesDetails()
-	{
-		IRenderedComponent<Home> page = Render();
-		ClickTab( page, "Metrics" );
-
-		page.Find( "table.selectable tbody tr" ).Click();
-		Assert.That( page.Find( ".details-card" ).TextContent, Does.Contain( "Metric point" ) );
-
-		page.Find( "table.selectable tbody tr" ).Click();
-		Assert.That( page.FindAll( ".details-card" ), Is.Empty );
-
-		page.Find( "table.selectable tbody tr" ).KeyDown( new Microsoft.AspNetCore.Components.Web.KeyboardEventArgs { Key = "Enter" } );
-		ClickButton( page, "Close" );
-		Assert.That( page.FindAll( ".details-card" ), Is.Empty );
+		Assert.Multiple( () =>
+						 {
+							 Assert.That( TraceRows( page ),                             Is.EqualTo( new[] { "linked" } ) );
+							 Assert.That( page.Find( ".record-details h3" ).TextContent, Is.EqualTo( "linked" ), "the linked trace's first span when the linked one isn't loaded" );
+						 } );
 	}
 
 	[Test] public void LiveUpdates_RefreshOnEvents_AndCanBePaused()

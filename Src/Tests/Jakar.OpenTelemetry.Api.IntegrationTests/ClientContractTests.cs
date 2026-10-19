@@ -62,8 +62,7 @@ public sealed class ClientContractTests
 										   options.StorageDirectory     = _storage.Path;
 										   options.PersistFailedExports = false;
 										   options.ExportInterval       = TimeSpan.FromMilliseconds( 200 );
-										   options.ActivitySources.Add( serviceName );
-										   options.Meters.Add( serviceName );
+										   options.ActivitySources.Add( serviceName ); // the serviceName meter is the AppName meter, always exported
 										   configure?.Invoke( options );
 									   } );
 		return builder.Build();

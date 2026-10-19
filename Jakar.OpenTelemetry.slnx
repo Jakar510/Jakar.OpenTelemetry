@@ -1,10 +1,10 @@
 <Solution>
     <Folder Name="/Clients/">
-        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.AspNet/Jakar.OpenTelemetry.Api.Client.AspNet.csproj" />
-        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.Blazor.Server/Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
-        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.csproj" />
-        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client.Maui/Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
-        <Project Path="Clients/Jakar.OpenTelemetry.Api.Client/Jakar.OpenTelemetry.Api.Client.csproj" />
+        <Project Path="Src/Clients/Jakar.OpenTelemetry.Api.Client.AspNet/Jakar.OpenTelemetry.Api.Client.AspNet.csproj" />
+        <Project Path="Src/Clients/Jakar.OpenTelemetry.Api.Client.Blazor.Server/Jakar.OpenTelemetry.Api.Client.Blazor.Server.csproj" />
+        <Project Path="Src/Clients/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.csproj" />
+        <Project Path="Src/Clients/Jakar.OpenTelemetry.Api.Client.Maui/Jakar.OpenTelemetry.Api.Client.Maui.csproj" />
+        <Project Path="Src/Clients/Jakar.OpenTelemetry.Api.Client/Jakar.OpenTelemetry.Api.Client.csproj" />
     </Folder>
     <Folder Name="/Docs/">
         <File Path="Docs/SPEC.md" />
@@ -18,22 +18,22 @@
         <Project Path="Samples/Jakar.OpenTelemetry.Source/Jakar.OpenTelemetry.Source.csproj" />
     </Folder>
     <Folder Name="/Tests/">
-        <File Path="Tests/Directory.Build.props" />
-        <File Path="Tests/coverage.runsettings" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Testing/Jakar.OpenTelemetry.Testing.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Contracts.Tests/Jakar.OpenTelemetry.Contracts.Tests.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Api.Tests/Jakar.OpenTelemetry.Api.Tests.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Api.IntegrationTests/Jakar.OpenTelemetry.Api.IntegrationTests.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Samples.AutomationTests/Jakar.OpenTelemetry.Samples.AutomationTests.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Samples.Maui.AppiumTests/Jakar.OpenTelemetry.Samples.Maui.AppiumTests.csproj" />
-        <File Path="Tests/README.md" />
-        <File Path="Tests/run-tests.ps1" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.Tests/Jakar.OpenTelemetry.Api.Client.Tests.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.AspNet.Tests/Jakar.OpenTelemetry.Api.Client.AspNet.Tests.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests/Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.Tests/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.Tests.csproj" />
-        <Project Path="Tests/Jakar.OpenTelemetry.Api.Client.Maui.Tests/Jakar.OpenTelemetry.Api.Client.Maui.Tests.csproj" />
+        <File Path="Src/Tests/Directory.Build.props" />
+        <File Path="Src/Tests/coverage.runsettings" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Testing/Jakar.OpenTelemetry.Testing.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Contracts.Tests/Jakar.OpenTelemetry.Contracts.Tests.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Api.Tests/Jakar.OpenTelemetry.Api.Tests.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Api.IntegrationTests/Jakar.OpenTelemetry.Api.IntegrationTests.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Samples.AutomationTests/Jakar.OpenTelemetry.Samples.AutomationTests.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Samples.Maui.AppiumTests/Jakar.OpenTelemetry.Samples.Maui.AppiumTests.csproj" />
+        <File Path="Src/Tests/README.md" />
+        <File Path="Src/Tests/run-tests.ps1" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Api.Client.Tests/Jakar.OpenTelemetry.Api.Client.Tests.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Api.Client.AspNet.Tests/Jakar.OpenTelemetry.Api.Client.AspNet.Tests.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests/Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.Tests/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.Tests.csproj" />
+        <Project Path="Src/Tests/Jakar.OpenTelemetry.Api.Client.Maui.Tests/Jakar.OpenTelemetry.Api.Client.Maui.Tests.csproj" />
     </Folder>
-    <Project Path="Jakar.OpenTelemetry.Api/Jakar.OpenTelemetry.Api.csproj" />
-    <Project Path="Jakar.OpenTelemetry.Contracts/Jakar.OpenTelemetry.Contracts.csproj" />
+    <Project Path="Src/Jakar.OpenTelemetry.Api/Jakar.OpenTelemetry.Api.csproj" />
+    <Project Path="Src/Jakar.OpenTelemetry.Contracts/Jakar.OpenTelemetry.Contracts.csproj" />
 </Solution>

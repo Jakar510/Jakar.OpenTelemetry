@@ -38,7 +38,7 @@ builder.AddJakarOpenTelemetryAspNet( options =>
 										 options.ResourceAttributes["source.kind"]       = "sample";
 										 options.ResourceAttributes["source.target_url"] = sourceOptions.TargetUrl;
 										 options.ActivitySources.Add( TelemetrySourceWorker.ACTIVITY_SOURCE_NAME );
-										 options.Meters.Add( TelemetrySourceWorker.METER_NAME );
+										 // No options.Meters.Add( TelemetrySourceWorker.METER_NAME ): it's the ServiceName, which AppName defaults to, and the AppName meter is always exported.
 									 } );
 
 builder.Logging.AddSimpleConsole( options =>

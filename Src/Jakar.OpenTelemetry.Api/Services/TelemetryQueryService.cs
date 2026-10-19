@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Runtime.InteropServices;
 using Jakar.OpenTelemetry.Api.Data;
 using Jakar.OpenTelemetry.Contracts;
@@ -19,6 +20,10 @@ public sealed class TelemetryQueryService( IDbContextFactory<TelemetryDbContext>
 	private const long EXACT_COUNT_THRESHOLD = 1_000_000;
 
 	private const int BREAKDOWN_SIZE = 8;
+
+	private const int TRACE_ID_HEX_LENGTH = 32;
+	private const int MAX_TRACE_SPANS     = 2_000;
+	private const int MAX_TRACE_LOGS      = 1_000;
 
 	private const string ESTIMATES_SQL = """
 										 SELECT c.relname AS "Name", c.reltuples::bigint AS "Estimate"
@@ -78,6 +83,25 @@ public sealed class TelemetryQueryService( IDbContextFactory<TelemetryDbContext>
 		static async Task<long> CountAsync<T>( DbSet<T> set, long estimate, CancellationToken token ) where T : class => estimate is >= 0 and >= EXACT_COUNT_THRESHOLD
 																															 ? estimate
 																															 : await set.LongCountAsync( token );
+	}
+
+	/// <summary>
+	///     Every span of one trace (start order) and the logs recorded inside it (time order), served by the <c>"TraceId"</c> indexes. Not cached: a trace is
+	///     opened on demand and may still be receiving spans. Returns empty lists for an id that isn't 32 hex digits.
+	/// </summary>
+	public async Task<TelemetryTraceDto> GetTraceAsync( string traceId, CancellationToken token )
+	{
+		byte[] id = new byte[TRACE_ID_HEX_LENGTH / 2];
+
+		if ( traceId.Length != TRACE_ID_HEX_LENGTH ||
+			 Convert.FromHexString( traceId, id, out _, out _ ) != OperationStatus.Done ) { return new TelemetryTraceDto( traceId, [ ], [ ] ); }
+
+		await using TelemetryDbContext dbContext = await contextFactory.CreateDbContextAsync( token );
+
+		List<TelemetrySpanEntity> spans = await dbContext.Spans.AsNoTracking().Where( x => x.TraceId == id ).OrderBy( x => x.StartTimeUtc ?? x.SortTimeUtc ).Take( MAX_TRACE_SPANS ).ToListAsync( token );
+		List<TelemetryLogEntity>  logs  = await dbContext.Logs.AsNoTracking().Where( x => x.TraceId == id ).OrderBy( x => x.SortTimeUtc ).Take( MAX_TRACE_LOGS ).ToListAsync( token );
+
+		return new TelemetryTraceDto( traceId, spans.AsValueEnumerable().Select( MapSpan ).ToArray(), logs.AsValueEnumerable().Select( MapLog ).ToArray() );
 	}
 
 	/// <summary>

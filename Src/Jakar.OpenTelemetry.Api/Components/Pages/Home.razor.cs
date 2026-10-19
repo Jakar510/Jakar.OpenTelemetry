@@ -17,6 +17,7 @@ public sealed partial class Home : ComponentBase, IDisposable
 	private          IDisposable?            _subscription;
 	private          int                     _refreshing;
 	private          int                     _refreshPending;
+	private          bool                    _resumeAfterDetails; // the details dialog paused live updates, so closing it resumes them
 
 	private TelemetrySnapshotDto?          Snapshot              { get;                                set; }
 	private TelemetryTab                   ActiveTab             { get;                                set; } = TelemetryTab.Logs;
@@ -192,7 +193,8 @@ public sealed partial class Home : ComponentBase, IDisposable
 
 	private Task ToggleLiveUpdatesAsync()
 	{
-		LiveUpdates = !LiveUpdates;
+		LiveUpdates         = !LiveUpdates;
+		_resumeAfterDetails = false; // the user's choice stands when the dialog closes
 		return LiveUpdates
 				   ? RefreshAsync()
 				   : Task.CompletedTask;
@@ -205,23 +207,37 @@ public sealed partial class Home : ComponentBase, IDisposable
 		VisibleMetrics = ApplyMetricSort( ( Snapshot?.Metrics ?? [ ] ).Where( MatchesMetric ).ToList() );
 	}
 
-	private void SelectRecord( Guid id ) => SelectedRecordId = SelectedRecordId == id
-																   ? null
-																   : id;
+	/// <summary> Opens the record in the details dialog and pauses live updates, so the list (and the record) hold still while it is read. </summary>
+	private void SelectRecord( Guid id )
+	{
+		SelectedRecordId = id;
+		if ( !LiveUpdates ) { return; }
 
-	private void CloseDetails() => SelectedRecordId = null;
+		LiveUpdates         = false;
+		_resumeAfterDetails = true;
+	}
 
-	/// <summary> Pivot from a span/log to everything recorded for the same trace. </summary>
-	private void ShowTrace( string traceId, TelemetryTab tab )
+	private Task CloseDetailsAsync()
+	{
+		SelectedRecordId = null;
+		if ( !_resumeAfterDetails ) { return Task.CompletedTask; }
+
+		_resumeAfterDetails = false;
+		LiveUpdates         = true;
+		return RefreshAsync(); // catch up on what arrived while it was open
+	}
+
+	/// <summary> Closes the dialog and pivots the list to everything recorded for the same trace. </summary>
+	private Task ShowTraceAsync( string traceId, TelemetryTab tab )
 	{
 		ActiveTab        = tab;
 		SearchText       = traceId;
-		SelectedRecordId = null;
 		SelectedService  = "all";
 		SelectedCategory = new FilterKey( FilterField.None );
 		CategoryValue    = string.Empty;
 		EnsureValidSort();
 		ApplyFilters();
+		return CloseDetailsAsync();
 	}
 
 	private Task SetActiveTabAsync( TelemetryTab tab )

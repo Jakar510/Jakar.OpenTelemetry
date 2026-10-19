@@ -58,6 +58,6 @@ switch ( mode )
 bool flushed = await telemetry.FlushAsync();
 Console.WriteLine( flushed
 					   ? "Telemetry flushed"
-					   : "Flush timed out; telemetry stays queued on disk and is retried on the next run" );
+					   : "Telemetry not delivered (API unreachable or flush timed out); it stays on disk and is sent on the next run" );
 
 await host.StopAsync();

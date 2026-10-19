@@ -13,7 +13,7 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\..\Clients\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.csproj" />
+        <ProjectReference Include="..\..\Src\Clients\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly\Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.csproj" />
     </ItemGroup>
 
 </Project>

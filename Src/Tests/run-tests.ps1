@@ -3,11 +3,11 @@
     Runs the Jakar.OpenTelemetry test suites and, for unit + integration, enforces the coverage gate.
 
 .EXAMPLE
-    ./Tests/run-tests.ps1                       # unit + integration, coverage report and gate
-    ./Tests/run-tests.ps1 -Suite unit           # fast: no Docker/PostgreSQL needed
-    ./Tests/run-tests.ps1 -Suite automation     # samples + dashboard in a browser
-    ./Tests/run-tests.ps1 -Suite appium         # MAUI sample on devices (see Tests/README.md)
-    ./Tests/run-tests.ps1 -Suite all -MinimumLineCoverage 99
+    ./Src/Tests/run-tests.ps1                       # unit + integration, coverage report and gate
+    ./Src/Tests/run-tests.ps1 -Suite unit           # fast: no Docker/PostgreSQL needed
+    ./Src/Tests/run-tests.ps1 -Suite automation     # samples + dashboard in a browser
+    ./Src/Tests/run-tests.ps1 -Suite appium         # MAUI sample on devices (see Src/Tests/README.md)
+    ./Src/Tests/run-tests.ps1 -Suite all -MinimumLineCoverage 99
 #>
 param(
     [ValidateSet( 'unit', 'integration', 'coverage', 'automation', 'appium', 'all' )]
@@ -22,22 +22,22 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$root    = Split-Path $PSScriptRoot -Parent
+$root    = Split-Path ( Split-Path $PSScriptRoot -Parent ) -Parent # the repository (this script is in Src/Tests)
 $results = Join-Path $root 'TestResults'
 $report  = Join-Path $root 'coverage'
 
 $unit = @(
-    'Tests/Jakar.OpenTelemetry.Contracts.Tests',
-    'Tests/Jakar.OpenTelemetry.Api.Tests',
-    'Tests/Jakar.OpenTelemetry.Api.Client.Tests',
-    'Tests/Jakar.OpenTelemetry.Api.Client.AspNet.Tests',
-    'Tests/Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests',
-    'Tests/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.Tests',
-    'Tests/Jakar.OpenTelemetry.Api.Client.Maui.Tests'
+    'Src/Tests/Jakar.OpenTelemetry.Contracts.Tests',
+    'Src/Tests/Jakar.OpenTelemetry.Api.Tests',
+    'Src/Tests/Jakar.OpenTelemetry.Api.Client.Tests',
+    'Src/Tests/Jakar.OpenTelemetry.Api.Client.AspNet.Tests',
+    'Src/Tests/Jakar.OpenTelemetry.Api.Client.Blazor.Server.Tests',
+    'Src/Tests/Jakar.OpenTelemetry.Api.Client.Blazor.WebAssembly.Tests',
+    'Src/Tests/Jakar.OpenTelemetry.Api.Client.Maui.Tests'
 )
-$integration = @( 'Tests/Jakar.OpenTelemetry.Api.IntegrationTests' )
-$automation  = @( 'Tests/Jakar.OpenTelemetry.Samples.AutomationTests' )
-$appium      = @( 'Tests/Jakar.OpenTelemetry.Samples.Maui.AppiumTests' )
+$integration = @( 'Src/Tests/Jakar.OpenTelemetry.Api.IntegrationTests' )
+$automation  = @( 'Src/Tests/Jakar.OpenTelemetry.Samples.AutomationTests' )
+$appium      = @( 'Src/Tests/Jakar.OpenTelemetry.Samples.Maui.AppiumTests' )
 
 function Invoke-Tests( [string[]] $projects, [switch] $Coverage )
 {

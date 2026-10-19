@@ -15,7 +15,10 @@ public interface ITelemetryFlusher
 	Task<bool> FlushAsync( TimeSpan timeout, CancellationToken token = default );
 }
 
-/// <summary> Flushes the OpenTelemetry SDK providers registered in the container. </summary>
+/// <summary>
+///     Flushes the OpenTelemetry SDK providers registered in the container. <see cref="FlushAsync"/> also resends the batches saved to disk by earlier failed
+///     exports (<see cref="PersistedExportReplayer"/>), and only reports success when none are left: the SDK reports a batch it saved to disk as flushed.
+/// </summary>
 public sealed class OpenTelemetrySdkFlusher( IServiceProvider services ) : ITelemetryFlusher
 {
 	public bool Flush( TimeSpan timeout )
@@ -33,5 +36,15 @@ public sealed class OpenTelemetrySdkFlusher( IServiceProvider services ) : ITele
 		return flushed;
 	}
 
-	public Task<bool> FlushAsync( TimeSpan timeout, CancellationToken token = default ) => Task.Run( () => Flush( timeout ), token );
+	public async Task<bool> FlushAsync( TimeSpan timeout, CancellationToken token = default )
+	{
+		bool flushed = await Task.Run( () => Flush( timeout ), token );
+		if ( services.GetService<PersistedExportReplayer>() is not { } replayer ) { return flushed; }
+
+		using CancellationTokenSource deadline = CancellationTokenSource.CreateLinkedTokenSource( token );
+		deadline.CancelAfter( timeout );
+
+		try { return await replayer.ReplayAsync( deadline.Token ) == 0 && flushed; }
+		catch ( OperationCanceledException ) when ( !token.IsCancellationRequested ) { return false; } // out of time: the rest stays on disk
+	}
 }

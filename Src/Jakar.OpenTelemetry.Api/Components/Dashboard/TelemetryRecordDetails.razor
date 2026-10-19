@@ -1,22 +1,24 @@
 @using Jakar.OpenTelemetry.Api.Endpoints
 
-<section class="panel-card details-card" aria-label="Record details">
+<div class="record-details" aria-label="Record details">
     <div class="panel-head">
         <div>
             <p class="eyebrow">@Eyebrow</p>
-            <h3 class="wrap">@Title</h3>
+            <h3 class="wrap" id="record-details-title">@Title</h3>
         </div>
         <div class="actions">
             @if ( !string.IsNullOrWhiteSpace( TraceId ) )
             {
-                @if ( Log is null )
+                @if ( Log is not null && OpenTrace.HasDelegate )
                 {
-                    <button type="button" class="action-button" @onclick="() => ShowTrace.InvokeAsync( ( TraceId, TelemetryTab.Logs ) )">Related logs</button>
+                    <button type="button" class="action-button" @onclick="() => OpenTrace.InvokeAsync( ( TraceId, Log.SpanId ) )">Open trace</button>
                 }
 
-                <button type="button" class="action-button" @onclick="() => ShowTrace.InvokeAsync( ( TraceId, TelemetryTab.Spans ) )">Whole trace</button>
+                <button type="button"
+                        class="action-button"
+                        title="Close this and filter the list to this trace"
+                        @onclick="() => ShowTrace.InvokeAsync( ( TraceId, Log is null ? TelemetryTab.Spans : TelemetryTab.Logs ) )">Filter list by trace</button>
             }
-            <button type="button" class="action-button" @onclick="Close" aria-label="Close details">Close</button>
         </div>
     </div>
 
@@ -110,7 +112,7 @@
                             <span class="muted">flags @TelemetryDashboardFormatter.FormatSpanFlags( link.Flags )</span>
                             @if ( !string.IsNullOrWhiteSpace( link.TraceId ) )
                             {
-                                <button type="button" class="action-button small" @onclick="() => ShowTrace.InvokeAsync( ( link.TraceId!, TelemetryTab.Spans ) )">Open linked trace</button>
+                                <button type="button" class="action-button small" @onclick="() => OpenTrace.InvokeAsync( ( link.TraceId!, link.SpanId ) )">Open linked trace</button>
                             }
                             <AttributeTable Title="Link attributes" Values="link.Attributes" Open="true" />
                         </li>
@@ -177,14 +179,14 @@
         <AttributeTable Title="Resource" Values="metric.ResourceAttributes" />
         <AttributeTable Title="Scope" Values="metric.ScopeAttributes" />
     }
-</section>
+</div>
 
 @code {
     [Parameter] public TelemetryLogRecordDto?                         Log       { get; set; }
     [Parameter] public TelemetrySpanRecordDto?                        Span      { get; set; }
     [Parameter] public TelemetryMetricRecordDto?                      Metric    { get; set; }
-    [Parameter] public EventCallback                                  Close     { get; set; }
     [Parameter] public EventCallback<(string TraceId, TelemetryTab Tab)> ShowTrace { get; set; }
+    [Parameter] public EventCallback<(string TraceId, string? SpanId)>  OpenTrace { get; set; }
 
     private string? TraceId => Log?.TraceId ?? Span?.TraceId;
 
